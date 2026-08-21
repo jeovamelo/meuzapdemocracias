@@ -15,6 +15,7 @@ export type Comite = {
   coordenador: string;
   observacoes: string;
   ativo: boolean;
+  cep?: string;
 };
 
 export type TipoPessoa = "responsavel" | "apoiador";
