@@ -50,7 +50,7 @@ function ComitesPage() {
   });
 
   const filtrados = db.comites.filter((c) =>
-    `${c.nome} ${c.bairro} ${c.coordenador}`.toLowerCase().includes(busca.toLowerCase()),
+    `${c.nome} ${c.bairro} ${c.coordenador} ${c.municipio}`.toLowerCase().includes(busca.toLowerCase()),
   );
 
   async function salvar() {
@@ -62,7 +62,14 @@ function ComitesPage() {
     await addComite(form);
     setSalvando(false);
     setOpen(false);
-    setForm({ nome: "", endereco: "", bairro: "", coordenador: "", observacoes: "" });
+    setForm({ 
+      nome: "", 
+      endereco: "", 
+      bairro: "", 
+      municipio: "Fortaleza",
+      coordenador: "", 
+      observacoes: "" 
+    });
     toast.success("Comitê cadastrado.");
   }
 
@@ -112,6 +119,13 @@ function ComitesPage() {
                   value={form.nome}
                   onChange={(e) => setForm({ ...form, nome: e.target.value })}
                   placeholder="Base Norte - Vila Maria"
+                />
+              </Campo>
+              <Campo label="Município">
+                <Input
+                  value={form.municipio}
+                  onChange={(e) => setForm({ ...form, municipio: e.target.value })}
+                  placeholder="Fortaleza, Caucaia..."
                 />
               </Campo>
               <Campo label="Endereço">
@@ -172,7 +186,7 @@ function ComitesPage() {
                 <div>
                   <h2 className="font-bold leading-tight">{c.nome}</h2>
                   <p className="mt-1 flex items-center gap-1 text-xs text-muted-foreground">
-                    <MapPin className="size-3" /> {c.endereco}
+                    <MapPin className="size-3" /> {c.endereco}, {c.municipio}
                   </p>
                 </div>
                 <button
