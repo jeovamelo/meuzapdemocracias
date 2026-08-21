@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as CadastroRouteImport } from './routes/cadastro'
 import { Route as ComitesRouteImport } from './routes/comites'
 import { Route as MateriaisRouteImport } from './routes/materiais'
 import { Route as PessoasRouteImport } from './routes/pessoas'
@@ -19,6 +20,11 @@ import { Route as SaidasNovaRouteImport } from './routes/saidas.nova'
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CadastroRoute = CadastroRouteImport.update({
+  id: '/cadastro',
+  path: '/cadastro',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ComitesRoute = ComitesRouteImport.update({
@@ -49,6 +55,7 @@ const SaidasNovaRoute = SaidasNovaRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/cadastro': typeof CadastroRoute
   '/comites': typeof ComitesRoute
   '/materiais': typeof MateriaisRoute
   '/pessoas': typeof PessoasRoute
@@ -57,6 +64,7 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/cadastro': typeof CadastroRoute
   '/comites': typeof ComitesRoute
   '/materiais': typeof MateriaisRoute
   '/pessoas': typeof PessoasRoute
@@ -66,6 +74,7 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/cadastro': typeof CadastroRoute
   '/comites': typeof ComitesRoute
   '/materiais': typeof MateriaisRoute
   '/pessoas': typeof PessoasRoute
@@ -75,12 +84,26 @@ export interface FileRoutesById {
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
-    '/' | '/comites' | '/materiais' | '/pessoas' | '/saidas/nova' | '/saidas/'
+    | '/'
+    | '/cadastro'
+    | '/comites'
+    | '/materiais'
+    | '/pessoas'
+    | '/saidas/nova'
+    | '/saidas/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/comites' | '/materiais' | '/pessoas' | '/saidas/nova' | '/saidas'
+  to:
+    | '/'
+    | '/cadastro'
+    | '/comites'
+    | '/materiais'
+    | '/pessoas'
+    | '/saidas/nova'
+    | '/saidas'
   id:
     | '__root__'
     | '/'
+    | '/cadastro'
     | '/comites'
     | '/materiais'
     | '/pessoas'
@@ -90,6 +113,7 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  CadastroRoute: typeof CadastroRoute
   ComitesRoute: typeof ComitesRoute
   MateriaisRoute: typeof MateriaisRoute
   PessoasRoute: typeof PessoasRoute
@@ -104,6 +128,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/cadastro': {
+      id: '/cadastro'
+      path: '/cadastro'
+      fullPath: '/cadastro'
+      preLoaderRoute: typeof CadastroRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/comites': {
@@ -146,6 +177,7 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  CadastroRoute: CadastroRoute,
   ComitesRoute: ComitesRoute,
   MateriaisRoute: MateriaisRoute,
   PessoasRoute: PessoasRoute,

@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { Plus, UserPlus, AlertTriangle, FileText, Flag, Shirt } from "lucide-react";
+import { Plus, UserPlus, AlertTriangle, FileText, Flag, Shirt, Send } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
 import { useStore } from "@/lib/store";
 import { formatNumero, isCritico, isHoje, pad2, type Material } from "@/lib/db";
@@ -77,6 +77,13 @@ function Dashboard() {
         >
           <UserPlus className="size-4" />
           Novo Cadastro
+        </Link>
+        <Link
+          to="/cadastro"
+          className="flex w-full items-center justify-center gap-2 rounded-xl border-2 border-primary/30 bg-primary/5 py-4 font-bold text-primary"
+        >
+          <Send className="size-4" />
+          Link de Auto-Cadastro
         </Link>
       </div>
 
