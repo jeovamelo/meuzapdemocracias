@@ -35,6 +35,11 @@ export type Pessoa = {
   tipo: TipoPessoa;
   funcao: string;
   comite_id: string;
+  cep?: string;
+  endereco?: string;
+  numero?: string;
+  complemento?: string;
+  bairro?: string;
   municipio: string;
   telefone: string;
   zona: string;
