@@ -141,7 +141,7 @@ function Dashboard() {
                     if (active && payload && payload.length) {
                       return (
                         <div className="rounded-lg border border-border bg-background p-3 shadow-xl">
-                          <p className="text-[10px] font-bold uppercase text-muted-foreground">{payload[0].payload.name}</p>
+                          <p className="text-[10px] font-bold uppercase text-muted-foreground">{(payload[0].payload as any).name}</p>
                           <p className="font-mono text-sm font-bold">{formatNumero(payload[0].value as number)} itens</p>
                         </div>
                       );
@@ -172,7 +172,7 @@ function Dashboard() {
                   dataKey="value"
                 >
                   {dadosPorCategoria.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length] || "#ccc"} />
                   ))}
                 </Pie>
                 <Tooltip 
