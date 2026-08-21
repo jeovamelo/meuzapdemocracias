@@ -11,6 +11,7 @@ export type Comite = {
   nome: string;
   endereco: string;
   bairro: string;
+  municipio: string;
   coordenador: string;
   observacoes: string;
   ativo: boolean;
@@ -21,9 +22,11 @@ export type TipoPessoa = "responsavel" | "apoiador";
 export type Pessoa = {
   id: string;
   nome: string;
+  cpf?: string;
   tipo: TipoPessoa;
   funcao: string;
   comite_id: string;
+  municipio: string;
   telefone: string;
   zona: string;
 };
