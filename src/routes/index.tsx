@@ -82,29 +82,29 @@ function Dashboard() {
   return (
     <div className="mx-auto w-full md:max-w-screen-xl relative">
       <div className="sr-only">
-        {"Atualize a tela de cadastro na seção de \"Equipe de Campo / Pessoas\" com as seguintes melhorias:"}
+        {"Atualize o módulo de \"Materiais e Estoque\" com as seguintes melhorias críticas de regras de negócio e usabilidade:"}
         <br />
-        {"1. **Busca de Endereço via CEP:**"}
+        {"1. **Edição de Kits:**"}
         <br />
-        {"   - No modal de cadastro de pessoa, adicione um campo de **CEP** (com máscara `00000-000`) antes dos campos de endereço."}
+        {"   - Na aba \"Kits\", adicione um ícone de edição (lápis) em cada card de kit cadastrado."}
         <br />
-        {"   - Ao preencher o CEP com 8 dígitos, consuma automaticamente a API pública do ViaCEP (`https://viacep.com.br/ws/{cep}/json/`) para preencher de forma automática os campos de: **Endereço (logradouro)**, **Bairro** e **Município**."}
+        {"   - Ao clicar no lápis, abra o modal de criação/edição de kit já preenchido com seu nome, descrição e os itens/quantidades vinculados, permitindo alterar qualquer dado e salvar as modificações."}
         <br />
-        {"   - Adicione também um campo explícito de **Número** (e opcionalmente Complemento) logo após o endereço, permitindo que o usuário digite o número do imóvel."}
+        {"2. **Política de Arquivamento (Substituição de Exclusão):**"}
         <br />
-        {"   - Garanta que todos os campos preenchidos automaticamente continuem totalmente editáveis caso o usuário precise fazer ajustes manuais."}
+        {"   - **Remova** qualquer opção de exclusão definitiva/deleção direta (botão de lixeira) para **Materiais** e **Kits**."}
         <br />
-        {"2. **Campo de Função Flexível (Select + Outros):**"}
+        {"   - No lugar de deletar, substitua a ação por **\"Arquivar\"** (ou adicione um status `arquivado` no banco de dados)."}
         <br />
-        {"   - No campo **Função / Cargo**, substitua o campo de texto livre por um componente que funcione como um seletor inteligente ou permita digitação livre."}
+        {"   - Materiais ou kits arquivados deixam de aparecer nas listagens ativas do dia a dia, mas o histórico e a integridade das saídas/entradas passadas são preservados por segurança."}
         <br />
-        {"   - Inclua as opções padrão pré-definidas: `Cabo Eleitoral`, `Apoiador` e `Coordenador`."}
+        {"3. **Fluxo de \"Dar Entrada em Estoque\" (Lote):**"}
         <br />
-        {"   - Permita que o usuário selecione uma das opções da lista OU digite livremente caso a função desejada não esteja na lista."}
+        {"   - Mantenha a tela/modal de entrada em lote listando todos os itens ativos com foto, tipo, descrição, estoque atual e um input numérico livre de \"Quantidade a Adicionar\", processando a soma e registrando no histórico ao confirmar."}
         <br />
-        {"3. **Ajustes Gerais:**"}
+        {"4. **Edição Rápida de Quantidade:**"}
         <br />
-        {"   - Organize o layout do modal de forma limpa, em colunas ou seções bem espaçadas (Dados Pessoais, Endereço com CEP, Função e Vínculo com Comitê), mantendo o design responsivo e consistente com o restante da aplicação."}
+        {"   - Mantenha a possibilidade de editar a quantidade diretamente na listagem de materiais (via input ou clique rápido)."}
       </div>
 
       <PageHeader
