@@ -85,7 +85,155 @@ function Dashboard() {
         ESTADO DO CEARÁ / GESTÃO CENTRALIZADA / 2026
         <br />
         <span className="opacity-40">
-          no cadastro comece pelo cep o endereço completo mas o endereço nãop é obrigatorio
+          Crie uma aplicação web desktop robusta e moderna de Gestão de Estoque, Logística e Inteligência Geográfica para Campanha Eleitoral, complementar à versão mobile já existente. 
+
+A aplicação deve possuir uma identidade visual marcante baseada em campanhas eleitorais brasileiras de alto impacto:
+
+- Paleta de Cores: Vermelho primário forte (bg-red-600 / red-700), detalhes em verde vibrante, amarelo/dourado de destaque (para chamadas e estrelas) e fundo limpo para o modo claro.
+
+- Suporte nativo a Tema Claro e Tema Escuro (Light/Dark Mode com botão de alternância rápido na barra superior).
+
+- Botão de Alternância de Visualização na barra superior: Permite alternar rapidamente entre a "Visão Desktop" (layout em grid expandido, sidebars completas e tabelas ricas) e a "Visão Mobile" (simulador em formato de tela de smartphone centralizado na tela, permitindo testar a usabilidade móvel).
+
+Módulos Obrigatórios da Aplicação Desktop:
+
+1. Barra Superior / Navegação (Navbar & Header)
+
+- Logotipo com estrela/símbolo da campanha e título da aplicação.
+
+- Botão de alternância de Tema (Claro/Escuro).
+
+- Botão de alternância de Layout (Desktop / Mobile Preview).
+
+- Menu lateral colapsável (Sidebar) with abas para navegação limpa.
+
+2. Dashboard Executivo (Visão Geral em Cards e Gráficos)
+
+- Indicadores rápidos (KPIs): Total de Apoiadores, Itens em Estoque vs. Distribuídos, Kits Montados e Municípios Atingidos.
+
+- Gráficos de barras ou linhas simulando a evolução diária da distribuição de material de campanha.
+
+- Alertas visuais para itens com estoque crítico.
+
+3. Cadastro de Apoiadores (Tabela e Gestão Completa)
+
+- Tabela rica e interativa com busca, filtros por zona/bairro e paginação.
+
+- Cadastro de novo apoiador com campos: Nome completo, CPF, Telefone/WhatsApp (com ícone de link direto), Município/Zona e Responsável Vinculado.
+
+- Opção de edição e exclusão de registros.
+
+4. Cadastro de Itens, Tipos e Quantidades
+
+- Gestão de Materiais com categorias (Ex: Santinhos, Adesivos, Bandeiras, Vestuário).
+
+- Controle detalhado de lotes, quantidades recebidas, estoque atual e estoque mínimo de segurança.
+
+- Filtros por tipo de material e alertas visuais de reposição.
+
+5. Composição de Kits (Montagem de Pacotes)
+
+- Interface visual intuitiva de "arrastar e juntar" ou seleção múltipla.
+
+- Permite criar pacotes padronizados (Ex: "Kit Liderança Bairro" contendo X santinhos, Y adesivos e Z bandeiras).
+
+- Ao salvar o kit, o sistema calcula e valida a disponibilidade dos itens individuais no estoque geral.
+
+6. Mapa de Calor do Estado do Ceará (Geointeligência)
+
+- Exibição de um mapa interativo estilizado do Estado do Ceará (focado nos municípios e regiões metropolitanas/interior).
+
+- Camada de mapa de calor (Heatmap) simulando a densidade de distribuição de materiais e atuação de apoiadores por cidade.
+
+- Painel lateral ao clicar em um município exibindo os dados específicos daquela região (quantidade entregue, comitês ativos e apoiadores na zona).
+
+Requisitos Técnicos e de UX:
+
+- Construído com React, Tailwind CSS, Lucide Icons e componentes modernos (como Shadcn UI se aplicável).
+
+- Gráficos fluidos e responsivos (utilizando bibliotecas como Recharts).
+
+- Simulação de banco de dados robusta com dados fictícios realistas do Ceará (Fortaleza, Caucaia, Juazeiro do Norte, Sobral, Maracanaú, etc.) para testes imediatos.      Crie uma aplicação web desktop robusta e moderna de Gestão de Estoque, Logística e Inteligência Geográfica para Campanha Eleitoral, complementar à versão mobile já existente. 
+
+Identidade Visual e Controles de Layout:
+
+- Paleta de Cores baseada na identidade de campanha fornecida: Vermelho primário forte (bg-red-600 / red-700), detalhes em verde vibrante, amarelo/dourado de destaque (para chamadas e estrelas) e fundo limpo.
+
+- Suporte nativo a Tema Claro e Tema Escuro (Light/Dark Mode com botão de alternância rápido na barra superior).
+
+- Botão de Alternância de Visualização na barra superior: Permite alternar rapidamente entre a "Visão Desktop" (layout em grid expandido e sidebars completas) e a "Visão Mobile" (simulador em formato de tela de smartphone centralizado na tela).
+
+Módulos Obrigatórios da Aplicação:
+
+1. Barra Superior / Navegação (Navbar & Header)
+
+- Logotipo com estrela/símbolo da campanha e título da aplicação.
+
+- Botão de alternância de Tema (Claro/Escuro).
+
+- Botão de alternância de Layout (Desktop / Mobile Preview).
+
+- Menu lateral colapsável (Sidebar) with abas para navegação limpa.
+
+2. Dashboard Executivo (Visão Geral em Cards e Gráficos)
+
+- Indicadores rápidos (KPIs): Total de Apoiadores, Itens em Estoque vs. Distribuídos, Kits Montados e Municípios Atingidos.
+
+- Gráficos de barras ou linhas simulando a evolução diária da distribuição de material de campanha.
+
+- Alertas visuais para itens com estoque crítico.
+
+3. Cadastro de Apoiadores / Cabos Eleitorais (Com Endereço Completo)
+
+- Tabela rica e interativa com busca, filtros por zona/bairro e paginação.
+
+- Modal / Formulário de Cadastro atualizado contendo:
+
+  * Nome Completo
+
+  * CPF
+
+  * Função / Cargo (Ex: Cabo Eleitoral, Coordenador, etc.)
+
+  * Comitê Vinculado (Select)
+
+  * Telefone / WhatsApp (com ícone de link direto)
+
+  * Zona de Atuação
+
+  * Seção de Endereço Completo: CEP (com busca opcional), Logradouro, Número, Bairro, Município (com foco principal nas cidades do Ceará) e Estado (UF).
+
+- Opção de edição e exclusão de registros.
+
+4. Cadastro de Itens, Tipos e Quantidades
+
+- Gestão de Materiais com categorias (Ex: Santinhos, Adesivos, Bandeiras, Vestuário).
+
+- Controle detalhado de lotes, quantidades recebidas, estoque atual e estoque mínimo de segurança.
+
+- Filtros por tipo de material e alertas visuais de reposição.
+
+5. Composição de Kits (Montagem de Pacotes)
+
+- Interface visual intuitiva de seleção múltipla para juntar vários itens em um único pacote padrão (Ex: "Kit Liderança Bairro" contendo X santinhos, Y adesivos e Z bandeiras).
+
+- Ao salvar o kit, o sistema calcula e valida a disponibilidade dos itens individuais no estoque geral.
+
+6. Mapa de Calor do Estado do Ceará (Geointeligência)
+
+- Exibição de um mapa interativo estilizado do Estado do Ceará (focado nos municípios e regiões metropolitanas/interior).
+
+- Camada de mapa de calor (Heatmap) simulando a densidade de distribuição de materiais e atuação de apoiadores por cidade.
+
+- Painel lateral ao clicar em um município exibindo os dados específicos daquela região (quantidade entregue, comitês ativos e apoiadores na zona).
+
+Requisitos Técnicos e de UX:
+
+- Construído com React, Tailwind CSS, Lucide Icons e componentes modernos.
+
+- Gráficos fluidos e responsivos (utilizando bibliotecas como Recharts).
+
+- Simulação de banco de dados robusta com dados fictícios realistas do Ceará (Fortaleza, Caucaia, Juazeiro do Norte, Sobral, Maracanaú, etc.) para testes imediatos.
         </span>
       </div>
 
