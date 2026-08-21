@@ -56,6 +56,7 @@ function PessoasPage() {
     nome: "",
     funcao: "",
     comite_id: db.comites[0]?.id ?? "",
+    municipio: "Fortaleza",
     telefone: "",
     zona: "",
   });
