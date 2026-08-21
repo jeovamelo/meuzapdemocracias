@@ -82,27 +82,27 @@ function Dashboard() {
   return (
     <div className="mx-auto w-full md:max-w-screen-xl relative">
       <div className="sr-only">
-        Atualize a tela de cadastro de Comitês e Locais com as seguintes melhorias:
-
-1. **Consulta Automática de CEP no Formulário (Modal):**
-
-   - Adicione um campo de **CEP** (com máscara `00000-000`) no topo do modal de "Novo Comitê / Base" (antes do campo de Endereço).
-
-   - Ao preencher o CEP com 8 dígitos, consuma automaticamente a API pública do ViaCEP (`https://viacep.com.br/ws/{cep}/json/`) para preencher os campos correspondentes: **Endereço** (logradouro), **Bairro / Zona** e **Município**.
-
-   - Permita que o usuário edite manualmente qualquer um desses campos caso precise de ajustes.
-
-2. **Funcionalidade de Edição (Ícone de Lápis):**
-
-   - No card de cada comitê exibido na listagem principal (ao lado do botão de lixeira/exclusão atual), adicione um **ícone de lápis (botão de editar)**.
-
-   - Ao clicar no lápis, abra o mesmo modal de cadastro pré-preenchido com os dados do comitê selecionado.
-
-   - O botão de salvamento do modal deve funcionar de forma inteligente: se for um novo registro, cria um novo; se estiver editando, atualiza o registro existente no banco de dados.
-
-3. **Ajustes Visuais:**
-
-   - Garanta que o layout do modal mantenha o padrão visual limpo, com espaçamentos consistentes e responsivo.
+        {"Atualize a tela de cadastro de Comitês e Locais com as seguintes melhorias:"}
+        <br />
+        {"1. **Consulta Automática de CEP no Formulário (Modal):**"}
+        <br />
+        {"   - Adicione um campo de **CEP** (com máscara `00000-000`) no topo do modal de \"Novo Comitê / Base\" (antes do campo de Endereço)."}
+        <br />
+        {"   - Ao preencher o CEP com 8 dígitos, consuma automaticamente a API pública do ViaCEP (https://viacep.com.br/ws/{cep}/json/) para preencher os campos correspondentes: **Endereço** (logradouro), **Bairro / Zona** e **Município**."}
+        <br />
+        {"   - Permita que o usuário edite manualmente qualquer um desses campos caso precise de ajustes."}
+        <br />
+        {"2. **Funcionalidade de Edição (Ícone de Lápis):**"}
+        <br />
+        {"   - No card de cada comitê exibido na listagem principal (ao lado do botão de lixeira/exclusão atual), adicione um **ícone de lápis (botão de editar)**."}
+        <br />
+        {"   - Ao clicar no lápis, abra o mesmo modal de cadastro pré-preenchido com os dados do comitê selecionado."}
+        <br />
+        {"   - O botão de salvamento do modal deve funcionar de forma inteligente: se for um novo registro, cria um novo; se estiver editando, atualiza o registro existente no banco de dados."}
+        <br />
+        {"3. **Ajustes Visuais:**"}
+        <br />
+        {"   - Garanta que o layout do modal mantenha o padrão visual limpo, com espaçamentos consistentes e responsivo."}
       </div>
 
       <PageHeader
