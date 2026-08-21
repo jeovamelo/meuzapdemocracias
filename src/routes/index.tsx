@@ -318,8 +318,8 @@ function Dashboard() {
         </Link>
         
         <Link
-          to="/cadastro"
-          className="flex h-14 w-14 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-2xl transition-transform active:scale-95 md:h-16 md:w-auto md:rounded-xl md:px-6 md:gap-3"
+          to="/public/cadastro"
+          className="flex h-14 w-14 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-2xl transition-transform active:scale-[0.98] md:h-16 md:w-auto md:rounded-xl md:px-6 md:gap-3"
         >
           <Send className="size-6 md:size-5" />
           <span className="hidden md:inline font-bold">Link Apoiador</span>
