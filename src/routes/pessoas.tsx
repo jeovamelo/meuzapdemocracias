@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
-import { Loader2, MessageCircle, Plus, Search, Trash2 } from "lucide-react";
+import { Loader2, MessageCircle, Plus, Search, Trash2, Send, Copy } from "lucide-react";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/PageHeader";
 import { useStore } from "@/lib/store";
@@ -183,6 +183,18 @@ function PessoasPage() {
             </div>
           </DialogContent>
         </Dialog>
+        <button
+          onClick={() => {
+            const url = window.location.origin + "/cadastro";
+            navigator.clipboard.writeText(url);
+            toast.success("Link copiado para a área de transferência!");
+          }}
+          className="flex w-full items-center justify-center gap-2 rounded-xl border-2 border-primary/30 bg-primary/5 py-4 font-bold text-primary"
+        >
+          <Send className="size-4" />
+          Compartilhar Link de Auto-Cadastro
+          <Copy className="ml-auto size-4 opacity-50" />
+        </button>
       </div>
 
       <Tabs
