@@ -54,6 +54,7 @@ function PessoasPage() {
   const [tipoAtivo, setTipoAtivo] = useState<TipoPessoa>("responsavel");
   const [form, setForm] = useState({
     nome: "",
+    cpf: "",
     funcao: "",
     comite_id: db.comites[0]?.id ?? "",
     municipio: "Fortaleza",
@@ -65,7 +66,7 @@ function PessoasPage() {
     db.pessoas.filter(
       (p) =>
         p.tipo === tipo &&
-        `${p.nome} ${p.funcao} ${p.zona}`.toLowerCase().includes(busca.toLowerCase()),
+        `${p.nome} ${p.funcao} ${p.zona} ${p.municipio}`.toLowerCase().includes(busca.toLowerCase()),
     );
 
   async function salvar() {
@@ -79,8 +80,10 @@ function PessoasPage() {
     setOpen(false);
     setForm({
       nome: "",
+      cpf: "",
       funcao: "",
       comite_id: db.comites[0]?.id ?? "",
+      municipio: "Fortaleza",
       telefone: "",
       zona: "",
     });
@@ -134,11 +137,25 @@ function PessoasPage() {
                   placeholder="Nome e sobrenome"
                 />
               </Campo>
+              <Campo label="CPF">
+                <Input
+                  value={form.cpf}
+                  onChange={(e) => setForm({ ...form, cpf: e.target.value })}
+                  placeholder="000.000.000-00"
+                />
+              </Campo>
               <Campo label="Função / Cargo">
                 <Input
                   value={form.funcao}
                   onChange={(e) => setForm({ ...form, funcao: e.target.value })}
                   placeholder="Cabo Eleitoral, Coordenador..."
+                />
+              </Campo>
+              <Campo label="Município">
+                <Input
+                  value={form.municipio}
+                  onChange={(e) => setForm({ ...form, municipio: e.target.value })}
+                  placeholder="Fortaleza, Caucaia..."
                 />
               </Campo>
               <Campo label="Comitê Vinculado">
@@ -163,14 +180,14 @@ function PessoasPage() {
                   value={form.telefone}
                   inputMode="numeric"
                   onChange={(e) => setForm({ ...form, telefone: e.target.value })}
-                  placeholder="11988887777"
+                  placeholder="85988887777"
                 />
               </Campo>
               <Campo label="Zona de Atuação">
                 <Input
                   value={form.zona}
                   onChange={(e) => setForm({ ...form, zona: e.target.value })}
-                  placeholder="Zona Sul"
+                  placeholder="Zona 001"
                 />
               </Campo>
               <button
@@ -236,7 +253,7 @@ function PessoasPage() {
                   <div className="min-w-0 flex-1">
                     <p className="truncate font-bold leading-tight">{p.nome}</p>
                     <p className="truncate text-xs text-muted-foreground">
-                      {p.funcao} • {p.zona}
+                      {p.funcao} • {p.zona} • {p.municipio}
                     </p>
                     <p className="truncate text-[11px] text-muted-foreground">
                       {comite?.nome ?? "Sem comitê"}
