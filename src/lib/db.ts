@@ -104,6 +104,7 @@ export function seed(): Database {
       coordenador: "Maria Oliveira",
       observacoes: "Base principal de distribuição. Abre às 07h.",
       ativo: true,
+      cep: "60170-002",
     },
     {
       id: "c2",
@@ -114,6 +115,7 @@ export function seed(): Database {
       coordenador: "Ana Paula Santos",
       observacoes: "Galpão com estoque de bandeiras.",
       ativo: true,
+      cep: "61600-004",
     },
     {
       id: "c3",
@@ -124,6 +126,7 @@ export function seed(): Database {
       coordenador: "Roberto Mendes",
       observacoes: "Ponto estratégico de rua.",
       ativo: true,
+      cep: "61939-200",
     },
     {
       id: "c4",
@@ -134,6 +137,7 @@ export function seed(): Database {
       coordenador: "Cleber Araújo",
       observacoes: "Chave com o coordenador local.",
       ativo: true,
+      cep: "63010-020",
     },
   ];
 
