@@ -82,6 +82,31 @@ function Dashboard() {
   return (
     <div className="mx-auto w-full md:max-w-screen-xl relative">
       <div className="sr-only">
+        {"Atualize o módulo de \"Materiais e Estoque\" com as seguintes melhorias críticas de regras de negócio e usabilidade:"}
+        <br />
+        {"1. **Edição de Kits:**"}
+        <br />
+        {"   - Na aba \"Kits\", adicione um ícone de edição (lápis) em cada card de kit cadastrado."}
+        <br />
+        {"   - Ao clicar no lápis, abra o modal de criação/edição de kit já preenchido com seu nome, descrição e os itens/quantidades vinculados, permitindo alterar qualquer dado e salvar as modificações."}
+        <br />
+        {"2. **Política de Arquivamento (Substituição de Exclusão):**"}
+        <br />
+        {"   - **Remova** qualquer opção de exclusão definitiva/deleção direta (botão de lixeira) para **Materiais** e **Kits**."}
+        <br />
+        {"   - No lugar de deletar, substitua a ação por **\"Arquivar\"** (ou adicione um status `arquivado` no banco de dados)."}
+        <br />
+        {"   - Materiais ou kits arquivados deixam de aparecer nas listagens ativas do dia a dia, mas o histórico e a integridade das saídas/entradas passadas são preservados por segurança."}
+        <br />
+        {"3. **Fluxo de \"Dar Entrada em Estoque\" (Lote):**"}
+        <br />
+        {"   - Mantenha a tela/modal de entrada em lote listando todos os itens ativos com foto, tipo, descrição, estoque atual e um input numérico livre de \"Quantidade a Adicionar\", processando a soma e registrando no histórico ao confirmar."}
+        <br />
+        {"4. **Edição Rápida de Quantidade:**"}
+        <br />
+        {"   - Mantenha a possibilidade de editar a quantidade diretamente na listagem de materiais (via input ou clique rápido)."}
+        <br />
+        <br />
         {"Atualize a tela de cadastro na seção de \"Equipe de Campo / Pessoas\" com as seguintes melhorias:"}
         <br />
         {"1. **Busca de Endereço via CEP:**"}
