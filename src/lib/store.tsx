@@ -17,6 +17,7 @@ type Ctx = {
   db: Database;
   ready: boolean;
   addComite: (c: Omit<Comite, "id" | "ativo">) => Promise<void>;
+  updateComite: (id: string, c: Partial<Comite>) => Promise<void>;
   removeComite: (id: string) => Promise<void>;
   addPessoa: (p: Omit<Pessoa, "id">) => Promise<void>;
   removePessoa: (id: string) => Promise<void>;
@@ -61,6 +62,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       commit((p) => ({
         ...p,
         comites: [{ ...c, id: uid(), ativo: true }, ...p.comites],
+      })),
+    updateComite: (id, c) =>
+      commit((p) => ({
+        ...p,
+        comites: p.comites.map((x) => (x.id === id ? { ...x, ...c } : x)),
       })),
     removeComite: (id) =>
       commit((p) => ({ ...p, comites: p.comites.filter((c) => c.id !== id) })),

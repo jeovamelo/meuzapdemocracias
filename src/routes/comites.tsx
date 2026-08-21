@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState } from "react";
-import { MapPin, Plus, Search, Trash2, UserRound, Loader2 } from "lucide-react";
+import { useState, useEffect } from "react";
+import { MapPin, Plus, Search, Trash2, UserRound, Loader2, Pencil } from "lucide-react";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/PageHeader";
 import { useStore } from "@/lib/store";
@@ -36,18 +36,71 @@ export const Route = createFileRoute("/comites")({
 });
 
 function ComitesPage() {
-  const { db, addComite, removeComite } = useStore();
+  const { db, addComite, removeComite, updateComite } = useStore();
   const [busca, setBusca] = useState("");
   const [open, setOpen] = useState(false);
   const [salvando, setSalvando] = useState(false);
-  const [form, setForm] = useState({
+  const [editandoId, setEditandoId] = useState<string | null>(null);
+  const [cepLoading, setCepLoading] = useState(false);
+  
+  const initialForm = {
     nome: "",
+    cep: "",
     endereco: "",
     bairro: "",
     municipio: "Fortaleza",
     coordenador: "",
     observacoes: "",
-  });
+  };
+
+  const [form, setForm] = useState(initialForm);
+
+  useEffect(() => {
+    if (!open) {
+      setEditandoId(null);
+      setForm(initialForm);
+    }
+  }, [open]);
+
+  const handleCepChange = async (cep: string) => {
+    const cleanCep = cep.replace(/\D/g, "");
+    setForm((prev) => ({ ...prev, cep }));
+
+    if (cleanCep.length === 8) {
+      setCepLoading(true);
+      try {
+        const response = await fetch(`https://viacep.com.br/ws/${cleanCep}/json/`);
+        const data = await response.json();
+        if (!data.erro) {
+          setForm((prev) => ({
+            ...prev,
+            endereco: data.logradouro || prev.endereco,
+            bairro: data.bairro || prev.bairro,
+            municipio: data.localidade || prev.municipio,
+          }));
+          toast.success("Endereço preenchido via CEP.");
+        }
+      } catch (error) {
+        console.error("Erro ao buscar CEP:", error);
+      } finally {
+        setCepLoading(false);
+      }
+    }
+  };
+
+  function handleEdit(comite: any) {
+    setEditandoId(comite.id);
+    setForm({
+      nome: comite.nome,
+      cep: comite.cep || "",
+      endereco: comite.endereco,
+      bairro: comite.bairro,
+      municipio: comite.municipio,
+      coordenador: comite.coordenador,
+      observacoes: comite.observacoes || "",
+    });
+    setOpen(true);
+  }
 
   const filtrados = db.comites.filter((c) =>
     `${c.nome} ${c.bairro} ${c.coordenador} ${c.municipio}`.toLowerCase().includes(busca.toLowerCase()),
@@ -59,18 +112,16 @@ function ComitesPage() {
       return;
     }
     setSalvando(true);
-    await addComite(form);
+    if (editandoId) {
+      await updateComite(editandoId, form);
+      toast.success("Comitê atualizado.");
+    } else {
+      await addComite(form);
+      toast.success("Comitê cadastrado.");
+    }
     setSalvando(false);
     setOpen(false);
-    setForm({ 
-      nome: "", 
-      endereco: "", 
-      bairro: "", 
-      municipio: "Fortaleza",
-      coordenador: "", 
-      observacoes: "" 
-    });
-    toast.success("Comitê cadastrado.");
+    setForm(initialForm);
   }
 
   async function excluir(id: string, nome: string) {
@@ -108,7 +159,7 @@ function ComitesPage() {
           </DialogTrigger>
           <DialogContent className="max-w-[400px] rounded-2xl">
             <DialogHeader>
-              <DialogTitle>Novo Comitê / Base</DialogTitle>
+              <DialogTitle>{editandoId ? "Editar Comitê" : "Novo Comitê / Base"}</DialogTitle>
               <DialogDescription>
                 Cadastre um local de distribuição de material.
               </DialogDescription>
@@ -120,6 +171,19 @@ function ComitesPage() {
                   onChange={(e) => setForm({ ...form, nome: e.target.value })}
                   placeholder="Base Norte - Vila Maria"
                 />
+              </Campo>
+              <Campo label="CEP">
+                <div className="relative">
+                  <Input
+                    value={form.cep}
+                    onChange={(e) => handleCepChange(e.target.value)}
+                    placeholder="00000-000"
+                    maxLength={9}
+                  />
+                  {cepLoading && (
+                    <Loader2 className="absolute right-3 top-1/2 size-4 -translate-y-1/2 animate-spin text-primary" />
+                  )}
+                </div>
               </Campo>
               <Campo label="Município">
                 <Input
@@ -189,13 +253,22 @@ function ComitesPage() {
                     <MapPin className="size-3" /> {c.endereco}, {c.municipio}
                   </p>
                 </div>
-                <button
-                  onClick={() => excluir(c.id, c.nome)}
-                  aria-label={`Excluir ${c.nome}`}
-                  className="rounded-lg p-2 text-muted-foreground active:bg-critical/10 active:text-critical"
-                >
-                  <Trash2 className="size-4" />
-                </button>
+                <div className="flex items-center gap-1">
+                  <button
+                    onClick={() => handleEdit(c)}
+                    aria-label={`Editar ${c.nome}`}
+                    className="rounded-lg p-2 text-muted-foreground active:bg-accent/10 active:text-accent"
+                  >
+                    <Pencil className="size-4" />
+                  </button>
+                  <button
+                    onClick={() => excluir(c.id, c.nome)}
+                    aria-label={`Excluir ${c.nome}`}
+                    className="rounded-lg p-2 text-muted-foreground active:bg-critical/10 active:text-critical"
+                  >
+                    <Trash2 className="size-4" />
+                  </button>
+                </div>
               </div>
               <p className="mt-3 inline-block rounded bg-accent/10 px-2 py-1 font-mono text-[10px] uppercase text-accent">
                 {c.bairro}
