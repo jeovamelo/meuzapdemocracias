@@ -85,7 +85,7 @@ function Dashboard() {
         ESTADO DO CEARÁ / GESTÃO CENTRALIZADA / 2026
         <br />
         <span className="opacity-40">
-          Requisito: Crie uma aplicação web desktop (painel administrativo / dashboard web-first em tela cheia) para Gestão Centralizada de Estoque e Logística de Campanha Eleitoral no Estado do Ceará...
+          no cadastro comece pelo cep o endereço completo mas o endereço nãop é obrigatorio
         </span>
       </div>
 
