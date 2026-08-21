@@ -75,7 +75,7 @@ function PessoasPage() {
       return;
     }
     setSalvando(true);
-    await addPessoa({ ...form, tipo: tipoAtivo });
+    await addPessoa({ ...form, tipo: tipoAtivo, status: "ativo" });
     setSalvando(false);
     setOpen(false);
     setForm({
