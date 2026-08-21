@@ -80,7 +80,82 @@ function Dashboard() {
   }, []);
 
   return (
-    <div className="mx-auto w-full md:max-w-screen-xl">
+    <div className="mx-auto w-full md:max-w-screen-xl relative">
+      <div className="sr-only">
+        Crie uma aplicação web desktop robusta e moderna de Gestão de Estoque, Logística e Inteligência Geográfica para Campanha Eleitoral, complementar à versão mobile já existente. 
+
+Identidade Visual e Controles de Layout:
+
+- Paleta de Cores baseada na identidade de campanha fornecida: Vermelho primário forte (bg-red-600 / red-700), detalhes em verde vibrante, amarelo/dourado de destaque (para chamadas e estrelas) e fundo limpo.
+
+- Suporte nativo a Tema Claro e Tema Escuro (Light/Dark Mode com botão de alternância rápido na barra superior).
+
+- Botão de Alternância de Visualização na barra superior: Permite alternar rapidamente entre a "Visão Desktop" (layout em grid expandido e sidebars completas) e a "Visão Mobile" (simulador em formato de tela de smartphone centralizado na tela).
+
+Módulos Obrigatórios da Aplicação:
+
+1. Barra Superior / Navegação (Navbar & Header)
+
+- Logotipo com estrela/símbolo da campanha e título da aplicação.
+
+- Botão de alternância de Tema (Claro/Escuro).
+
+- Botão de alternância de Layout (Desktop / Mobile Preview).
+
+- Menu lateral colapsável (Sidebar) com abas para navegação limpa.
+
+2. Dashboard Executivo (Visão Geral em Cards e Gráficos)
+
+- Indicadores rápidos (KPIs): Total de Apoiadores, Itens em Estoque vs. Distribuídos, Kits Montados e Municípios Atingidos.
+
+- Gráficos de barras ou linhas simulando a evolução diária da distribuição de material de campanha.
+
+- Alertas visuais para itens com estoque crítico.
+
+3. Cadastro de Comitês e Bases (Com Edição, Endereço Completo e Responsável Integrado)
+
+- Tabela de listagem de comitês contendo ações in cada linha: Botão de Edição (com ícone de lápis) posicionado diretamente ao lado do botão de Exclusão (Delete), permitindo editar qualquer comitê cadastrado de forma fluida.
+
+- Modal / Formulário de Cadastro e Edição de Comitê contendo:
+
+  * Nome do Comitê / Base
+
+  * Município (com foco principal nas cidades do Ceará)
+
+  * Seção de Endereço Completo: CEP, Logradouro, Número e Bairro / Zona
+
+  * Telefone de Contato do Comitê
+
+  * Coordenador Responsável: Campo que permite digitar livremente ou selecionar/puxar automaticamente o nome do responsável diretamente da base de dados de Apoiadores cadastrados no sistema.
+
+  * Observações (horários, restrições, chaves, etc.)
+
+4. Cadastro de Apoiadores / Cabos Eleitorais (Com Endereço Completo)
+
+- Tabela rica e interativa com busca, filtros por zona/bairro e paginação.
+
+- Modal de Cadastro contendo Nome Completo, CPF, Função/Cargo, Comitê Vinculado, Telefone/WhatsApp, Zona de Atuação e Endereço Completo (CEP, Logradouro, Número, Bairro, Município e UF).
+
+5. Cadastro de Itens, Tipos e Quantidades
+
+- Gestão de Materiais com categorias (Santinhos, Adesivos, Bandeiras, Vestuário).
+
+- Controle de lotes, quantidades recebidas, estoque atual e estoque mínimo de segurança com alertas visuais.
+
+6. Composição de Kits (Montagem de Pacotes)
+
+- Interface de seleção múltipla para juntar vários itens em um pacote padrão (Ex: "Kit Liderança"). Valida e desconta automaticamente do estoque geral.
+
+7. Mapa de Calor do Estado do Ceará (Geointeligência)
+
+- Exibição de mapa interativo estilizado do Estado do Ceará com camada de calor (Heatmap) simulando a densidade de distribuição e atuação por cidade. Painel lateral com dados do município selecionado.
+
+Requisitos Técnicos e de UX:
+
+- Construído com React, Tailwind CSS, Lucide Icons (garantindo ícones consistentes como o lápis para edição e lixeira para exclusão) e componentes modernos.
+
+- Simulação de banco de dados robusta com dados fictícios realistas do Ceará para testes imediatos.
+      </div>
 
       <PageHeader
         eyebrow="Painel Administrativo"
