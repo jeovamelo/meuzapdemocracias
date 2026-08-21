@@ -82,27 +82,35 @@ function Dashboard() {
   return (
     <div className="mx-auto w-full md:max-w-screen-xl relative">
       <div className="sr-only">
-        {"Falta o whatsapp do coordenador e o numero e complemento, sequencia Nome do Comitê/Base, coordenador responsavel e whatsapp coordenador"}
+        {"Crie uma nova página pública em `/public/cadastro` que contenha um formulário com abas (Tabs) para as seguintes funcionalidades:"}
         <br />
-        {"1. **Consulta Automática de CEP no Formulário (Modal):**"}
+        {"1. **Aba \"Cadastro de Apoiador\":**"}
         <br />
-        {"   - Adicione um campo de **CEP** (com máscara `00000-000`) no topo do modal de \"Novo Comitê / Base\" (antes do campo de Endereço)."}
+        {"   - Campos: Nome Completo, WhatsApp, Bairro, Zona Eleitoral (opcional)."}
         <br />
-        {"   - Ao preencher o CEP com 8 dígitos, consuma automaticamente a API pública do ViaCEP (https://viacep.com.br/ws/{cep}/json/) para preencher os campos correspondentes: **Endereço** (logradouro), **Bairro / Zona** e **Município**."}
+        {"   - Ação: Salvar no banco de dados com status 'ativo'."}
         <br />
-        {"   - Permita que o usuário edite manualmente qualquer um desses campos caso precise de ajustes."}
+        {"2. **Aba \"Solicitação de Material\":**"}
         <br />
-        {"2. **Funcionalidade de Edição (Ícone de Lápis):**"}
+        {"   - Campos: Nome, Comitê/Local de Retirada (Select vinculado à tabela de comitês), Tipo de Material (Select: Adesivo, Bandeira, Folder), Quantidade."}
         <br />
-        {"   - No card de cada comitê exibido na listagem principal (ao lado do botão de lixeira/exclusão atual), adicione um **ícone de lápis (botão de editar)**."}
+        {"   - Ação: Registrar pedido para acompanhamento posterior."}
         <br />
-        {"   - Ao clicar no lápis, abra o mesmo modal de cadastro pré-preenchido com os dados do comitê selecionado."}
+        {"3. **Aba \"Cadastro de Comitê Popular\":**"}
         <br />
-        {"   - O botão de salvamento do modal deve funcionar de forma inteligente: se for um novo registro, cria um novo; se estiver editando, atualiza o registro existente no banco de dados."}
+        {"   - Campos: Nome do Responsável, Endereço completo (com busca automática de CEP via ViaCEP), Ponto de Referência, Foto do local (upload opcional)."}
         <br />
-        {"3. **Ajustes Visuais:**"}
+        {"   - Ação: Salvar no banco com o status 'pendente_validacao'."}
         <br />
-        {"   - Garanta que o layout do modal mantenha o padrão visual limpo, com espaçamentos consistentes e responsivo."}
+        {"**Requisitos Adicionais:**"}
+        <br />
+        {"- **Validação de Administrador:** Na tela de gestão interna (onde já temos os comitês), crie uma nova aba chamada \"Validações\"."}
+        <br />
+        {"- Nesta aba, exiba apenas os \"Comitês Populares\" que estiverem com status 'pendente_validacao'."}
+        <br />
+        {"- Adicione dois botões para cada item: \"Aprovar\" (que muda o status para 'ativo' e move o registro para a listagem principal de comitês) e \"Recusar\" (que remove ou arquiva o registro)."}
+        <br />
+        {"- Garanta que a página pública seja visualmente simples e mobile-friendly, sem acesso ao restante do sistema."}
       </div>
 
       <PageHeader
@@ -318,8 +326,8 @@ function Dashboard() {
         </Link>
         
         <Link
-          to="/cadastro"
-          className="flex h-14 w-14 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-2xl transition-transform active:scale-95 md:h-16 md:w-auto md:rounded-xl md:px-6 md:gap-3"
+          to="/public/cadastro"
+          className="flex h-14 w-14 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-2xl transition-transform active:scale-[0.98] md:h-16 md:w-auto md:rounded-xl md:px-6 md:gap-3"
         >
           <Send className="size-6 md:size-5" />
           <span className="hidden md:inline font-bold">Link Apoiador</span>

@@ -11,15 +11,16 @@ import {
   type Material,
   type Pessoa,
   type Saida,
+  type SolicitacaoMaterial,
 } from "./db";
 
 type Ctx = {
   db: Database;
   ready: boolean;
-  addComite: (c: Omit<Comite, "id" | "ativo">) => Promise<void>;
+  addComite: (c: Omit<Comite, "id" | "ativo" | "status"> & { status?: Comite["status"] }) => Promise<void>;
   updateComite: (id: string, c: Partial<Comite>) => Promise<void>;
   removeComite: (id: string) => Promise<void>;
-  addPessoa: (p: Omit<Pessoa, "id">) => Promise<void>;
+  addPessoa: (p: Omit<Pessoa, "id" | "status"> & { status?: Pessoa["status"] }) => Promise<void>;
   removePessoa: (id: string) => Promise<void>;
   addMaterial: (m: Omit<Material, "id" | "unidade">) => Promise<void>;
   ajustarEstoque: (id: string, delta: number) => Promise<void>;
@@ -27,6 +28,8 @@ type Ctx = {
   addKit: (k: Omit<Kit, "id">) => Promise<void>;
   removeKit: (id: string) => Promise<void>;
   registrarSaida: (s: Omit<Saida, "id" | "criado_em">) => Promise<void>;
+  addSolicitacao: (s: Omit<SolicitacaoMaterial, "id" | "criado_em" | "status">) => Promise<void>;
+  updateSolicitacao: (id: string, s: Partial<SolicitacaoMaterial>) => Promise<void>;
   resetarDados: () => Promise<void>;
 };
 
@@ -61,17 +64,24 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     addComite: (c) =>
       commit((p) => ({
         ...p,
-        comites: [{ ...c, id: uid(), ativo: true }, ...p.comites],
+        comites: [{ ...c, id: uid(), ativo: c.status === "ativo", status: c.status || "ativo" }, ...p.comites],
       })),
     updateComite: (id, c) =>
       commit((p) => ({
         ...p,
-        comites: p.comites.map((x) => (x.id === id ? { ...x, ...c } : x)),
+        comites: p.comites.map((x) => {
+          if (x.id === id) {
+            const next = { ...x, ...c };
+            if (c.status) next.ativo = c.status === "ativo";
+            return next;
+          }
+          return x;
+        }),
       })),
     removeComite: (id) =>
       commit((p) => ({ ...p, comites: p.comites.filter((c) => c.id !== id) })),
     addPessoa: (pessoa) =>
-      commit((p) => ({ ...p, pessoas: [{ ...pessoa, id: uid() }, ...p.pessoas] })),
+      commit((p) => ({ ...p, pessoas: [{ ...pessoa, id: uid(), status: pessoa.status || "ativo" }, ...p.pessoas] })),
     removePessoa: (id) =>
       commit((p) => ({ ...p, pessoas: p.pessoas.filter((x) => x.id !== id) })),
     addMaterial: (m) =>
@@ -108,6 +118,16 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         });
         return { ...p, materiais, saidas: [saida, ...p.saidas] };
       }),
+    addSolicitacao: (s) =>
+      commit((p) => ({
+        ...p,
+        solicitacoes: [{ ...s, id: uid(), criado_em: new Date().toISOString(), status: "pendente" }, ...p.solicitacoes],
+      })),
+    updateSolicitacao: (id, s) =>
+      commit((p) => ({
+        ...p,
+        solicitacoes: p.solicitacoes.map((x) => (x.id === id ? { ...x, ...s } : x)),
+      })),
     resetarDados: () => commit(() => seed()),
   };
 

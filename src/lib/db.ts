@@ -6,6 +6,8 @@
  * bodies of these functions — the UI stays untouched.
  */
 
+export type ComiteStatus = "ativo" | "pendente_validacao";
+
 export type Comite = {
   id: string;
   nome: string;
@@ -17,8 +19,11 @@ export type Comite = {
   coordenador: string;
   whatsapp_coordenador?: string;
   observacoes: string;
-  ativo: boolean;
+  status: ComiteStatus;
+  ativo: boolean; // Keep for backward compatibility or internal logic
   cep?: string;
+  ponto_referencia?: string;
+  foto?: string;
 };
 
 export type TipoPessoa = "responsavel" | "apoiador";
@@ -33,6 +38,17 @@ export type Pessoa = {
   municipio: string;
   telefone: string;
   zona: string;
+  status: "ativo" | "inativo";
+};
+
+export type SolicitacaoMaterial = {
+  id: string;
+  nome: string;
+  comite_id: string;
+  tipo_material: string;
+  quantidade: number;
+  status: "pendente" | "entregue" | "cancelado";
+  criado_em: string;
 };
 
 export type CategoriaMaterial = "Papelaria" | "Grande Formato" | "Vestuário";
@@ -76,6 +92,7 @@ export type Database = {
   materiais: Material[];
   kits: Kit[];
   saidas: Saida[];
+  solicitacoes: SolicitacaoMaterial[];
 };
 
 export const CATEGORIAS: CategoriaMaterial[] = [
@@ -107,6 +124,7 @@ export function seed(): Database {
       coordenador: "Maria Oliveira",
       whatsapp_coordenador: "85988770011",
       observacoes: "Base principal de distribuição. Abre às 07h.",
+      status: "ativo",
       ativo: true,
       cep: "60170-002",
       numero: "1000",
@@ -120,6 +138,7 @@ export function seed(): Database {
       municipio: "Caucaia",
       coordenador: "Ana Paula Santos",
       observacoes: "Galpão com estoque de bandeiras.",
+      status: "ativo",
       ativo: true,
       cep: "61600-004",
     },
@@ -131,6 +150,7 @@ export function seed(): Database {
       municipio: "Maracanaú",
       coordenador: "Roberto Mendes",
       observacoes: "Ponto estratégico de rua.",
+      status: "ativo",
       ativo: true,
       cep: "61939-200",
     },
@@ -142,6 +162,7 @@ export function seed(): Database {
       municipio: "Juazeiro do Norte",
       coordenador: "Cleber Araújo",
       observacoes: "Chave com o coordenador local.",
+      status: "ativo",
       ativo: true,
       cep: "63010-020",
     },
@@ -158,6 +179,7 @@ export function seed(): Database {
       municipio: "Fortaleza",
       telefone: "85988770011",
       zona: "Zona 001",
+      status: "ativo",
     },
     {
       id: "p2",
@@ -169,6 +191,7 @@ export function seed(): Database {
       municipio: "Caucaia",
       telefone: "85987661122",
       zona: "Zona 120",
+      status: "ativo",
     },
     {
       id: "p3",
@@ -180,6 +203,7 @@ export function seed(): Database {
       municipio: "Maracanaú",
       telefone: "85991234455",
       zona: "Zona 104",
+      status: "ativo",
     },
     {
       id: "p4",
@@ -191,6 +215,7 @@ export function seed(): Database {
       municipio: "Juazeiro do Norte",
       telefone: "88994455667",
       zona: "Zona 028",
+      status: "ativo",
     },
     {
       id: "p5",
@@ -202,6 +227,7 @@ export function seed(): Database {
       municipio: "Fortaleza",
       telefone: "85993322110",
       zona: "Zona 002",
+      status: "ativo",
     },
     {
       id: "p6",
@@ -213,6 +239,7 @@ export function seed(): Database {
       municipio: "Caucaia",
       telefone: "85985566778",
       zona: "Zona 120",
+      status: "ativo",
     },
     {
       id: "p7",
@@ -224,6 +251,7 @@ export function seed(): Database {
       municipio: "Maracanaú",
       telefone: "85996677889",
       zona: "Zona 104",
+      status: "ativo",
     },
     {
       id: "p8",
@@ -235,6 +263,7 @@ export function seed(): Database {
       municipio: "Sobral",
       telefone: "88998877665",
       zona: "Zona 024",
+      status: "ativo",
     },
   ];
 
@@ -361,7 +390,9 @@ export function seed(): Database {
     },
   ];
 
-  return { comites, pessoas, materiais, kits, saidas };
+  const solicitacoes: SolicitacaoMaterial[] = [];
+
+  return { comites, pessoas, materiais, kits, saidas, solicitacoes };
 }
 
 export function loadDb(): Database {
@@ -370,7 +401,7 @@ export function loadDb(): Database {
     const raw = window.localStorage.getItem(STORAGE_KEY);
     if (!raw) return seed();
     const parsed = JSON.parse(raw) as Database;
-    if (!parsed.comites || !parsed.materiais) return seed();
+    if (!parsed.comites || !parsed.materiais || !parsed.solicitacoes) return seed();
     return parsed;
   } catch {
     return seed();

@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState, useEffect } from "react";
-import { MapPin, Plus, Search, Trash2, UserRound, Loader2, Pencil } from "lucide-react";
+import { MapPin, Plus, Search, Trash2, UserRound, Loader2, Pencil, CheckCircle, XCircle } from "lucide-react";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/PageHeader";
 import { useStore } from "@/lib/store";
@@ -15,6 +15,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 export const Route = createFileRoute("/comites")({
   head: () => ({
@@ -38,6 +39,7 @@ export const Route = createFileRoute("/comites")({
 function ComitesPage() {
   const { db, addComite, removeComite, updateComite } = useStore();
   const [busca, setBusca] = useState("");
+  const [abaInterna, setAbaInterna] = useState<"ativos" | "validacoes">("ativos");
   const [open, setOpen] = useState(false);
   const [salvando, setSalvando] = useState(false);
   const [editandoId, setEditandoId] = useState<string | null>(null);
@@ -53,6 +55,7 @@ function ComitesPage() {
     municipio: "Fortaleza",
     coordenador: "",
     whatsapp_coordenador: "",
+    ponto_referencia: "",
     observacoes: "",
   };
 
@@ -103,14 +106,17 @@ function ComitesPage() {
       municipio: comite.municipio,
       coordenador: comite.coordenador,
       whatsapp_coordenador: comite.whatsapp_coordenador || "",
+      ponto_referencia: comite.ponto_referencia || "",
       observacoes: comite.observacoes || "",
     });
     setOpen(true);
   }
 
-  const filtrados = db.comites.filter((c) =>
-    `${c.nome} ${c.bairro} ${c.coordenador} ${c.municipio}`.toLowerCase().includes(busca.toLowerCase()),
-  );
+  const filtrados = db.comites.filter((c) => {
+    const matchesBusca = `${c.nome} ${c.bairro} ${c.coordenador} ${c.municipio}`.toLowerCase().includes(busca.toLowerCase());
+    const matchesStatus = abaInterna === "ativos" ? c.status === "ativo" : c.status === "pendente_validacao";
+    return matchesBusca && matchesStatus;
+  });
 
   async function salvar() {
     if (!form.nome.trim()) {
@@ -119,10 +125,10 @@ function ComitesPage() {
     }
     setSalvando(true);
     if (editandoId) {
-      await updateComite(editandoId, form);
+      await updateComite(editandoId, { ...form, status: "ativo" });
       toast.success("Comitê atualizado.");
     } else {
-      await addComite(form);
+      await addComite({ ...form, status: "ativo" });
       toast.success("Comitê cadastrado.");
     }
     setSalvando(false);
@@ -142,12 +148,26 @@ function ComitesPage() {
         title="Comitês e Locais"
         right={
           <span className="font-mono text-xs text-muted-foreground">
-            {db.comites.length} BASES
+            {db.comites.filter(c => c.status === "ativo").length} BASES
           </span>
         }
       />
 
-      <div className="space-y-3 px-5 py-6">
+      <div className="space-y-4 px-5 py-6">
+        <Tabs value={abaInterna} onValueChange={(v) => setAbaInterna(v as any)} className="w-full">
+          <TabsList className="grid w-full grid-cols-2 rounded-xl bg-surface">
+            <TabsTrigger value="ativos" className="rounded-lg text-xs font-bold">Ativos</TabsTrigger>
+            <TabsTrigger value="validacoes" className="relative rounded-lg text-xs font-bold">
+              Validações
+              {db.comites.filter(c => c.status === "pendente_validacao").length > 0 && (
+                <span className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-primary text-[8px] text-white">
+                  {db.comites.filter(c => c.status === "pendente_validacao").length}
+                </span>
+              )}
+            </TabsTrigger>
+          </TabsList>
+        </Tabs>
+
         <div className="relative">
           <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
           <Input
@@ -246,6 +266,13 @@ function ComitesPage() {
                   placeholder="Fortaleza, Caucaia..."
                 />
               </Campo>
+              <Campo label="Ponto de Referência">
+                <Input
+                  value={form.ponto_referencia}
+                  onChange={(e) => setForm({ ...form, ponto_referencia: e.target.value })}
+                  placeholder="Ex: Perto do mercadinho..."
+                />
+              </Campo>
               <Campo label="Observações">
                 <Textarea
                   value={form.observacoes}
@@ -287,25 +314,52 @@ function ComitesPage() {
                   </p>
                 </div>
                 <div className="flex items-center gap-1">
-                  <button
-                    onClick={() => handleEdit(c)}
-                    aria-label={`Editar ${c.nome}`}
-                    className="rounded-lg p-2 text-muted-foreground active:bg-accent/10 active:text-accent"
-                  >
-                    <Pencil className="size-4" />
-                  </button>
-                  <button
-                    onClick={() => excluir(c.id, c.nome)}
-                    aria-label={`Excluir ${c.nome}`}
-                    className="rounded-lg p-2 text-muted-foreground active:bg-critical/10 active:text-critical"
-                  >
-                    <Trash2 className="size-4" />
-                  </button>
+                  {c.status === "pendente_validacao" ? (
+                    <>
+                      <button
+                        onClick={async () => {
+                          await updateComite(c.id, { status: "ativo" });
+                          toast.success("Comitê aprovado!");
+                        }}
+                        className="rounded-lg p-2 text-green-600 active:bg-green-500/10"
+                        title="Aprovar"
+                      >
+                        <CheckCircle className="size-5" />
+                      </button>
+                      <button
+                        onClick={() => excluir(c.id, c.nome)}
+                        className="rounded-lg p-2 text-critical active:bg-critical/10"
+                        title="Recusar"
+                      >
+                        <XCircle className="size-5" />
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <button
+                        onClick={() => handleEdit(c)}
+                        aria-label={`Editar ${c.nome}`}
+                        className="rounded-lg p-2 text-muted-foreground active:bg-accent/10 active:text-accent"
+                      >
+                        <Pencil className="size-4" />
+                      </button>
+                      <button
+                        onClick={() => excluir(c.id, c.nome)}
+                        aria-label={`Excluir ${c.nome}`}
+                        className="rounded-lg p-2 text-muted-foreground active:bg-critical/10 active:text-critical"
+                      >
+                        <Trash2 className="size-4" />
+                      </button>
+                    </>
+                  )}
                 </div>
               </div>
               <p className="mt-3 inline-block rounded bg-accent/10 px-2 py-1 font-mono text-[10px] uppercase text-accent">
                 {c.bairro}
               </p>
+              {c.ponto_referencia && (
+                <p className="mt-1 text-[10px] italic text-muted-foreground">Ref: {c.ponto_referencia}</p>
+              )}
               {c.observacoes && (
                 <p className="mt-3 text-xs text-muted-foreground">{c.observacoes}</p>
               )}
