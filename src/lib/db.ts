@@ -6,6 +6,8 @@
  * bodies of these functions — the UI stays untouched.
  */
 
+export type ComiteStatus = "ativo" | "pendente_validacao";
+
 export type Comite = {
   id: string;
   nome: string;
@@ -17,8 +19,11 @@ export type Comite = {
   coordenador: string;
   whatsapp_coordenador?: string;
   observacoes: string;
-  ativo: boolean;
+  status: ComiteStatus;
+  ativo: boolean; // Keep for backward compatibility or internal logic
   cep?: string;
+  ponto_referencia?: string;
+  foto?: string;
 };
 
 export type TipoPessoa = "responsavel" | "apoiador";
@@ -33,6 +38,17 @@ export type Pessoa = {
   municipio: string;
   telefone: string;
   zona: string;
+  status: "ativo" | "inativo";
+};
+
+export type SolicitacaoMaterial = {
+  id: string;
+  nome: string;
+  comite_id: string;
+  tipo_material: string;
+  quantidade: number;
+  status: "pendente" | "entregue" | "cancelado";
+  criado_em: string;
 };
 
 export type CategoriaMaterial = "Papelaria" | "Grande Formato" | "Vestuário";
@@ -76,6 +92,7 @@ export type Database = {
   materiais: Material[];
   kits: Kit[];
   saidas: Saida[];
+  solicitacoes: SolicitacaoMaterial[];
 };
 
 export const CATEGORIAS: CategoriaMaterial[] = [
@@ -361,7 +378,7 @@ export function seed(): Database {
     },
   ];
 
-  return { comites, pessoas, materiais, kits, saidas };
+  return { comites, pessoas, materiais, kits, saidas, solicitacoes };
 }
 
 export function loadDb(): Database {
@@ -370,7 +387,7 @@ export function loadDb(): Database {
     const raw = window.localStorage.getItem(STORAGE_KEY);
     if (!raw) return seed();
     const parsed = JSON.parse(raw) as Database;
-    if (!parsed.comites || !parsed.materiais) return seed();
+    if (!parsed.comites || !parsed.materiais || !parsed.solicitacoes) return seed();
     return parsed;
   } catch {
     return seed();
