@@ -57,6 +57,11 @@ function PessoasPage() {
     cpf: "",
     funcao: "",
     comite_id: db.comites[0]?.id ?? "",
+    cep: "",
+    endereco: "",
+    numero: "",
+    complemento: "",
+    bairro: "",
     municipio: "Fortaleza",
     telefone: "",
     zona: "",
@@ -83,6 +88,11 @@ function PessoasPage() {
       cpf: "",
       funcao: "",
       comite_id: db.comites[0]?.id ?? "",
+      cep: "",
+      endereco: "",
+      numero: "",
+      complemento: "",
+      bairro: "",
       municipio: "Fortaleza",
       telefone: "",
       zona: "",
@@ -118,7 +128,7 @@ function PessoasPage() {
             Novo Cadastro
             <Plus className="size-5" strokeWidth={3} />
           </DialogTrigger>
-          <DialogContent className="max-w-[400px] rounded-2xl">
+          <DialogContent className="max-w-[500px] max-h-[90vh] overflow-y-auto rounded-2xl">
             <DialogHeader>
               <DialogTitle>
                 {tipoAtivo === "responsavel"
@@ -126,70 +136,157 @@ function PessoasPage() {
                   : "Novo Apoiador / Cabo Eleitoral"}
               </DialogTitle>
               <DialogDescription>
-                O cadastro segue a aba selecionada na tela.
+                Preencha os dados da equipe de campo.
               </DialogDescription>
             </DialogHeader>
-            <div className="space-y-3">
-              <Campo label="Nome completo">
-                <Input
-                  value={form.nome}
-                  onChange={(e) => setForm({ ...form, nome: e.target.value })}
-                  placeholder="Nome e sobrenome"
-                />
-              </Campo>
-              <Campo label="CPF">
-                <Input
-                  value={form.cpf}
-                  onChange={(e) => setForm({ ...form, cpf: e.target.value })}
-                  placeholder="000.000.000-00"
-                />
-              </Campo>
-              <Campo label="Função / Cargo">
-                <Input
-                  value={form.funcao}
-                  onChange={(e) => setForm({ ...form, funcao: e.target.value })}
-                  placeholder="Cabo Eleitoral, Coordenador..."
-                />
-              </Campo>
-              <Campo label="Município">
-                <Input
-                  value={form.municipio}
-                  onChange={(e) => setForm({ ...form, municipio: e.target.value })}
-                  placeholder="Fortaleza, Caucaia..."
-                />
-              </Campo>
-              <Campo label="Comitê Vinculado">
-                <Select
-                  value={form.comite_id}
-                  onValueChange={(v) => setForm({ ...form, comite_id: v })}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Selecione o comitê" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {db.comites.map((c) => (
-                      <SelectItem key={c.id} value={c.id}>
-                        {c.nome}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </Campo>
-              <Campo label="Telefone / WhatsApp">
-                <Input
-                  value={form.telefone}
-                  inputMode="numeric"
-                  onChange={(e) => setForm({ ...form, telefone: e.target.value })}
-                  placeholder="85988887777"
-                />
-              </Campo>
-              <Campo label="Zona de Atuação">
-                <Input
-                  value={form.zona}
-                  onChange={(e) => setForm({ ...form, zona: e.target.value })}
-                  placeholder="Zona 001"
-                />
-              </Campo>
+            <div className="space-y-6">
+              <section className="space-y-3">
+                <h3 className="text-[10px] font-bold uppercase tracking-wider text-primary/60">Dados Pessoais</h3>
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  <Campo label="Nome completo">
+                    <Input
+                      value={form.nome}
+                      onChange={(e) => setForm({ ...form, nome: e.target.value })}
+                      placeholder="Nome e sobrenome"
+                    />
+                  </Campo>
+                  <Campo label="CPF">
+                    <Input
+                      value={form.cpf}
+                      onChange={(e) => setForm({ ...form, cpf: e.target.value })}
+                      placeholder="000.000.000-00"
+                    />
+                  </Campo>
+                </div>
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  <Campo label="Telefone / WhatsApp">
+                    <Input
+                      value={form.telefone}
+                      inputMode="numeric"
+                      onChange={(e) => setForm({ ...form, telefone: e.target.value })}
+                      placeholder="85988887777"
+                    />
+                  </Campo>
+                  <Campo label="Função / Cargo">
+                    <div className="relative">
+                      <Input
+                        value={form.funcao}
+                        onChange={(e) => setForm({ ...form, funcao: e.target.value })}
+                        placeholder="Selecione ou digite..."
+                        list="funcoes-list"
+                      />
+                      <datalist id="funcoes-list">
+                        <option value="Cabo Eleitoral" />
+                        <option value="Apoiador" />
+                        <option value="Coordenador" />
+                      </datalist>
+                    </div>
+                  </Campo>
+                </div>
+              </section>
+
+              <section className="space-y-3">
+                <h3 className="text-[10px] font-bold uppercase tracking-wider text-primary/60">Endereço</h3>
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  <Campo label="CEP">
+                    <Input
+                      value={form.cep}
+                      maxLength={9}
+                      onChange={async (e) => {
+                        const cep = e.target.value.replace(/\D/g, "");
+                        const formatted = cep.length > 5 ? `${cep.slice(0, 5)}-${cep.slice(5, 8)}` : cep;
+                        setForm({ ...form, cep: formatted });
+                        
+                        if (cep.length === 8) {
+                          try {
+                            const res = await fetch(`https://viacep.com.br/ws/${cep}/json/`);
+                            const data = await res.json();
+                            if (!data.erro) {
+                              setForm(prev => ({
+                                ...prev,
+                                cep: formatted,
+                                endereco: data.logradouro,
+                                bairro: data.bairro,
+                                municipio: data.localidade
+                              }));
+                            }
+                          } catch (err) {
+                            console.error("Erro ao buscar CEP", err);
+                          }
+                        }
+                      }}
+                      placeholder="00000-000"
+                    />
+                  </Campo>
+                  <Campo label="Município">
+                    <Input
+                      value={form.municipio}
+                      onChange={(e) => setForm({ ...form, municipio: e.target.value })}
+                      placeholder="Cidade"
+                    />
+                  </Campo>
+                </div>
+                <Campo label="Endereço">
+                  <Input
+                    value={form.endereco}
+                    onChange={(e) => setForm({ ...form, endereco: e.target.value })}
+                    placeholder="Logradouro"
+                  />
+                </Campo>
+                <div className="grid grid-cols-2 gap-3">
+                  <Campo label="Número">
+                    <Input
+                      value={form.numero}
+                      onChange={(e) => setForm({ ...form, numero: e.target.value })}
+                      placeholder="123"
+                    />
+                  </Campo>
+                  <Campo label="Bairro">
+                    <Input
+                      value={form.bairro}
+                      onChange={(e) => setForm({ ...form, bairro: e.target.value })}
+                      placeholder="Nome do bairro"
+                    />
+                  </Campo>
+                </div>
+                <Campo label="Complemento (Opcional)">
+                  <Input
+                    value={form.complemento}
+                    onChange={(e) => setForm({ ...form, complemento: e.target.value })}
+                    placeholder="Apto, Sala, Bloco..."
+                  />
+                </Campo>
+              </section>
+
+              <section className="space-y-3">
+                <h3 className="text-[10px] font-bold uppercase tracking-wider text-primary/60">Vínculo e Atuação</h3>
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  <Campo label="Comitê Vinculado">
+                    <Select
+                      value={form.comite_id}
+                      onValueChange={(v) => setForm({ ...form, comite_id: v })}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Selecione o comitê" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {db.comites.map((c) => (
+                          <SelectItem key={c.id} value={c.id}>
+                            {c.nome}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </Campo>
+                  <Campo label="Zona de Atuação">
+                    <Input
+                      value={form.zona}
+                      onChange={(e) => setForm({ ...form, zona: e.target.value })}
+                      placeholder="Zona 001"
+                    />
+                  </Campo>
+                </div>
+              </section>
               <button
                 onClick={salvar}
                 disabled={salvando}

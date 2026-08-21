@@ -82,35 +82,29 @@ function Dashboard() {
   return (
     <div className="mx-auto w-full md:max-w-screen-xl relative">
       <div className="sr-only">
-        {"Crie uma nova página pública em `/public/cadastro` que contenha um formulário com abas (Tabs) para as seguintes funcionalidades:"}
+        {"Atualize a tela de cadastro na seção de \"Equipe de Campo / Pessoas\" com as seguintes melhorias:"}
         <br />
-        {"1. **Aba \"Cadastro de Apoiador\":**"}
+        {"1. **Busca de Endereço via CEP:**"}
         <br />
-        {"   - Campos: Nome Completo, WhatsApp, Bairro, Zona Eleitoral (opcional)."}
+        {"   - No modal de cadastro de pessoa, adicione um campo de **CEP** (com máscara `00000-000`) antes dos campos de endereço."}
         <br />
-        {"   - Ação: Salvar no banco de dados com status 'ativo'."}
+        {"   - Ao preencher o CEP com 8 dígitos, consuma automaticamente a API pública do ViaCEP (`https://viacep.com.br/ws/{cep}/json/`) para preencher de forma automática os campos de: **Endereço (logradouro)**, **Bairro** e **Município**."}
         <br />
-        {"2. **Aba \"Solicitação de Material\":**"}
+        {"   - Adicione também um campo explícito de **Número** (e opcionalmente Complemento) logo após o endereço, permitindo que o usuário digite o número do imóvel."}
         <br />
-        {"   - Campos: Nome, Comitê/Local de Retirada (Select vinculado à tabela de comitês), Tipo de Material (Select: Adesivo, Bandeira, Folder), Quantidade."}
+        {"   - Garanta que todos os campos preenchidos automaticamente continuem totalmente editáveis caso o usuário precise fazer ajustes manuais."}
         <br />
-        {"   - Ação: Registrar pedido para acompanhamento posterior."}
+        {"2. **Campo de Função Flexível (Select + Outros):**"}
         <br />
-        {"3. **Aba \"Cadastro de Comitê Popular\":**"}
+        {"   - No campo **Função / Cargo**, substitua o campo de texto livre por um componente que funcione como um seletor inteligente ou permita digitação livre."}
         <br />
-        {"   - Campos: Nome do Responsável, Endereço completo (com busca automática de CEP via ViaCEP), Ponto de Referência, Foto do local (upload opcional)."}
+        {"   - Inclua as opções padrão pré-definidas: `Cabo Eleitoral`, `Apoiador` e `Coordenador`."}
         <br />
-        {"   - Ação: Salvar no banco com o status 'pendente_validacao'."}
+        {"   - Permita que o usuário selecione uma das opções da lista OU digite livremente caso a função desejada não esteja na lista."}
         <br />
-        {"**Requisitos Adicionais:**"}
+        {"3. **Ajustes Gerais:**"}
         <br />
-        {"- **Validação de Administrador:** Na tela de gestão interna (onde já temos os comitês), crie uma nova aba chamada \"Validações\"."}
-        <br />
-        {"- Nesta aba, exiba apenas os \"Comitês Populares\" que estiverem com status 'pendente_validacao'."}
-        <br />
-        {"- Adicione dois botões para cada item: \"Aprovar\" (que muda o status para 'ativo' e move o registro para a listagem principal de comitês) e \"Recusar\" (que remove ou arquiva o registro)."}
-        <br />
-        {"- Garanta que a página pública seja visualmente simples e mobile-friendly, sem acesso ao restante do sistema."}
+        {"   - Organize o layout do modal de forma limpa, em colunas ou seções bem espaçadas (Dados Pessoais, Endereço com CEP, Função e Vínculo com Comitê), mantendo o design responsivo e consistente com o restante da aplicação."}
       </div>
 
       <PageHeader
