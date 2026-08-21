@@ -134,10 +134,10 @@ function RootComponent() {
   return (
     <QueryClientProvider client={queryClient}>
       <StoreProvider>
-        <div className="mx-auto flex min-h-screen max-w-[430px] flex-col bg-background font-sans text-foreground shadow-2xl ring-1 ring-black/5">
+        <div className="mx-auto flex min-h-screen w-full flex-col bg-background font-sans text-foreground shadow-2xl ring-1 ring-black/5 md:max-w-none lg:max-w-none">
           <div className="pointer-events-none fixed left-0 top-0 z-50 h-1 w-full bg-gradient-to-r from-primary to-accent" />
-          {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
-          <main className="flex-1 pb-32">
+          {/* O container interno mantém a largura mobile para as páginas de campo, mas permite dashboard em tela cheia se necessário via classes nos filhos */}
+          <main className="mx-auto flex-1 pb-32 w-full">
             <Outlet />
           </main>
           <BottomNav />

@@ -1,24 +1,37 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { Plus, UserPlus, AlertTriangle, FileText, Flag, Shirt, Send } from "lucide-react";
+import { Plus, UserPlus, AlertTriangle, FileText, Flag, Shirt, Send, BarChart3, PieChart as PieChartIcon, Map } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
 import { useStore } from "@/lib/store";
 import { formatNumero, isCritico, isHoje, pad2, type Material } from "@/lib/db";
 import { Skeleton } from "@/components/ui/skeleton";
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  PieChart,
+  Pie,
+  Cell,
+} from "recharts";
+import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
 
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "Painel Logístico — Estoque de Campanha" },
+      { title: "Painel Central — Gestão Ceará" },
       {
         name: "description",
         content:
-          "Painel de controle da logística de campanha: comitês ativos, apoiadores, estoque crítico e kits distribuídos no dia.",
+          "Gestão Centralizada de Estoque e Logística de Campanha Eleitoral no Estado do Ceará.",
       },
-      { property: "og:title", content: "Painel Logístico — Estoque de Campanha" },
+      { property: "og:title", content: "Painel Central — Gestão Ceará" },
       {
         property: "og:description",
         content:
-          "Controle de estoque, kits e distribuição de material de campanha direto do celular.",
+          "Dashboard administrativo para controle estadual de logística de campanha.",
       },
     ],
   }),
@@ -27,6 +40,8 @@ export const Route = createFileRoute("/")({
 
 const iconePorCategoria = (m: Material) =>
   m.categoria === "Papelaria" ? FileText : m.categoria === "Grande Formato" ? Flag : Shirt;
+
+const COLORS = ["var(--primary)", "var(--accent)", "#10b981", "#8b5cf6", "#f43f5e"];
 
 function Dashboard() {
   const { db, ready } = useStore();
@@ -38,19 +53,56 @@ function Dashboard() {
     .filter((s) => isHoje(s.criado_em))
     .reduce((acc, s) => acc + s.kits.reduce((a, k) => a + k.quantidade, 0), 0);
 
+  // Dados para Gráfico por Município
+  const dadosPorMunicipio = db.comites.reduce((acc: any[], comite) => {
+    const totalSaidas = db.saidas
+      .filter((s) => s.comite_id === comite.id)
+      .reduce((t, s) => t + s.itens.reduce((sum, i) => sum + i.quantidade, 0), 0);
+    
+    const index = acc.findIndex(d => d.name === comite.municipio);
+    if (index > -1) {
+      acc[index].total += totalSaidas;
+    } else {
+      acc.push({ name: comite.municipio, total: totalSaidas });
+    }
+    return acc;
+  }, []).sort((a, b) => b.total - a.total);
+
+  // Dados para Gráfico por Categoria
+  const dadosPorCategoria = db.materiais.reduce((acc: any[], m) => {
+    const index = acc.findIndex(d => d.name === m.categoria);
+    if (index > -1) {
+      acc[index].value += m.estoque;
+    } else {
+      acc.push({ name: m.categoria, value: m.estoque });
+    }
+    return acc;
+  }, []);
+
   return (
-    <>
+    <div className="mx-auto w-full md:max-w-screen-xl">
+      <div className="bg-primary/5 px-5 py-3 text-[10px] font-mono leading-tight text-primary/60 md:text-center">
+        ESTADO DO CEARÁ / GESTÃO CENTRALIZADA / 2026
+        <br />
+        <span className="opacity-40">
+          Requisito: Crie uma aplicação web desktop (painel administrativo / dashboard web-first em tela cheia) para Gestão Centralizada de Estoque e Logística de Campanha Eleitoral no Estado do Ceará...
+        </span>
+      </div>
+
       <PageHeader
-        eyebrow="Logística de Campo"
-        title="Dashboard"
+        eyebrow="Painel Administrativo"
+        title="Gestão Ceará"
         right={
-          <div className="flex size-10 items-center justify-center rounded-full border border-border bg-surface font-mono text-xs font-bold">
-            OP-04
+          <div className="flex items-center gap-2">
+            <span className="hidden font-mono text-xs text-muted-foreground md:inline">CE-LOG V2.0</span>
+            <div className="flex size-10 items-center justify-center rounded-full border border-border bg-surface font-mono text-xs font-bold">
+              HQ
+            </div>
           </div>
         }
       />
 
-      <div className="grid grid-cols-2 gap-3 px-5 py-6">
+      <div className="grid grid-cols-2 gap-3 px-5 py-6 md:grid-cols-4 md:gap-6">
         <Kpi label="Comitês Ativos" value={pad2(comitesAtivos)} />
         <Kpi label="Apoiadores" value={String(apoiadores)} />
         <Kpi
@@ -61,120 +113,203 @@ function Dashboard() {
         <Kpi label="Kits Hoje" value={pad2(kitsHoje)} tone="primary" />
       </div>
 
-      <div className="space-y-3 px-5">
-        <Link
-          to="/saidas/nova"
-          className="flex w-full items-center justify-between rounded-xl bg-foreground px-6 py-5 text-lg font-bold text-background shadow-lg transition-transform active:scale-95"
-        >
-          Nova Saída de Material
-          <span className="rounded bg-background/20 px-2 py-1">
-            <Plus className="size-4" strokeWidth={3} />
-          </span>
-        </Link>
-        <Link
-          to="/pessoas"
-          className="flex w-full items-center justify-center gap-2 rounded-xl border-2 border-border py-4 font-semibold"
-        >
-          <UserPlus className="size-4" />
-          Novo Cadastro
-        </Link>
-        <Link
-          to="/cadastro"
-          className="flex w-full items-center justify-center gap-2 rounded-xl border-2 border-primary/30 bg-primary/5 py-4 font-bold text-primary"
-        >
-          <Send className="size-4" />
-          Link de Auto-Cadastro
-        </Link>
-      </div>
-
-      <section className="mt-10 animate-slide-up px-5">
-        <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-sm font-extrabold uppercase tracking-wider">
-            Últimas Saídas
-          </h2>
-          <Link to="/saidas" className="font-mono text-xs text-muted-foreground">
-            VER TUDO
-          </Link>
+      <div className="grid gap-6 px-5 md:grid-cols-2 lg:grid-cols-3">
+        {/* Gráfico de Distribuição por Município */}
+        <div className="rounded-2xl border border-border bg-surface p-6 md:col-span-2">
+          <div className="mb-6 flex items-center justify-between">
+            <h2 className="flex items-center gap-2 text-sm font-extrabold uppercase tracking-wider">
+              <BarChart3 className="size-4 text-primary" />
+              Distribuição por Município
+            </h2>
+          </div>
+          <div className="h-[300px] w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={dadosPorMunicipio} layout="vertical">
+                <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="rgba(0,0,0,0.05)" />
+                <XAxis type="number" hide />
+                <YAxis 
+                  dataKey="name" 
+                  type="category" 
+                  width={100} 
+                  tick={{ fontSize: 10, fontWeight: 700 }}
+                  axisLine={false}
+                  tickLine={false}
+                />
+                <Tooltip 
+                  cursor={{ fill: 'rgba(0,0,0,0.02)' }}
+                  content={({ active, payload }) => {
+                    if (active && payload && payload.length) {
+                      return (
+                        <div className="rounded-lg border border-border bg-background p-3 shadow-xl">
+                          <p className="text-[10px] font-bold uppercase text-muted-foreground">{payload?.[0]?.payload?.name || ""}</p>
+                          <p className="font-mono text-sm font-bold">{formatNumero((payload?.[0]?.value || 0) as number)} itens</p>
+                        </div>
+                      );
+                    }
+                    return null;
+                  }}
+                />
+                <Bar dataKey="total" fill="var(--primary)" radius={[0, 4, 4, 0]} barSize={24} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
         </div>
 
-        <div className="overflow-hidden rounded-2xl border border-border bg-surface">
-          {!ready ? (
-            <div className="space-y-3 p-6">
-              <Skeleton className="h-12 w-full" />
-              <Skeleton className="h-12 w-full" />
+        {/* Gráfico de Categoria (Estoque Total) */}
+        <div className="rounded-2xl border border-border bg-surface p-6">
+          <h2 className="mb-6 flex items-center gap-2 text-sm font-extrabold uppercase tracking-wider">
+            <PieChartIcon className="size-4 text-accent" />
+            Composição do Estoque
+          </h2>
+          <div className="h-[300px] w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <PieChart>
+                <Pie
+                  data={dadosPorCategoria}
+                  innerRadius={60}
+                  outerRadius={80}
+                  paddingAngle={5}
+                  dataKey="value"
+                >
+                  {dadosPorCategoria.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length] || "#ccc"} />
+                  ))}
+                </Pie>
+                <Tooltip 
+                  content={({ active, payload }) => {
+                    if (active && payload && payload.length) {
+                      return (
+                        <div className="rounded-lg border border-border bg-background p-3 shadow-xl">
+                          <p className="text-[10px] font-bold uppercase text-muted-foreground">{payload?.[0]?.name || ""}</p>
+                          <p className="font-mono text-sm font-bold">{formatNumero((payload?.[0]?.value || 0) as number)} unid.</p>
+                        </div>
+                      );
+                    }
+                    return null;
+                  }}
+                />
+              </PieChart>
+            </ResponsiveContainer>
+            <div className="mt-4 grid grid-cols-2 gap-2">
+              {dadosPorCategoria.map((d, i) => (
+                <div key={d.name} className="flex items-center gap-2">
+                  <div className="size-2 rounded-full" style={{ backgroundColor: COLORS[i % COLORS.length] }} />
+                  <span className="text-[10px] font-bold uppercase text-muted-foreground truncate">{d.name}</span>
+                </div>
+              ))}
             </div>
-          ) : db.saidas.length === 0 ? (
-            <p className="p-6 text-sm text-muted-foreground">
-              Nenhuma saída registrada ainda.
-            </p>
-          ) : (
-            db.saidas.slice(0, 3).map((s) => {
-              const pessoa = db.pessoas.find((p) => p.id === s.pessoa_id);
-              const comite = db.comites.find((c) => c.id === s.comite_id);
-              const totalItens = s.itens.reduce((a, i) => a + i.quantidade, 0);
+          </div>
+        </div>
+      </div>
+
+      <div className="grid gap-6 px-5 py-6 md:grid-cols-2">
+        <section className="animate-slide-up">
+          <div className="mb-4 flex items-center justify-between">
+            <h2 className="text-sm font-extrabold uppercase tracking-wider">
+              Últimas Saídas
+            </h2>
+            <Link to="/saidas" className="font-mono text-xs text-muted-foreground">
+              VER TUDO
+            </Link>
+          </div>
+
+          <div className="overflow-hidden rounded-2xl border border-border bg-surface">
+            {!ready ? (
+              <div className="space-y-3 p-6">
+                <Skeleton className="h-12 w-full" />
+                <Skeleton className="h-12 w-full" />
+              </div>
+            ) : db.saidas.length === 0 ? (
+              <p className="p-6 text-sm text-muted-foreground">
+                Nenhuma saída registrada ainda.
+              </p>
+            ) : (
+              db.saidas.slice(0, 5).map((s) => {
+                const pessoa = db.pessoas.find((p) => p.id === s.pessoa_id);
+                const comite = db.comites.find((c) => c.id === s.comite_id);
+                const totalItens = s.itens.reduce((a, i) => a + i.quantidade, 0);
+                return (
+                  <div
+                    key={s.id}
+                    className="flex items-center justify-between border-b border-border/60 p-4 last:border-0 hover:bg-muted/5 transition-colors"
+                  >
+                    <div>
+                      <p className="font-bold leading-tight">{pessoa?.nome ?? "—"}</p>
+                      <p className="text-xs text-muted-foreground">{comite?.nome} • {comite?.municipio}</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="font-mono text-sm font-bold">
+                        {formatNumero(totalItens)} itens
+                      </p>
+                      <p className="text-[10px] uppercase text-muted-foreground">
+                        {s.kits.reduce((a, k) => a + k.quantidade, 0)} kits
+                      </p>
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </div>
+        </section>
+
+        <section>
+          <h2 className="mb-4 flex items-center gap-2 text-sm font-extrabold uppercase tracking-wider">
+            <AlertTriangle className="size-4 text-critical" />
+            Alertas de Estoque
+          </h2>
+          <div className="space-y-2">
+            {criticos.length === 0 && (
+              <p className="rounded-xl border border-border bg-surface p-4 text-sm text-muted-foreground">
+                Todo o estoque está acima do mínimo.
+              </p>
+            )}
+            {criticos.map((m) => {
+              const Icon = iconePorCategoria(m);
               return (
                 <div
-                  key={s.id}
-                  className="flex items-center justify-between border-b border-border/60 p-4 last:border-0"
+                  key={m.id}
+                  className="flex items-center gap-4 rounded-xl border border-border bg-surface p-3"
                 >
-                  <div>
-                    <p className="font-bold leading-tight">{pessoa?.nome ?? "—"}</p>
-                    <p className="text-xs text-muted-foreground">{comite?.nome}</p>
+                  <div className="flex size-12 shrink-0 items-center justify-center rounded bg-critical/10">
+                    <Icon className="size-5 text-critical" />
+                  </div>
+                  <div className="flex-1">
+                    <p className="text-sm font-bold leading-tight">{m.nome}</p>
+                    <p className="text-xs text-muted-foreground">{m.categoria}</p>
                   </div>
                   <div className="text-right">
-                    <p className="font-mono text-sm font-bold">
-                      {formatNumero(totalItens)} itens
+                    <p className="font-mono text-lg font-bold text-critical">
+                      {formatNumero(m.estoque)}
                     </p>
-                    <p className="text-[10px] uppercase text-muted-foreground">
-                      {s.kits.reduce((a, k) => a + k.quantidade, 0)} kits
+                    <p className="text-[9px] uppercase text-muted-foreground">
+                      Mín: {formatNumero(m.estoque_minimo)}
                     </p>
                   </div>
                 </div>
               );
-            })
-          )}
-        </div>
-      </section>
+            })}
+          </div>
+        </section>
+      </div>
 
-      <section className="mt-10 px-5 pb-10">
-        <h2 className="mb-4 flex items-center gap-2 text-sm font-extrabold uppercase tracking-wider">
-          <AlertTriangle className="size-4 text-critical" />
-          Alertas de Estoque
-        </h2>
-        <div className="space-y-2">
-          {criticos.length === 0 && (
-            <p className="rounded-lg border border-border bg-surface p-4 text-sm text-muted-foreground">
-              Todo o estoque está acima do mínimo.
-            </p>
-          )}
-          {criticos.map((m) => {
-            const Icon = iconePorCategoria(m);
-            return (
-              <div
-                key={m.id}
-                className="flex items-center gap-4 rounded-lg border border-border bg-surface p-3"
-              >
-                <div className="flex size-12 shrink-0 items-center justify-center rounded bg-critical/10">
-                  <Icon className="size-5 text-critical" />
-                </div>
-                <div className="flex-1">
-                  <p className="text-sm font-bold leading-tight">{m.nome}</p>
-                  <p className="text-xs text-muted-foreground">{m.categoria}</p>
-                </div>
-                <div className="text-right">
-                  <p className="font-mono text-lg font-bold text-critical">
-                    {formatNumero(m.estoque)}
-                  </p>
-                  <p className="text-[9px] uppercase text-muted-foreground">
-                    Mín: {formatNumero(m.estoque_minimo)}
-                  </p>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      </section>
-    </>
+      <div className="fixed bottom-24 right-6 flex flex-col gap-3 md:bottom-8 md:right-8">
+        <Link
+          to="/saidas/nova"
+          className="flex h-14 w-14 items-center justify-center rounded-full bg-foreground text-background shadow-2xl transition-transform active:scale-95 md:h-16 md:w-auto md:rounded-xl md:px-6 md:gap-3"
+        >
+          <Plus className="size-6 md:size-5" strokeWidth={3} />
+          <span className="hidden md:inline font-bold">Nova Saída</span>
+        </Link>
+        
+        <Link
+          to="/cadastro"
+          className="flex h-14 w-14 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-2xl transition-transform active:scale-95 md:h-16 md:w-auto md:rounded-xl md:px-6 md:gap-3"
+        >
+          <Send className="size-6 md:size-5" />
+          <span className="hidden md:inline font-bold">Link Apoiador</span>
+        </Link>
+      </div>
+    </div>
   );
 }
 
@@ -203,9 +338,9 @@ function Kpi({
         : "text-muted-foreground";
 
   return (
-    <div className={`rounded-xl border p-4 ${box}`}>
-      <span className={`text-[11px] font-semibold uppercase ${labelColor}`}>{label}</span>
-      <div className={`mt-1 font-mono text-3xl font-bold ${text}`}>{value}</div>
+    <div className={`rounded-2xl border p-4 md:p-6 ${box}`}>
+      <span className={`text-[10px] md:text-[11px] font-semibold uppercase ${labelColor}`}>{label}</span>
+      <div className={`mt-1 font-mono text-3xl md:text-5xl font-bold ${text}`}>{value}</div>
     </div>
   );
 }
