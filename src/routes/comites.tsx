@@ -44,6 +44,7 @@ function ComitesPage() {
     nome: "",
     endereco: "",
     bairro: "",
+    municipio: "Fortaleza",
     coordenador: "",
     observacoes: "",
   });
