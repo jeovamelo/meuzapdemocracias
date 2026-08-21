@@ -14,6 +14,7 @@ import { Route as ComitesRouteImport } from './routes/comites'
 import { Route as MateriaisRouteImport } from './routes/materiais'
 import { Route as PessoasRouteImport } from './routes/pessoas'
 import { Route as SaidasIndexRouteImport } from './routes/saidas.index'
+import { Route as SaidasNovaRouteImport } from './routes/saidas.nova'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -40,12 +41,18 @@ const SaidasIndexRoute = SaidasIndexRouteImport.update({
   path: '/saidas/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const SaidasNovaRoute = SaidasNovaRouteImport.update({
+  id: '/saidas/nova',
+  path: '/saidas/nova',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/comites': typeof ComitesRoute
   '/materiais': typeof MateriaisRoute
   '/pessoas': typeof PessoasRoute
+  '/saidas/nova': typeof SaidasNovaRoute
   '/saidas/': typeof SaidasIndexRoute
 }
 export interface FileRoutesByTo {
@@ -53,6 +60,7 @@ export interface FileRoutesByTo {
   '/comites': typeof ComitesRoute
   '/materiais': typeof MateriaisRoute
   '/pessoas': typeof PessoasRoute
+  '/saidas/nova': typeof SaidasNovaRoute
   '/saidas': typeof SaidasIndexRoute
 }
 export interface FileRoutesById {
@@ -61,14 +69,23 @@ export interface FileRoutesById {
   '/comites': typeof ComitesRoute
   '/materiais': typeof MateriaisRoute
   '/pessoas': typeof PessoasRoute
+  '/saidas/nova': typeof SaidasNovaRoute
   '/saidas/': typeof SaidasIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/comites' | '/materiais' | '/pessoas' | '/saidas/'
+  fullPaths:
+    '/' | '/comites' | '/materiais' | '/pessoas' | '/saidas/nova' | '/saidas/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/comites' | '/materiais' | '/pessoas' | '/saidas'
-  id: '__root__' | '/' | '/comites' | '/materiais' | '/pessoas' | '/saidas/'
+  to: '/' | '/comites' | '/materiais' | '/pessoas' | '/saidas/nova' | '/saidas'
+  id:
+    | '__root__'
+    | '/'
+    | '/comites'
+    | '/materiais'
+    | '/pessoas'
+    | '/saidas/nova'
+    | '/saidas/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -76,6 +93,7 @@ export interface RootRouteChildren {
   ComitesRoute: typeof ComitesRoute
   MateriaisRoute: typeof MateriaisRoute
   PessoasRoute: typeof PessoasRoute
+  SaidasNovaRoute: typeof SaidasNovaRoute
   SaidasIndexRoute: typeof SaidasIndexRoute
 }
 
@@ -116,6 +134,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SaidasIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/saidas/nova': {
+      id: '/saidas/nova'
+      path: '/saidas/nova'
+      fullPath: '/saidas/nova'
+      preLoaderRoute: typeof SaidasNovaRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -124,6 +149,7 @@ const rootRouteChildren: RootRouteChildren = {
   ComitesRoute: ComitesRoute,
   MateriaisRoute: MateriaisRoute,
   PessoasRoute: PessoasRoute,
+  SaidasNovaRoute: SaidasNovaRoute,
   SaidasIndexRoute: SaidasIndexRoute,
 }
 export const routeTree = rootRouteImport
