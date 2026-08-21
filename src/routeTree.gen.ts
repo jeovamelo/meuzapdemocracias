@@ -13,6 +13,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as ComitesRouteImport } from './routes/comites'
 import { Route as MateriaisRouteImport } from './routes/materiais'
 import { Route as PessoasRouteImport } from './routes/pessoas'
+import { Route as SaidasIndexRouteImport } from './routes/saidas.index'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -34,18 +35,25 @@ const PessoasRoute = PessoasRouteImport.update({
   path: '/pessoas',
   getParentRoute: () => rootRouteImport,
 } as any)
+const SaidasIndexRoute = SaidasIndexRouteImport.update({
+  id: '/saidas/',
+  path: '/saidas/',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/comites': typeof ComitesRoute
   '/materiais': typeof MateriaisRoute
   '/pessoas': typeof PessoasRoute
+  '/saidas/': typeof SaidasIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/comites': typeof ComitesRoute
   '/materiais': typeof MateriaisRoute
   '/pessoas': typeof PessoasRoute
+  '/saidas': typeof SaidasIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -53,13 +61,14 @@ export interface FileRoutesById {
   '/comites': typeof ComitesRoute
   '/materiais': typeof MateriaisRoute
   '/pessoas': typeof PessoasRoute
+  '/saidas/': typeof SaidasIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/comites' | '/materiais' | '/pessoas'
+  fullPaths: '/' | '/comites' | '/materiais' | '/pessoas' | '/saidas/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/comites' | '/materiais' | '/pessoas'
-  id: '__root__' | '/' | '/comites' | '/materiais' | '/pessoas'
+  to: '/' | '/comites' | '/materiais' | '/pessoas' | '/saidas'
+  id: '__root__' | '/' | '/comites' | '/materiais' | '/pessoas' | '/saidas/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -67,6 +76,7 @@ export interface RootRouteChildren {
   ComitesRoute: typeof ComitesRoute
   MateriaisRoute: typeof MateriaisRoute
   PessoasRoute: typeof PessoasRoute
+  SaidasIndexRoute: typeof SaidasIndexRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -99,6 +109,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PessoasRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/saidas/': {
+      id: '/saidas/'
+      path: '/saidas'
+      fullPath: '/saidas/'
+      preLoaderRoute: typeof SaidasIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -107,6 +124,7 @@ const rootRouteChildren: RootRouteChildren = {
   ComitesRoute: ComitesRoute,
   MateriaisRoute: MateriaisRoute,
   PessoasRoute: PessoasRoute,
+  SaidasIndexRoute: SaidasIndexRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
