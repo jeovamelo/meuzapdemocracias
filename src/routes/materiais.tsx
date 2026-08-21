@@ -22,6 +22,7 @@ import {
   isCritico,
   type CategoriaMaterial,
   type KitItem,
+  type Kit,
 } from "@/lib/db";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -67,6 +68,8 @@ const iconeCategoria = (c: CategoriaMaterial) =>
 
 function MateriaisPage() {
   const { db } = useStore();
+  const materiaisAtivos = db.materiais.filter((m) => !m.arquivado);
+  
   return (
     <>
       <PageHeader
@@ -74,7 +77,7 @@ function MateriaisPage() {
         title="Materiais"
         right={
           <span className="font-mono text-xs text-muted-foreground">
-            {db.materiais.length} ITENS
+            {materiaisAtivos.length} ITENS
           </span>
         }
       />
@@ -99,10 +102,13 @@ function MateriaisPage() {
 }
 
 function Estoque() {
-  const { db, addMaterial, ajustarEstoque, removeMaterial } = useStore();
+  const { db, addMaterial, ajustarEstoque, archiveMaterial } = useStore();
   const [busca, setBusca] = useState("");
   const [open, setOpen] = useState(false);
+  const [openEntrada, setOpenEntrada] = useState(false);
   const [salvando, setSalvando] = useState(false);
+  const [entradas, setEntradas] = useState<Record<string, string>>({});
+  
   const [form, setForm] = useState<{
     nome: string;
     categoria: CategoriaMaterial;
@@ -110,7 +116,8 @@ function Estoque() {
     estoque_minimo: string;
   }>({ nome: "", categoria: "Papelaria", estoque: "", estoque_minimo: "" });
 
-  const filtrados = db.materiais.filter((m) =>
+  const ativos = db.materiais.filter((m) => !m.arquivado);
+  const filtrados = ativos.filter((m) =>
     `${m.nome} ${m.categoria}`.toLowerCase().includes(busca.toLowerCase()),
   );
 
@@ -132,6 +139,20 @@ function Estoque() {
     toast.success("Material cadastrado.");
   }
 
+  async function processarEntradaLote() {
+    setSalvando(true);
+    const promessas = Object.entries(entradas).map(([id, qtd]) => {
+      const valor = Number(qtd);
+      if (valor > 0) return ajustarEstoque(id, valor);
+      return Promise.resolve();
+    });
+    await Promise.all(promessas);
+    setSalvando(false);
+    setOpenEntrada(false);
+    setEntradas({});
+    toast.success("Estoque atualizado com sucesso.");
+  }
+
   return (
     <div className="space-y-3">
       <div className="relative">
@@ -144,72 +165,126 @@ function Estoque() {
         />
       </div>
 
-      <Dialog open={open} onOpenChange={setOpen}>
-        <DialogTrigger className="flex w-full items-center justify-between rounded-xl bg-foreground px-6 py-4 font-bold text-background transition-transform active:scale-95">
-          Adicionar Material
-          <Plus className="size-5" strokeWidth={3} />
-        </DialogTrigger>
-        <DialogContent className="max-w-[400px] rounded-2xl">
-          <DialogHeader>
-            <DialogTitle>Novo Material</DialogTitle>
-            <DialogDescription>Item de estoque da campanha.</DialogDescription>
-          </DialogHeader>
-          <div className="space-y-3">
-            <Campo label="Nome do item">
-              <Input
-                value={form.nome}
-                onChange={(e) => setForm({ ...form, nome: e.target.value })}
-                placeholder="Santinho, Bandeira 1x0,7m..."
-              />
-            </Campo>
-            <Campo label="Categoria">
-              <Select
-                value={form.categoria}
-                onValueChange={(v) =>
-                  setForm({ ...form, categoria: v as CategoriaMaterial })
-                }
+      <div className="grid grid-cols-2 gap-2">
+        <Dialog open={open} onOpenChange={setOpen}>
+          <DialogTrigger className="flex items-center justify-center gap-2 rounded-xl bg-foreground px-4 py-4 text-xs font-bold text-background transition-transform active:scale-95">
+            Novo Material
+            <Plus className="size-4" strokeWidth={3} />
+          </DialogTrigger>
+          <DialogContent className="max-w-[400px] rounded-2xl">
+            <DialogHeader>
+              <DialogTitle>Novo Material</DialogTitle>
+              <DialogDescription>Item de estoque da campanha.</DialogDescription>
+            </DialogHeader>
+            <div className="space-y-3">
+              <Campo label="Nome do item">
+                <Input
+                  value={form.nome}
+                  onChange={(e) => setForm({ ...form, nome: e.target.value })}
+                  placeholder="Santinho, Bandeira 1x0,7m..."
+                />
+              </Campo>
+              <Campo label="Categoria">
+                <Select
+                  value={form.categoria}
+                  onValueChange={(v) =>
+                    setForm({ ...form, categoria: v as CategoriaMaterial })
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {CATEGORIAS.map((c) => (
+                      <SelectItem key={c} value={c}>
+                        {c}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </Campo>
+              <div className="grid grid-cols-2 gap-3">
+                <Campo label="Estoque atual">
+                  <Input
+                    inputMode="numeric"
+                    value={form.estoque}
+                    onChange={(e) => setForm({ ...form, estoque: e.target.value })}
+                    placeholder="0"
+                  />
+                </Campo>
+                <Campo label="Estoque mínimo">
+                  <Input
+                    inputMode="numeric"
+                    value={form.estoque_minimo}
+                    onChange={(e) => setForm({ ...form, estoque_minimo: e.target.value })}
+                    placeholder="0"
+                  />
+                </Campo>
+              </div>
+              <button
+                onClick={salvar}
+                disabled={salvando}
+                className="flex w-full items-center justify-center gap-2 rounded-xl bg-primary py-4 font-bold text-primary-foreground disabled:opacity-60"
               >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {CATEGORIAS.map((c) => (
-                    <SelectItem key={c} value={c}>
-                      {c}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </Campo>
-            <div className="grid grid-cols-2 gap-3">
-              <Campo label="Estoque atual">
-                <Input
-                  inputMode="numeric"
-                  value={form.estoque}
-                  onChange={(e) => setForm({ ...form, estoque: e.target.value })}
-                  placeholder="0"
-                />
-              </Campo>
-              <Campo label="Estoque mínimo">
-                <Input
-                  inputMode="numeric"
-                  value={form.estoque_minimo}
-                  onChange={(e) => setForm({ ...form, estoque_minimo: e.target.value })}
-                  placeholder="0"
-                />
-              </Campo>
+                {salvando && <Loader2 className="size-4 animate-spin" />}
+                Salvar Material
+              </button>
             </div>
-            <button
-              onClick={salvar}
-              disabled={salvando}
-              className="flex w-full items-center justify-center gap-2 rounded-xl bg-primary py-4 font-bold text-primary-foreground disabled:opacity-60"
-            >
-              {salvando && <Loader2 className="size-4 animate-spin" />}
-              Salvar Material
-            </button>
-          </div>
-        </DialogContent>
-      </Dialog>
+          </DialogContent>
+        </Dialog>
+
+        <Dialog open={openEntrada} onOpenChange={setOpenEntrada}>
+          <DialogTrigger className="flex items-center justify-center gap-2 rounded-xl bg-surface border border-border px-4 py-4 text-xs font-bold transition-transform active:scale-95">
+            Entrada Lote
+            <History className="size-4" />
+          </DialogTrigger>
+          <DialogContent className="max-h-[85vh] max-w-[450px] overflow-y-auto rounded-2xl">
+            <DialogHeader>
+              <DialogTitle>Entrada em Lote</DialogTitle>
+              <DialogDescription>
+                Adicione quantidades aos itens ativos do estoque.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div className="divide-y divide-border">
+                {ativos.map((m) => (
+                  <div key={m.id} className="flex items-center gap-3 py-3">
+                    <div className="flex size-10 items-center justify-center rounded bg-foreground/5">
+                      {(() => {
+                        const Icon = iconeCategoria(m.categoria);
+                        return <Icon className="size-4 text-muted-foreground" />;
+                      })()}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-xs font-bold leading-tight">{m.nome}</p>
+                      <p className="font-mono text-[9px] uppercase text-muted-foreground">
+                        Atual: {formatNumero(m.estoque)}
+                      </p>
+                    </div>
+                    <div className="w-24">
+                      <Input
+                        inputMode="numeric"
+                        placeholder="+0"
+                        value={entradas[m.id] || ""}
+                        onChange={(e) => setEntradas({ ...entradas, [m.id]: e.target.value })}
+                        className="h-9 text-center font-mono"
+                      />
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <button
+                onClick={processarEntradaLote}
+                disabled={salvando || Object.keys(entradas).length === 0}
+                className="flex w-full items-center justify-center gap-2 rounded-xl bg-primary py-4 font-bold text-primary-foreground disabled:opacity-60"
+              >
+                {salvando && <Loader2 className="size-4 animate-spin" />}
+                Confirmar Entradas
+              </button>
+            </div>
+          </DialogContent>
+        </Dialog>
+      </div>
 
       <div className="space-y-2">
         {filtrados.map((m) => {
@@ -251,13 +326,15 @@ function Estoque() {
                 </button>
                 <button
                   onClick={async () => {
-                    await removeMaterial(m.id);
-                    toast.success(`${m.nome} excluído.`);
+                    if (confirm(`Arquivar ${m.nome}? Ele não aparecerá mais nas listas ativas.`)) {
+                      await archiveMaterial(m.id);
+                      toast.success(`${m.nome} arquivado.`);
+                    }
                   }}
-                  aria-label={`Excluir ${m.nome}`}
+                  aria-label={`Arquivar ${m.nome}`}
                   className="rounded-lg p-2 text-muted-foreground active:text-critical"
                 >
-                  <Trash2 className="size-4" />
+                  <Archive className="size-4" />
                 </button>
               </div>
             </article>
@@ -269,12 +346,17 @@ function Estoque() {
 }
 
 function Kits() {
-  const { db, addKit, removeKit } = useStore();
+  const { db, addKit, updateKit, archiveKit } = useStore();
   const [open, setOpen] = useState(false);
   const [salvando, setSalvando] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  
   const [nome, setNome] = useState("");
   const [descricao, setDescricao] = useState("");
   const [itens, setItens] = useState<KitItem[]>([]);
+
+  const kitsAtivos = db.kits.filter((k) => !k.arquivado);
+  const materiaisAtivos = db.materiais.filter((m) => !m.arquivado);
 
   function setQtd(material_id: string, quantidade: number) {
     setItens((prev) => {
@@ -283,31 +365,52 @@ function Kits() {
     });
   }
 
+  function handleEdit(kit: Kit) {
+    setEditingId(kit.id);
+    setNome(kit.nome);
+    setDescricao(kit.descricao);
+    setItens(kit.itens);
+    setOpen(true);
+  }
+
   async function salvar() {
     if (!nome.trim() || itens.length === 0) {
       toast.error("Informe o nome e ao menos um item.");
       return;
     }
     setSalvando(true);
-    await addKit({ nome, descricao, itens });
+    if (editingId) {
+      await updateKit(editingId, { nome, descricao, itens });
+      toast.success("Kit atualizado.");
+    } else {
+      await addKit({ nome, descricao, itens });
+      toast.success("Kit criado.");
+    }
     setSalvando(false);
     setOpen(false);
+    resetForm();
+  }
+
+  function resetForm() {
+    setEditingId(null);
     setNome("");
     setDescricao("");
     setItens([]);
-    toast.success("Kit criado.");
   }
 
   return (
     <div className="space-y-3">
-      <Dialog open={open} onOpenChange={setOpen}>
+      <Dialog open={open} onOpenChange={(val) => {
+        setOpen(val);
+        if (!val) resetForm();
+      }}>
         <DialogTrigger className="flex w-full items-center justify-between rounded-xl bg-foreground px-6 py-4 font-bold text-background transition-transform active:scale-95">
           Compor Novo Kit
           <Plus className="size-5" strokeWidth={3} />
         </DialogTrigger>
         <DialogContent className="max-h-[85vh] max-w-[400px] overflow-y-auto rounded-2xl">
           <DialogHeader>
-            <DialogTitle>Composição de Kit</DialogTitle>
+            <DialogTitle>{editingId ? "Editar Kit" : "Composição de Kit"}</DialogTitle>
             <DialogDescription>
               Ao distribuir o kit, o estoque de cada item é abatido automaticamente.
             </DialogDescription>
@@ -331,7 +434,7 @@ function Kits() {
               Itens do kit
             </p>
             <div className="space-y-2">
-              {db.materiais.map((m) => {
+              {materiaisAtivos.map((m) => {
                 const atual = itens.find((i) => i.material_id === m.id)?.quantidade ?? 0;
                 return (
                   <div
@@ -358,40 +461,51 @@ function Kits() {
               className="flex w-full items-center justify-center gap-2 rounded-xl bg-primary py-4 font-bold text-primary-foreground disabled:opacity-60"
             >
               {salvando && <Loader2 className="size-4 animate-spin" />}
-              Salvar Kit
+              {editingId ? "Salvar Alterações" : "Salvar Kit"}
             </button>
           </div>
         </DialogContent>
       </Dialog>
 
-      {db.kits.map((k) => (
+      {kitsAtivos.map((k) => (
         <article key={k.id} className="rounded-2xl border border-border bg-surface p-4">
           <div className="flex items-start justify-between">
-            <div>
+            <div className="min-w-0 flex-1">
               <h2 className="flex items-center gap-2 font-bold leading-tight">
                 <Package className="size-4 text-primary" />
-                {k.nome}
+                <span className="truncate">{k.nome}</span>
               </h2>
               <p className="mt-1 text-xs text-muted-foreground">{k.descricao}</p>
             </div>
-            <button
-              onClick={async () => {
-                await removeKit(k.id);
-                toast.success(`${k.nome} excluído.`);
-              }}
-              aria-label={`Excluir ${k.nome}`}
-              className="rounded-lg p-2 text-muted-foreground active:text-critical"
-            >
-              <Trash2 className="size-4" />
-            </button>
+            <div className="flex gap-1 ml-2">
+              <button
+                onClick={() => handleEdit(k)}
+                aria-label={`Editar ${k.nome}`}
+                className="rounded-lg p-2 text-muted-foreground active:text-primary"
+              >
+                <Edit className="size-4" />
+              </button>
+              <button
+                onClick={async () => {
+                  if (confirm(`Arquivar ${k.nome}? Ele não aparecerá mais na composição de saídas.`)) {
+                    await archiveKit(k.id);
+                    toast.success(`${k.nome} arquivado.`);
+                  }
+                }}
+                aria-label={`Arquivar ${k.nome}`}
+                className="rounded-lg p-2 text-muted-foreground active:text-critical"
+              >
+                <Archive className="size-4" />
+              </button>
+            </div>
           </div>
           <ul className="mt-3 space-y-1 border-t border-border pt-3">
             {k.itens.map((i) => {
               const m = db.materiais.find((x) => x.id === i.material_id);
               return (
                 <li key={i.material_id} className="flex justify-between text-xs">
-                  <span className="text-muted-foreground">{m?.nome ?? "Item removido"}</span>
-                  <span className="font-mono font-bold">{formatNumero(i.quantidade)}</span>
+                  <span className="text-muted-foreground truncate mr-2">{m?.nome ?? "Item removido"}</span>
+                  <span className="font-mono font-bold shrink-0">{formatNumero(i.quantidade)}</span>
                 </li>
               );
             })}
