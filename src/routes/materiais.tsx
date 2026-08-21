@@ -1,15 +1,17 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 import {
+  Archive,
+  Edit,
   FileText,
   Flag,
+  History,
   Loader2,
   Minus,
   Package,
   Plus,
   Search,
   Shirt,
-  Trash2,
 } from "lucide-react";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/PageHeader";

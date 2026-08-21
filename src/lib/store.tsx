@@ -22,11 +22,13 @@ type Ctx = {
   removeComite: (id: string) => Promise<void>;
   addPessoa: (p: Omit<Pessoa, "id" | "status"> & { status?: Pessoa["status"] }) => Promise<void>;
   removePessoa: (id: string) => Promise<void>;
-  addMaterial: (m: Omit<Material, "id" | "unidade">) => Promise<void>;
+  addMaterial: (m: Omit<Material, "id" | "unidade" | "arquivado">) => Promise<void>;
+  updateMaterial: (id: string, m: Partial<Material>) => Promise<void>;
   ajustarEstoque: (id: string, delta: number) => Promise<void>;
-  removeMaterial: (id: string) => Promise<void>;
-  addKit: (k: Omit<Kit, "id">) => Promise<void>;
-  removeKit: (id: string) => Promise<void>;
+  archiveMaterial: (id: string) => Promise<void>;
+  addKit: (k: Omit<Kit, "id" | "arquivado">) => Promise<void>;
+  updateKit: (id: string, k: Partial<Kit>) => Promise<void>;
+  archiveKit: (id: string) => Promise<void>;
   registrarSaida: (s: Omit<Saida, "id" | "criado_em">) => Promise<void>;
   addSolicitacao: (s: Omit<SolicitacaoMaterial, "id" | "criado_em" | "status">) => Promise<void>;
   updateSolicitacao: (id: string, s: Partial<SolicitacaoMaterial>) => Promise<void>;
@@ -87,7 +89,12 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     addMaterial: (m) =>
       commit((p) => ({
         ...p,
-        materiais: [{ ...m, id: uid(), unidade: "un" }, ...p.materiais],
+        materiais: [{ ...m, id: uid(), unidade: "un", arquivado: false }, ...p.materiais],
+      })),
+    updateMaterial: (id, m) =>
+      commit((p) => ({
+        ...p,
+        materiais: p.materiais.map((x) => (x.id === id ? { ...x, ...m } : x)),
       })),
     ajustarEstoque: (id, delta) =>
       commit((p) => ({
@@ -96,17 +103,22 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           m.id === id ? { ...m, estoque: Math.max(0, m.estoque + delta) } : m,
         ),
       })),
-    removeMaterial: (id) =>
+    archiveMaterial: (id) =>
       commit((p) => ({
         ...p,
-        materiais: p.materiais.filter((m) => m.id !== id),
-        kits: p.kits.map((k) => ({
-          ...k,
-          itens: k.itens.filter((i) => i.material_id !== id),
-        })),
+        materiais: p.materiais.map((m) => (m.id === id ? { ...m, arquivado: true } : m)),
       })),
-    addKit: (k) => commit((p) => ({ ...p, kits: [{ ...k, id: uid() }, ...p.kits] })),
-    removeKit: (id) => commit((p) => ({ ...p, kits: p.kits.filter((k) => k.id !== id) })),
+    addKit: (k) => commit((p) => ({ ...p, kits: [{ ...k, id: uid(), arquivado: false }, ...p.kits] })),
+    updateKit: (id, k) =>
+      commit((p) => ({
+        ...p,
+        kits: p.kits.map((x) => (x.id === id ? { ...x, ...k } : x)),
+      })),
+    archiveKit: (id) =>
+      commit((p) => ({
+        ...p,
+        kits: p.kits.map((k) => (k.id === id ? { ...k, arquivado: true } : k)),
+      })),
     registrarSaida: (s) =>
       commit((p) => {
         const saida: Saida = { ...s, id: uid(), criado_em: new Date().toISOString() };

@@ -65,6 +65,7 @@ export type Material = {
   estoque: number;
   estoque_minimo: number;
   unidade: string;
+  arquivado: boolean;
 };
 
 export type KitItem = { material_id: string; quantidade: number };
@@ -74,6 +75,7 @@ export type Kit = {
   nome: string;
   descricao: string;
   itens: KitItem[];
+  arquivado: boolean;
 };
 
 export type SaidaItem = {
@@ -280,6 +282,7 @@ export function seed(): Database {
       estoque: 125000,
       estoque_minimo: 50000,
       unidade: "un",
+      arquivado: false,
     },
     {
       id: "m2",
@@ -288,6 +291,7 @@ export function seed(): Database {
       estoque: 1450,
       estoque_minimo: 500,
       unidade: "un",
+      arquivado: false,
     },
     {
       id: "m3",
@@ -296,6 +300,7 @@ export function seed(): Database {
       estoque: 8600,
       estoque_minimo: 3000,
       unidade: "un",
+      arquivado: false,
     },
     {
       id: "m4",
@@ -304,6 +309,7 @@ export function seed(): Database {
       estoque: 2400,
       estoque_minimo: 600,
       unidade: "un",
+      arquivado: false,
     },
     {
       id: "m5",
@@ -312,6 +318,7 @@ export function seed(): Database {
       estoque: 380,
       estoque_minimo: 500,
       unidade: "un",
+      arquivado: false,
     },
     {
       id: "m6",
@@ -320,6 +327,7 @@ export function seed(): Database {
       estoque: 220,
       estoque_minimo: 100,
       unidade: "un",
+      arquivado: false,
     },
     {
       id: "m7",
@@ -328,6 +336,7 @@ export function seed(): Database {
       estoque: 94000,
       estoque_minimo: 20000,
       unidade: "un",
+      arquivado: false,
     },
   ];
 
@@ -341,6 +350,7 @@ export function seed(): Database {
         { material_id: "m2", quantidade: 2 },
         { material_id: "m3", quantidade: 10 },
       ],
+      arquivado: false,
     },
     {
       id: "k2",
@@ -350,6 +360,7 @@ export function seed(): Database {
         { material_id: "m7", quantidade: 300 },
         { material_id: "m4", quantidade: 1 },
       ],
+      arquivado: false,
     },
   ];
 
