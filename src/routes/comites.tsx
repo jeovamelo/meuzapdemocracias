@@ -55,6 +55,7 @@ function ComitesPage() {
     municipio: "Fortaleza",
     coordenador: "",
     whatsapp_coordenador: "",
+    ponto_referencia: "",
     observacoes: "",
   };
 
@@ -105,6 +106,7 @@ function ComitesPage() {
       municipio: comite.municipio,
       coordenador: comite.coordenador,
       whatsapp_coordenador: comite.whatsapp_coordenador || "",
+      ponto_referencia: comite.ponto_referencia || "",
       observacoes: comite.observacoes || "",
     });
     setOpen(true);
@@ -264,6 +266,13 @@ function ComitesPage() {
                   placeholder="Fortaleza, Caucaia..."
                 />
               </Campo>
+              <Campo label="Ponto de Referência">
+                <Input
+                  value={form.ponto_referencia}
+                  onChange={(e) => setForm({ ...form, ponto_referencia: e.target.value })}
+                  placeholder="Ex: Perto do mercadinho..."
+                />
+              </Campo>
               <Campo label="Observações">
                 <Textarea
                   value={form.observacoes}
@@ -348,6 +357,9 @@ function ComitesPage() {
               <p className="mt-3 inline-block rounded bg-accent/10 px-2 py-1 font-mono text-[10px] uppercase text-accent">
                 {c.bairro}
               </p>
+              {c.ponto_referencia && (
+                <p className="mt-1 text-[10px] italic text-muted-foreground">Ref: {c.ponto_referencia}</p>
+              )}
               {c.observacoes && (
                 <p className="mt-3 text-xs text-muted-foreground">{c.observacoes}</p>
               )}
