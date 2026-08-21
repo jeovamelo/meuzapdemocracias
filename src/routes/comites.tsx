@@ -123,10 +123,10 @@ function ComitesPage() {
     }
     setSalvando(true);
     if (editandoId) {
-      await updateComite(editandoId, form);
+      await updateComite(editandoId, { ...form, status: "ativo" });
       toast.success("Comitê atualizado.");
     } else {
-      await addComite(form);
+      await addComite({ ...form, status: "ativo" });
       toast.success("Comitê cadastrado.");
     }
     setSalvando(false);
