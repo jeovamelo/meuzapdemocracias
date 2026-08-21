@@ -203,7 +203,7 @@ function PessoasPage() {
         </Dialog>
         <button
           onClick={() => {
-            const url = window.location.origin + "/cadastro";
+            const url = window.location.origin + "/public/cadastro";
             navigator.clipboard.writeText(url);
             toast.success("Link copiado para a área de transferência!");
           }}
