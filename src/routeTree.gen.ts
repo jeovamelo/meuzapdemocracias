@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as ComitesRouteImport } from './routes/comites'
+import { Route as MateriaisRouteImport } from './routes/materiais'
 import { Route as PessoasRouteImport } from './routes/pessoas'
 
 const IndexRoute = IndexRouteImport.update({
@@ -23,6 +24,11 @@ const ComitesRoute = ComitesRouteImport.update({
   path: '/comites',
   getParentRoute: () => rootRouteImport,
 } as any)
+const MateriaisRoute = MateriaisRouteImport.update({
+  id: '/materiais',
+  path: '/materiais',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const PessoasRoute = PessoasRouteImport.update({
   id: '/pessoas',
   path: '/pessoas',
@@ -32,30 +38,34 @@ const PessoasRoute = PessoasRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/comites': typeof ComitesRoute
+  '/materiais': typeof MateriaisRoute
   '/pessoas': typeof PessoasRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/comites': typeof ComitesRoute
+  '/materiais': typeof MateriaisRoute
   '/pessoas': typeof PessoasRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/comites': typeof ComitesRoute
+  '/materiais': typeof MateriaisRoute
   '/pessoas': typeof PessoasRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/comites' | '/pessoas'
+  fullPaths: '/' | '/comites' | '/materiais' | '/pessoas'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/comites' | '/pessoas'
-  id: '__root__' | '/' | '/comites' | '/pessoas'
+  to: '/' | '/comites' | '/materiais' | '/pessoas'
+  id: '__root__' | '/' | '/comites' | '/materiais' | '/pessoas'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   ComitesRoute: typeof ComitesRoute
+  MateriaisRoute: typeof MateriaisRoute
   PessoasRoute: typeof PessoasRoute
 }
 
@@ -75,6 +85,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ComitesRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/materiais': {
+      id: '/materiais'
+      path: '/materiais'
+      fullPath: '/materiais'
+      preLoaderRoute: typeof MateriaisRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/pessoas': {
       id: '/pessoas'
       path: '/pessoas'
@@ -88,6 +105,7 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   ComitesRoute: ComitesRoute,
+  MateriaisRoute: MateriaisRoute,
   PessoasRoute: PessoasRoute,
 }
 export const routeTree = rootRouteImport
