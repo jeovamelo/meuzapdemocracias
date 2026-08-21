@@ -141,8 +141,8 @@ function Dashboard() {
                     if (active && payload && payload.length) {
                       return (
                         <div className="rounded-lg border border-border bg-background p-3 shadow-xl">
-                          <p className="text-[10px] font-bold uppercase text-muted-foreground">{(payload[0].payload as any).name}</p>
-                          <p className="font-mono text-sm font-bold">{formatNumero(payload[0].value as number)} itens</p>
+                          <p className="text-[10px] font-bold uppercase text-muted-foreground">{payload?.[0]?.payload?.name || ""}</p>
+                          <p className="font-mono text-sm font-bold">{formatNumero((payload?.[0]?.value || 0) as number)} itens</p>
                         </div>
                       );
                     }
@@ -180,8 +180,8 @@ function Dashboard() {
                     if (active && payload && payload.length) {
                       return (
                         <div className="rounded-lg border border-border bg-background p-3 shadow-xl">
-                          <p className="text-[10px] font-bold uppercase text-muted-foreground">{payload[0].name}</p>
-                          <p className="font-mono text-sm font-bold">{formatNumero(payload[0].value as number)} unid.</p>
+                          <p className="text-[10px] font-bold uppercase text-muted-foreground">{payload?.[0]?.name || ""}</p>
+                          <p className="font-mono text-sm font-bold">{formatNumero((payload?.[0]?.value || 0) as number)} unid.</p>
                         </div>
                       );
                     }
