@@ -26,7 +26,7 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 
-export const Route = createFileRoute("/cadastro")({
+export const Route = createFileRoute("/public/cadastro")({
   head: () => ({
     meta: [
       { title: "Portal Público — Campanha 2026" },
@@ -212,7 +212,7 @@ function PublicCadastro() {
                 <h2 className="font-extrabold">Cadastro de Apoiador</h2>
               </div>
               
-              <form onSubmit={handleAoiadorSubmit} className="space-y-4">
+              <form onSubmit={handleApoiadorSubmit} className="space-y-4">
                 <div className="space-y-1.5">
                   <Label className="text-[10px] font-bold uppercase text-muted-foreground">Nome Completo</Label>
                   <Input 
