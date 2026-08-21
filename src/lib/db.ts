@@ -124,6 +124,7 @@ export function seed(): Database {
       coordenador: "Maria Oliveira",
       whatsapp_coordenador: "85988770011",
       observacoes: "Base principal de distribuição. Abre às 07h.",
+      status: "ativo",
       ativo: true,
       cep: "60170-002",
       numero: "1000",
@@ -137,6 +138,7 @@ export function seed(): Database {
       municipio: "Caucaia",
       coordenador: "Ana Paula Santos",
       observacoes: "Galpão com estoque de bandeiras.",
+      status: "ativo",
       ativo: true,
       cep: "61600-004",
     },
@@ -148,6 +150,7 @@ export function seed(): Database {
       municipio: "Maracanaú",
       coordenador: "Roberto Mendes",
       observacoes: "Ponto estratégico de rua.",
+      status: "ativo",
       ativo: true,
       cep: "61939-200",
     },
@@ -159,6 +162,7 @@ export function seed(): Database {
       municipio: "Juazeiro do Norte",
       coordenador: "Cleber Araújo",
       observacoes: "Chave com o coordenador local.",
+      status: "ativo",
       ativo: true,
       cep: "63010-020",
     },
@@ -175,6 +179,7 @@ export function seed(): Database {
       municipio: "Fortaleza",
       telefone: "85988770011",
       zona: "Zona 001",
+      status: "ativo",
     },
     {
       id: "p2",
@@ -186,6 +191,7 @@ export function seed(): Database {
       municipio: "Caucaia",
       telefone: "85987661122",
       zona: "Zona 120",
+      status: "ativo",
     },
     {
       id: "p3",
@@ -197,6 +203,7 @@ export function seed(): Database {
       municipio: "Maracanaú",
       telefone: "85991234455",
       zona: "Zona 104",
+      status: "ativo",
     },
     {
       id: "p4",
@@ -208,6 +215,7 @@ export function seed(): Database {
       municipio: "Juazeiro do Norte",
       telefone: "88994455667",
       zona: "Zona 028",
+      status: "ativo",
     },
     {
       id: "p5",
@@ -219,6 +227,7 @@ export function seed(): Database {
       municipio: "Fortaleza",
       telefone: "85993322110",
       zona: "Zona 002",
+      status: "ativo",
     },
     {
       id: "p6",
@@ -230,6 +239,7 @@ export function seed(): Database {
       municipio: "Caucaia",
       telefone: "85985566778",
       zona: "Zona 120",
+      status: "ativo",
     },
     {
       id: "p7",
@@ -241,6 +251,7 @@ export function seed(): Database {
       municipio: "Maracanaú",
       telefone: "85996677889",
       zona: "Zona 104",
+      status: "ativo",
     },
     {
       id: "p8",
@@ -252,6 +263,7 @@ export function seed(): Database {
       municipio: "Sobral",
       telefone: "88998877665",
       zona: "Zona 024",
+      status: "ativo",
     },
   ];
 
@@ -377,6 +389,8 @@ export function seed(): Database {
       criado_em: hoje("16:00"),
     },
   ];
+
+  const solicitacoes: SolicitacaoMaterial[] = [];
 
   return { comites, pessoas, materiais, kits, saidas, solicitacoes };
 }
