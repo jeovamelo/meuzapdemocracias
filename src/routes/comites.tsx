@@ -47,9 +47,12 @@ function ComitesPage() {
     nome: "",
     cep: "",
     endereco: "",
+    numero: "",
+    complemento: "",
     bairro: "",
     municipio: "Fortaleza",
     coordenador: "",
+    whatsapp_coordenador: "",
     observacoes: "",
   };
 
@@ -94,9 +97,12 @@ function ComitesPage() {
       nome: comite.nome,
       cep: comite.cep || "",
       endereco: comite.endereco,
+      numero: comite.numero || "",
+      complemento: comite.complemento || "",
       bairro: comite.bairro,
       municipio: comite.municipio,
       coordenador: comite.coordenador,
+      whatsapp_coordenador: comite.whatsapp_coordenador || "",
       observacoes: comite.observacoes || "",
     });
     setOpen(true);
@@ -172,6 +178,20 @@ function ComitesPage() {
                   placeholder="Base Norte - Vila Maria"
                 />
               </Campo>
+              <Campo label="Coordenador Responsável">
+                <Input
+                  value={form.coordenador}
+                  onChange={(e) => setForm({ ...form, coordenador: e.target.value })}
+                  placeholder="Nome do responsável"
+                />
+              </Campo>
+              <Campo label="WhatsApp Coordenador">
+                <Input
+                  value={form.whatsapp_coordenador}
+                  onChange={(e) => setForm({ ...form, whatsapp_coordenador: e.target.value })}
+                  placeholder="85 9..."
+                />
+              </Campo>
               <Campo label="CEP">
                 <div className="relative">
                   <Input
@@ -185,18 +205,31 @@ function ComitesPage() {
                   )}
                 </div>
               </Campo>
-              <Campo label="Município">
+              <div className="grid grid-cols-3 gap-3">
+                <div className="col-span-2">
+                  <Campo label="Endereço">
+                    <Input
+                      value={form.endereco}
+                      onChange={(e) => setForm({ ...form, endereco: e.target.value })}
+                      placeholder="Av. Paulista..."
+                    />
+                  </Campo>
+                </div>
+                <div>
+                  <Campo label="Número">
+                    <Input
+                      value={form.numero}
+                      onChange={(e) => setForm({ ...form, numero: e.target.value })}
+                      placeholder="123"
+                    />
+                  </Campo>
+                </div>
+              </div>
+              <Campo label="Complemento">
                 <Input
-                  value={form.municipio}
-                  onChange={(e) => setForm({ ...form, municipio: e.target.value })}
-                  placeholder="Fortaleza, Caucaia..."
-                />
-              </Campo>
-              <Campo label="Endereço">
-                <Input
-                  value={form.endereco}
-                  onChange={(e) => setForm({ ...form, endereco: e.target.value })}
-                  placeholder="Rua, número"
+                  value={form.complemento}
+                  onChange={(e) => setForm({ ...form, complemento: e.target.value })}
+                  placeholder="Apto 101, Bloco A"
                 />
               </Campo>
               <Campo label="Bairro / Zona">
@@ -206,11 +239,11 @@ function ComitesPage() {
                   placeholder="Vila Maria / Zona Norte"
                 />
               </Campo>
-              <Campo label="Coordenador Responsável">
+              <Campo label="Município">
                 <Input
-                  value={form.coordenador}
-                  onChange={(e) => setForm({ ...form, coordenador: e.target.value })}
-                  placeholder="Nome do responsável"
+                  value={form.municipio}
+                  onChange={(e) => setForm({ ...form, municipio: e.target.value })}
+                  placeholder="Fortaleza, Caucaia..."
                 />
               </Campo>
               <Campo label="Observações">
@@ -250,7 +283,7 @@ function ComitesPage() {
                 <div>
                   <h2 className="font-bold leading-tight">{c.nome}</h2>
                   <p className="mt-1 flex items-center gap-1 text-xs text-muted-foreground">
-                    <MapPin className="size-3" /> {c.endereco}, {c.municipio}
+                    <MapPin className="size-3" /> {c.endereco}{c.numero ? `, ${c.numero}` : ""}{c.complemento ? ` (${c.complemento})` : ""} - {c.municipio}
                   </p>
                 </div>
                 <div className="flex items-center gap-1">
@@ -279,6 +312,11 @@ function ComitesPage() {
               <div className="mt-3 flex items-center justify-between border-t border-border pt-3 text-xs">
                 <span className="flex items-center gap-1 font-semibold">
                   <UserRound className="size-3.5" /> {c.coordenador || "Sem coordenador"}
+                  {c.whatsapp_coordenador && (
+                    <span className="text-[10px] text-muted-foreground ml-1">
+                      ({c.whatsapp_coordenador})
+                    </span>
+                  )}
                 </span>
                 <span className="font-mono text-muted-foreground">
                   {vinculados} pessoas

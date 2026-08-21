@@ -10,9 +10,12 @@ export type Comite = {
   id: string;
   nome: string;
   endereco: string;
+  numero?: string;
+  complemento?: string;
   bairro: string;
   municipio: string;
   coordenador: string;
+  whatsapp_coordenador?: string;
   observacoes: string;
   ativo: boolean;
   cep?: string;
@@ -102,9 +105,12 @@ export function seed(): Database {
       bairro: "Aldeota",
       municipio: "Fortaleza",
       coordenador: "Maria Oliveira",
+      whatsapp_coordenador: "85988770011",
       observacoes: "Base principal de distribuição. Abre às 07h.",
       ativo: true,
       cep: "60170-002",
+      numero: "1000",
+      complemento: "Térreo",
     },
     {
       id: "c2",
