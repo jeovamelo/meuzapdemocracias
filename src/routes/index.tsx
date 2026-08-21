@@ -82,7 +82,7 @@ function Dashboard() {
   return (
     <div className="mx-auto w-full md:max-w-screen-xl relative">
       <div className="sr-only">
-        {"Atualize a tela de cadastro de Comitês e Locais com as seguintes melhorias:"}
+        {"Falta o whatsapp do coordenador e o numero e complemento, sequencia Nome do Comitê/Base, coordenador responsavel e whatsapp coordenador"}
         <br />
         {"1. **Consulta Automática de CEP no Formulário (Modal):**"}
         <br />
