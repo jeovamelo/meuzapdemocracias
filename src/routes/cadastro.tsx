@@ -45,9 +45,10 @@ function PublicCadastro() {
         nome,
         telefone,
         zona,
+        municipio: zona.split("/")[0]?.trim() || "Fortaleza",
         tipo: "apoiador",
         funcao: "Apoiador Voluntário",
-        comite_id: db.comites[0]?.id || "c1", // Fallback para o primeiro comitê
+        comite_id: db.comites[0]?.id || "c1",
       });
       setEnviado(true);
       toast.success("Cadastro realizado com sucesso!");
