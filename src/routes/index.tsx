@@ -78,6 +78,13 @@ function Dashboard() {
           <UserPlus className="size-4" />
           Novo Cadastro
         </Link>
+        <Link
+          to="/cadastro"
+          className="flex w-full items-center justify-center gap-2 rounded-xl border-2 border-primary/30 bg-primary/5 py-4 font-bold text-primary"
+        >
+          <Send className="size-4" />
+          Link de Auto-Cadastro
+        </Link>
       </div>
 
       <section className="mt-10 animate-slide-up px-5">
