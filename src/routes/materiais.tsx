@@ -45,6 +45,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Badge } from "@/components/ui/badge";
 
 export const Route = createFileRoute("/materiais")({
   head: () => ({
@@ -91,12 +92,15 @@ function MateriaisPage() {
         }
       />
       <Tabs defaultValue="itens" className="px-5 py-6 pb-10">
-        <TabsList className="grid w-full grid-cols-2 rounded-xl bg-surface">
+        <TabsList className="grid w-full grid-cols-3 rounded-xl bg-surface">
           <TabsTrigger value="itens" className="rounded-lg text-xs font-bold">
             Estoque
           </TabsTrigger>
           <TabsTrigger value="kits" className="rounded-lg text-xs font-bold">
             Kits
+          </TabsTrigger>
+          <TabsTrigger value="historico" className="rounded-lg text-xs font-bold">
+            Histórico
           </TabsTrigger>
         </TabsList>
         <TabsContent value="itens" className="mt-4">
@@ -104,6 +108,9 @@ function MateriaisPage() {
         </TabsContent>
         <TabsContent value="kits" className="mt-4">
           <Kits />
+        </TabsContent>
+        <TabsContent value="historico" className="mt-4">
+          <Historico />
         </TabsContent>
       </Tabs>
     </>
@@ -115,8 +122,10 @@ function Estoque() {
   const [busca, setBusca] = useState("");
   const [open, setOpen] = useState(false);
   const [openEntrada, setOpenEntrada] = useState(false);
+  const [openInventario, setOpenInventario] = useState(false);
   const [salvando, setSalvando] = useState(false);
   const [entradas, setEntradas] = useState<Record<string, string>>({});
+  const [inventario, setInventario] = useState<Record<string, string>>({});
   
   const [form, setForm] = useState<{
     nome: string;
@@ -193,6 +202,27 @@ function Estoque() {
     toast.success("Estoque atualizado com sucesso.");
   }
 
+  async function processarInventarioFisico() {
+    setSalvando(true);
+    const ajustes = Object.entries(inventario)
+      .filter(([_, qtd]) => qtd.trim() !== "")
+      .map(([id, qtd]) => ({
+        material_id: id,
+        quantidade_real: Number(qtd),
+      }));
+
+    if (ajustes.length > 0) {
+      await ajustarEstoqueGlobal(ajustes);
+      toast.success("Inventário processado com sucesso.");
+    }
+
+    setSalvando(false);
+    setOpenInventario(false);
+    setInventario({});
+  }
+
+  const { processarInventario: ajustarEstoqueGlobal } = useStore();
+
   return (
     <div className="space-y-3">
       <div className="relative">
@@ -205,7 +235,7 @@ function Estoque() {
         />
       </div>
 
-      <div className="grid grid-cols-2 gap-2">
+      <div className="grid grid-cols-2 gap-2 md:grid-cols-3">
         <Dialog open={open} onOpenChange={setOpen}>
           <DialogTrigger className="flex items-center justify-center gap-2 rounded-xl bg-foreground px-4 py-4 text-xs font-bold text-background transition-transform active:scale-95">
             Novo Material
@@ -373,6 +403,79 @@ function Estoque() {
               >
                 {salvando && <Loader2 className="size-4 animate-spin" />}
                 Confirmar Entradas
+              </button>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        <Dialog open={openInventario} onOpenChange={setOpenInventario}>
+          <DialogTrigger className="flex items-center justify-center gap-2 rounded-xl bg-accent text-accent-foreground px-4 py-4 text-xs font-bold transition-transform active:scale-95 md:col-span-1">
+            Realizar Inventário
+            <Package className="size-4" />
+          </DialogTrigger>
+          <DialogContent className="max-h-[85vh] max-w-[500px] overflow-y-auto rounded-2xl">
+            <DialogHeader>
+              <DialogTitle>Balanço de Estoque</DialogTitle>
+              <DialogDescription>
+                Auditoria física: informe a quantidade real contada no comitê.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div className="divide-y divide-border">
+                {ativos.map((m) => {
+                  const valorContado = inventario[m.id] !== undefined ? Number(inventario[m.id]) : null;
+                  const diferenca = valorContado !== null ? valorContado - m.estoque : 0;
+                  
+                  return (
+                    <div key={m.id} className="py-4">
+                      <div className="flex items-center gap-3">
+                        <div className="flex size-10 shrink-0 items-center justify-center overflow-hidden rounded bg-foreground/5">
+                          {m.foto ? (
+                            <img src={m.foto} alt="" className="h-full w-full object-cover" />
+                          ) : (
+                            (() => {
+                              const Icon = iconeCategoria(m.categoria);
+                              return <Icon className="size-4 text-muted-foreground" />;
+                            })()
+                          )}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-xs font-bold leading-tight">{m.nome}</p>
+                          <p className="text-[10px] text-muted-foreground">{m.categoria}</p>
+                        </div>
+                        <div className="w-24">
+                          <Input
+                            inputMode="numeric"
+                            placeholder={String(m.estoque)}
+                            value={inventario[m.id] || ""}
+                            onChange={(e) => setInventario({ ...inventario, [m.id]: e.target.value })}
+                            className="h-9 text-center font-mono font-bold"
+                          />
+                        </div>
+                      </div>
+                      
+                      {inventario[m.id] !== "" && inventario[m.id] !== undefined && (
+                        <div className="mt-2 flex items-center justify-end gap-2 px-1">
+                          <span className="text-[10px] font-bold uppercase text-muted-foreground">Diferença:</span>
+                          <span className={`font-mono text-xs font-black ${diferenca > 0 ? "text-green-600" : diferenca < 0 ? "text-critical" : "text-muted-foreground"}`}>
+                            {diferenca > 0 ? "+" : ""}{diferenca}
+                          </span>
+                          <span className="text-[10px] font-medium text-muted-foreground">
+                            ({diferenca > 0 ? "sobra" : diferenca < 0 ? "quebra" : "ok"})
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+              <button
+                onClick={processarInventarioFisico}
+                disabled={salvando || Object.keys(inventario).length === 0}
+                className="flex w-full items-center justify-center gap-2 rounded-xl bg-primary py-4 font-bold text-primary-foreground shadow-lg disabled:opacity-60"
+              >
+                {salvando && <Loader2 className="size-4 animate-spin" />}
+                Salvar Inventário
               </button>
             </div>
           </DialogContent>
@@ -609,6 +712,67 @@ function Kits() {
           </ul>
         </article>
       ))}
+    </div>
+  );
+}
+
+function Historico() {
+  const { db } = useStore();
+  
+  const historico = [...(db.historico_estoque || [])].sort((a, b) => 
+    new Date(b.criado_em).getTime() - new Date(a.criado_em).getTime()
+  );
+
+  return (
+    <div className="space-y-3">
+      {historico.length === 0 ? (
+        <div className="rounded-2xl border border-border bg-surface p-8 text-center">
+          <History className="mx-auto mb-3 size-8 text-muted-foreground/30" />
+          <p className="text-sm text-muted-foreground">Nenhuma movimentação registrada.</p>
+        </div>
+      ) : (
+        historico.map((m) => {
+          const material = db.materiais.find((mat) => mat.id === m.material_id);
+          const Icon = material ? iconeCategoria(material.categoria) : Package;
+          
+          return (
+            <div
+              key={m.id}
+              className="flex items-center gap-4 rounded-xl border border-border bg-surface p-4"
+            >
+              <div className={`flex size-10 shrink-0 items-center justify-center rounded-lg ${
+                m.tipo === 'ajuste_inventario' ? 'bg-accent/10 text-accent' :
+                m.diferenca > 0 ? 'bg-green-100 text-green-600' : 'bg-critical/10 text-critical'
+              }`}>
+                <Icon className="size-5" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-2">
+                  <p className="truncate text-sm font-bold">{material?.nome ?? 'Item Removido'}</p>
+                  {m.tipo === 'ajuste_inventario' && (
+                    <Badge variant="outline" className="h-4 rounded-sm border-accent/30 bg-accent/5 px-1 text-[8px] font-black uppercase text-accent">
+                      Ajuste de Inventário
+                    </Badge>
+                  )}
+                </div>
+                <p className="text-[10px] font-medium text-muted-foreground">
+                  {new Date(m.criado_em).toLocaleString('pt-BR')} • {m.observacao}
+                </p>
+              </div>
+              <div className="text-right">
+                <p className={`font-mono text-sm font-black ${
+                  m.diferenca > 0 ? 'text-green-600' : m.diferenca < 0 ? 'text-critical' : 'text-muted-foreground'
+                }`}>
+                  {m.diferenca > 0 ? '+' : ''}{m.diferenca}
+                </p>
+                <p className="text-[9px] uppercase text-muted-foreground">
+                  Saldo: {m.quantidade_nova}
+                </p>
+              </div>
+            </div>
+          );
+        })
+      )}
     </div>
   );
 }

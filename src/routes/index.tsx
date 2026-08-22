@@ -166,37 +166,23 @@ function Dashboard() {
   return (
     <div className="mx-auto w-full md:max-w-screen-xl relative -+">
       <div className="sr-only">
-        Atualize a tela de configuração inicial de "Cadastrar Campanha" na página Início para buscar e autocompletar os dados oficiais via integração ou estrutura de dados do TSE:
+        Adicione um novo recurso de **"Inventário Físico de Estoque"** na aba/módulo de **Materiais**, permitindo auditorias e recontagens a qualquer momento do dia para corrigir eventuais divergências causadas por saídas aproximadas ou rápidas em campo:
 
-1. **Entrada Simplificada por Estado e Número:**
+1. **Ação de "Realizar Inventário":**
 
-   - No formulário de cadastro da campanha, o usuário deve informar apenas:
+   - Na tela de Materiais, add um botão de destaque chamado **"Realizar Inventário"** ou **"Balanço de Estoque"**.
 
-     - **Estado (UF)**
+   - Ao acionar, abra uma tela ou modal focada onde aparecem **todos os itens ativos** listados com sua foto, tipo, descrição e o estoque atual registrado no sistema.
 
-     - **Número do Candidato**
+2. **Recontagem e Ajuste Direto:**
 
-   - Assim que esses dois dados forem preenchidos (ou ao clicar em "Buscar no TSE"), o sistema deve consultar a base de dados de candidaturas para preencher de forma automática os seguintes campos:
+   - Para cada item, exiba um campo de input numérico claro para o operador digitar a **"Quantidade Real Contada"** (o que foi verificado fisicamente no comitê naquele momento).
 
-     - **Nome Completo do Candidato**
+   - O sistema deve calcular automaticamente a diferença (quebra ou sobra) entre o estoque anterior e a nova contagem informada.
 
-     - **Nome de Urna**
+3. **Confirmação e Histórico de Auditoria:**
 
-     - **Cargo**
-
-     - **Partido / Coligação**
-
-2. **Complementos Manuais da Campanha:**
-
-   - Deixe visíveis e abertos para o usuário preencher manualmente os dados estratégicos que a justiça eleitoral não possui, mas que são vitais para a gestão:
-
-     - **Quantidade de Votos para ser Eleito (Meta / Qtd Necessária)**
-
-     - **Quantidade de Votos Esperados (Expectativa Total)**
-
-3. **Restrição de Escopo:**
-
-   - Com o Estado definido por essa configuração, garanta que todas as listagens do sistema (cidades, lideranças, mapa de calor e painel de apuração) filtrem e exibam exclusivamente os municípios pertencentes àquele estado.
+   - Ao finalizar e clicar em "Salvar Inventário", o sistema deve atualizar o estoque oficial para a quantidade informada e registrar um registro automático no histórico de movimentações com a tag **"Ajuste de Inventário"**, garantindo total rastreabilidade e precisão para a campanha.
       </div>
 
       <PageHeader
@@ -316,7 +302,7 @@ function Dashboard() {
         <section className="animate-slide-up">
           <div className="mb-4 flex items-center justify-between">
             <h2 className="text-sm font-extrabold uppercase tracking-wider">
-              Últimas Saídas
+              Últimas Movimentações
             </h2>
             <Link to="/saidas" className="font-mono text-xs text-muted-foreground">
               VER TUDO
@@ -329,30 +315,39 @@ function Dashboard() {
                 <Skeleton className="h-12 w-full" />
                 <Skeleton className="h-12 w-full" />
               </div>
-            ) : db.saidas.length === 0 ? (
+            ) : db.historico_estoque.length === 0 ? (
               <p className="p-6 text-sm text-muted-foreground">
-                Nenhuma saída registrada ainda.
+                Nenhuma movimentação registrada ainda.
               </p>
             ) : (
-              db.saidas.slice(0, 5).map((s) => {
-                const pessoa = db.pessoas.find((p) => p.id === s.pessoa_id);
-                const comite = db.comites.find((c) => c.id === s.comite_id);
-                const totalItens = s.itens.reduce((a, i) => a + i.quantidade, 0);
+              db.historico_estoque.slice(0, 5).map((m) => {
+                const material = db.materiais.find((mat) => mat.id === m.material_id);
+                const Icon = material ? iconePorCategoria(material) : Package;
                 return (
                   <div
-                    key={s.id}
+                    key={m.id}
                     className="flex items-center justify-between border-b border-border/60 p-4 last:border-0 hover:bg-muted/5 transition-colors"
                   >
-                    <div>
-                      <p className="font-bold leading-tight">{pessoa?.nome ?? "—"}</p>
-                      <p className="text-xs text-muted-foreground">{comite?.nome} • {comite?.municipio}</p>
+                    <div className="flex items-center gap-3">
+                      <div className={`flex size-8 items-center justify-center rounded ${
+                        m.tipo === 'ajuste_inventario' ? 'bg-accent/10 text-accent' :
+                        m.diferenca > 0 ? 'bg-green-100 text-green-600' : 'bg-critical/10 text-critical'
+                      }`}>
+                        <Icon className="size-4" />
+                      </div>
+                      <div>
+                        <p className="font-bold text-xs leading-tight">{material?.nome ?? "—"}</p>
+                        <p className="text-[10px] text-muted-foreground uppercase">{m.tipo.replace('_', ' ')}</p>
+                      </div>
                     </div>
                     <div className="text-right">
-                      <p className="font-mono text-sm font-bold">
-                        {formatNumero(totalItens)} itens
+                      <p className={`font-mono text-sm font-bold ${
+                        m.diferenca > 0 ? 'text-green-600' : 'text-critical'
+                      }`}>
+                        {m.diferenca > 0 ? "+" : ""}{m.diferenca}
                       </p>
                       <p className="text-[10px] uppercase text-muted-foreground">
-                        {s.kits.reduce((a, k) => a + k.quantidade, 0)} kits
+                        Saldo: {m.quantidade_nova}
                       </p>
                     </div>
                   </div>

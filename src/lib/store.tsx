@@ -13,6 +13,7 @@ import {
   type CidadeMeta,
   type BoletimUrna,
   type ConfigCampanha,
+  type MovimentacaoEstoque,
 } from "./db";
 import { toast } from "sonner";
 
@@ -38,6 +39,7 @@ type Ctx = {
   updateCidadeMeta: (id: string, cm: Partial<CidadeMeta>) => Promise<void>;
   updateConfig: (config: Partial<ConfigCampanha>) => Promise<void>;
   addBoletim: (b: Omit<BoletimUrna, "id" | "data_leitura">) => Promise<void>;
+  processarInventario: (ajustes: { material_id: string; quantidade_real: number }[]) => Promise<void>;
   resetarDados: () => Promise<void>;
 };
 
@@ -67,6 +69,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     cidade_metas: [],
     config: DEFAULT_CONFIG,
     boletins: [],
+    historico_estoque: [],
   });
   const [ready, setReady] = useState(false);
 
@@ -82,6 +85,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         { data: cidade_metas },
         { data: config },
         { data: boletins },
+        { data: historico },
       ] = await Promise.all([
         supabase.from("comites").select("*").order("criado_em", { ascending: false }),
         supabase.from("pessoas").select("*").order("criado_em", { ascending: false }),
@@ -92,6 +96,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         supabase.from("cidade_metas").select("*").order("criado_em", { ascending: false }),
         supabase.from("config_campanha").select("*").single(),
         supabase.from("boletins_urna").select("*").order("data_leitura", { ascending: false }),
+        supabase.from("historico_estoque").select("*").order("criado_em", { ascending: false }),
       ]);
 
       setDb({
@@ -104,6 +109,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         cidade_metas: (cidade_metas || []) as any,
         config: (config || DEFAULT_CONFIG) as any,
         boletins: (boletins || []) as any,
+        historico_estoque: (historico || []) as any,
       });
       setReady(true);
     } catch (error) {
@@ -122,6 +128,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       supabase.channel('public:saidas').on('postgres_changes', { event: '*', schema: 'public', table: 'saidas' }, fetchAll),
       supabase.channel('public:solicitacoes').on('postgres_changes', { event: '*', schema: 'public', table: 'solicitacoes' }, fetchAll),
       supabase.channel('public:boletins_urna').on('postgres_changes', { event: '*', schema: 'public', table: 'boletins_urna' }, fetchAll),
+      supabase.channel('public:historico_estoque').on('postgres_changes', { event: '*', schema: 'public', table: 'historico_estoque' }, fetchAll),
     ].map(c => c.subscribe());
 
     return () => {
@@ -180,10 +187,24 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     ajustarEstoque: async (id, delta) => {
       const material = db.materiais.find(m => m.id === id);
       if (material) {
+        const novaQtd = Math.max(0, material.estoque + delta);
         const { error } = await supabase.from("materiais")
-          .update({ estoque: Math.max(0, material.estoque + delta) })
+          .update({ estoque: novaQtd })
           .eq("id", id);
-        if (error) toast.error("Erro ao ajustar estoque");
+        
+        if (!error) {
+          // Log no histórico
+          await supabase.from("historico_estoque").insert([{
+            material_id: id,
+            quantidade_anterior: material.estoque,
+            quantidade_nova: novaQtd,
+            diferenca: delta,
+            tipo: delta > 0 ? "entrada" : "saida",
+            observacao: delta > 0 ? "Ajuste manual (entrada)" : "Ajuste manual (saída)"
+          }]);
+        } else {
+          toast.error("Erro ao ajustar estoque");
+        }
       }
     },
     archiveMaterial: async (id) => {
@@ -203,19 +224,29 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       if (error) toast.error("Erro ao arquivar kit");
     },
     registrarSaida: async (s) => {
-      const { error: errorSaida } = await supabase.from("saidas").insert([s]);
+      const { data: saidaCriada, error: errorSaida } = await supabase.from("saidas").insert([s]).select().single();
       if (errorSaida) {
         toast.error("Erro ao registrar saída");
         return;
       }
       
-      // Atualizar estoque dos materiais
+      // Atualizar estoque e logar no histórico
       for (const item of s.itens) {
         const mat = db.materiais.find(m => m.id === item.material_id);
         if (mat) {
+          const novaQtd = Math.max(0, mat.estoque - item.quantidade);
           await supabase.from("materiais")
-            .update({ estoque: Math.max(0, mat.estoque - item.quantidade) })
+            .update({ estoque: novaQtd })
             .eq("id", mat.id);
+            
+          await supabase.from("historico_estoque").insert([{
+            material_id: mat.id,
+            quantidade_anterior: mat.estoque,
+            quantidade_nova: novaQtd,
+            diferenca: -item.quantidade,
+            tipo: "saida",
+            observacao: `Saída registrada (Ref: ${saidaCriada.id})`
+          }]);
         }
       }
     },
@@ -239,8 +270,31 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       const { error } = await supabase.from("boletins_urna").insert([b]);
       if (error) toast.error("Erro ao registrar boletim");
     },
+    processarInventario: async (ajustes) => {
+      for (const ajuste of ajustes) {
+        const mat = db.materiais.find(m => m.id === ajuste.material_id);
+        if (mat) {
+          const diferenca = ajuste.quantidade_real - mat.estoque;
+          if (diferenca === 0) continue;
+
+          const { error } = await supabase.from("materiais")
+            .update({ estoque: ajuste.quantidade_real })
+            .eq("id", mat.id);
+
+          if (!error) {
+            await supabase.from("historico_estoque").insert([{
+              material_id: mat.id,
+              quantidade_anterior: mat.estoque,
+              quantidade_nova: ajuste.quantidade_real,
+              diferenca: diferenca,
+              tipo: "ajuste_inventario",
+              observacao: "Ajuste de Inventário"
+            }]);
+          }
+        }
+      }
+    },
     resetarDados: async () => {
-      // Opcional: Implementar se necessário resetar banco remoto
       toast.info("Função de reset não disponível para banco real.");
     },
   };

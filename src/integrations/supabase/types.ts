@@ -203,6 +203,47 @@ export type Database = {
         }
         Relationships: []
       }
+      historico_estoque: {
+        Row: {
+          criado_em: string | null
+          diferenca: number
+          id: string
+          material_id: string
+          observacao: string | null
+          quantidade_anterior: number
+          quantidade_nova: number
+          tipo: string
+        }
+        Insert: {
+          criado_em?: string | null
+          diferenca: number
+          id?: string
+          material_id: string
+          observacao?: string | null
+          quantidade_anterior: number
+          quantidade_nova: number
+          tipo: string
+        }
+        Update: {
+          criado_em?: string | null
+          diferenca?: number
+          id?: string
+          material_id?: string
+          observacao?: string | null
+          quantidade_anterior?: number
+          quantidade_nova?: number
+          tipo?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "historico_estoque_material_id_fkey"
+            columns: ["material_id"]
+            isOneToOne: false
+            referencedRelation: "materiais"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       kits: {
         Row: {
           arquivado: boolean | null
