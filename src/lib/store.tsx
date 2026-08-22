@@ -68,6 +68,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     cidade_metas: [],
     config: DEFAULT_CONFIG,
     boletins: [],
+    historico_estoque: [],
   });
   const [ready, setReady] = useState(false);
 
