@@ -56,9 +56,10 @@ export type SolicitacaoMaterial = {
   comite_id: string;
   lideranca_id?: string;
   municipio?: string;
-  tipo_material: string;
-  quantidade: number;
-  status: "pendente" | "entregue" | "cancelado";
+  itens: { material_id: string; quantidade: number }[];
+  tipo_logistica: "retirada" | "entrega";
+  endereco_entrega?: string;
+  status: "pendente" | "separando" | "pronto" | "entregue" | "cancelado";
   criado_em: string;
 };
 
