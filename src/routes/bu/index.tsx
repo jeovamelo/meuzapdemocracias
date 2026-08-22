@@ -114,22 +114,96 @@ function ApuracaoParalela() {
         right={
           <div className="flex bg-muted p-1 rounded-xl">
             <button 
-              onClick={() => setTab("dashboard")}
-              className={`px-4 py-1.5 text-[10px] font-black uppercase rounded-lg transition-all ${tab === "dashboard" ? "bg-background text-primary shadow-sm" : "text-muted-foreground"}`}
+              onClick={() => setTab("scanner")}
+              className={`px-4 py-1.5 text-[10px] font-black uppercase rounded-lg transition-all ${tab === "scanner" ? "bg-background text-primary shadow-sm" : "text-muted-foreground"}`}
             >
-              Dashboard
-            </button>
-            <button 
-              onClick={() => setTab("boletins")}
-              className={`px-4 py-1.5 text-[10px] font-black uppercase rounded-lg transition-all ${tab === "boletins" ? "bg-background text-primary shadow-sm" : "text-muted-foreground"}`}
-            >
-              Boletins Lidos
+              Scanner
             </button>
           </div>
         }
       />
 
-      {tab === "dashboard" ? (
+      {tab === "scanner" ? (
+        <div className="max-w-md mx-auto space-y-6 animate-in fade-in duration-500 py-8">
+           <div className="relative aspect-square w-full rounded-3xl border-4 border-dashed border-primary/20 bg-muted/30 flex items-center justify-center overflow-hidden group">
+            {scanning ? (
+              <div className="flex flex-col items-center gap-3 animate-pulse">
+                <QrCode className="size-16 text-primary/40" />
+                <span className="text-[10px] font-black uppercase tracking-widest text-primary">Lendo QR Code...</span>
+                <div className="absolute inset-x-0 top-0 bg-gradient-to-b from-transparent via-primary/40 to-transparent h-1 w-full animate-scan-loop" />
+              </div>
+            ) : buData ? (
+              <div className="flex flex-col items-center gap-4 text-center p-6">
+                <div className="size-16 rounded-full bg-green-500/10 flex items-center justify-center">
+                  <ShieldCheck className="size-8 text-green-500" />
+                </div>
+                <div>
+                  <p className="font-black text-lg uppercase leading-tight">Boletim Validado</p>
+                  <p className="text-[10px] text-muted-foreground uppercase font-bold">Assinatura Digital OK</p>
+                </div>
+                <button 
+                  onClick={() => setBuData(null)}
+                  className="text-[10px] font-black uppercase text-muted-foreground underline"
+                >
+                  Cancelar
+                </button>
+              </div>
+            ) : (
+              <div className="flex flex-col items-center gap-4">
+                <QrCode className="size-20 text-muted-foreground/20 group-hover:text-primary/20 transition-colors" />
+                <button 
+                  onClick={simulatedScan}
+                  className="bg-primary text-white h-12 px-8 rounded-xl font-black uppercase shadow-xl shadow-primary/20 hover:scale-105 active:scale-95 transition-transform"
+                >
+                  Abrir Câmera
+                </button>
+              </div>
+            )}
+          </div>
+
+          {buData && (
+            <div className="space-y-4 animate-in fade-in slide-in-from-bottom-2">
+              <Card className="border-2 border-primary/20 bg-primary/5">
+                <CardContent className="pt-6 space-y-4">
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <p className="text-xs font-black uppercase tracking-tight">Seção {buData.secao} / Zona {buData.zona}</p>
+                      <p className="text-[9px] font-bold uppercase text-primary">{buData.municipio}</p>
+                    </div>
+                    <Badge variant="outline" className="font-mono text-[10px]">{buData.total_votos} Total</Badge>
+                  </div>
+                  <div className="pt-3 border-t border-primary/10 flex justify-between items-end">
+                    <div>
+                      <p className="text-[9px] font-bold uppercase text-muted-foreground">Votos no Candidato</p>
+                      <p className="text-3xl font-black text-primary font-mono">{buData.votos_candidato}</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-[9px] font-bold uppercase text-muted-foreground">Performance</p>
+                      <p className="text-lg font-black text-primary font-mono">{(buData.votos_candidato / buData.total_votos * 100).toFixed(1)}%</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+              
+              <button 
+                className="w-full bg-primary text-white h-14 rounded-2xl font-black uppercase shadow-xl shadow-primary/20 flex items-center justify-center gap-2"
+                onClick={handleBuSubmit}
+                disabled={carregando}
+              >
+                {carregando ? <div className="size-5 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : "Confirmar Envio"}
+              </button>
+            </div>
+          )}
+
+          <div className="flex items-start gap-3 p-4 bg-muted/20 rounded-2xl">
+            <AlertCircle className="size-5 text-muted-foreground shrink-0" />
+            <p className="text-[10px] text-muted-foreground font-medium leading-relaxed">
+              O leitor extrai os dados diretamente da assinatura digital do TSE presente no QR Code impresso na urna. 
+              <strong> Uso exclusivo para fiscais credenciados.</strong>
+            </p>
+          </div>
+        </div>
+      ) : tab === "dashboard" ? (
         <div className="space-y-6 animate-in fade-in duration-500">
           {/* Top KPIs */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
