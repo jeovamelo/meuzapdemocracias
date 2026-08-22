@@ -715,6 +715,67 @@ function Kits() {
   );
 }
 
+function Historico() {
+  const { db } = useStore();
+  
+  const historico = [...(db.historico_estoque || [])].sort((a, b) => 
+    new Date(b.criado_em).getTime() - new Date(a.criado_em).getTime()
+  );
+
+  return (
+    <div className="space-y-3">
+      {historico.length === 0 ? (
+        <div className="rounded-2xl border border-border bg-surface p-8 text-center">
+          <History className="mx-auto mb-3 size-8 text-muted-foreground/30" />
+          <p className="text-sm text-muted-foreground">Nenhuma movimentação registrada.</p>
+        </div>
+      ) : (
+        historico.map((m) => {
+          const material = db.materiais.find((mat) => mat.id === m.material_id);
+          const Icon = material ? iconeCategoria(material.categoria) : Package;
+          
+          return (
+            <div
+              key={m.id}
+              className="flex items-center gap-4 rounded-xl border border-border bg-surface p-4"
+            >
+              <div className={`flex size-10 shrink-0 items-center justify-center rounded-lg ${
+                m.tipo === 'ajuste_inventario' ? 'bg-accent/10 text-accent' :
+                m.diferenca > 0 ? 'bg-green-100 text-green-600' : 'bg-critical/10 text-critical'
+              }`}>
+                <Icon className="size-5" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-2">
+                  <p className="truncate text-sm font-bold">{material?.nome ?? 'Item Removido'}</p>
+                  {m.tipo === 'ajuste_inventario' && (
+                    <Badge variant="outline" className="h-4 rounded-sm border-accent/30 bg-accent/5 px-1 text-[8px] font-black uppercase text-accent">
+                      Ajuste de Inventário
+                    </Badge>
+                  )}
+                </div>
+                <p className="text-[10px] font-medium text-muted-foreground">
+                  {new Date(m.criado_em).toLocaleString('pt-BR')} • {m.observacao}
+                </p>
+              </div>
+              <div className="text-right">
+                <p className={`font-mono text-sm font-black ${
+                  m.diferenca > 0 ? 'text-green-600' : m.diferenca < 0 ? 'text-critical' : 'text-muted-foreground'
+                }`}>
+                  {m.diferenca > 0 ? '+' : ''}{m.diferenca}
+                </p>
+                <p className="text-[9px] uppercase text-muted-foreground">
+                  Saldo: {m.quantidade_nova}
+                </p>
+              </div>
+            </div>
+          );
+        })
+      )}
+    </div>
+  );
+}
+
 function Campo({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="space-y-1.5">
