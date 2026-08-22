@@ -166,23 +166,23 @@ function Dashboard() {
   return (
     <div className="mx-auto w-full md:max-w-screen-xl relative -+">
       <div className="sr-only">
-        Adicione um novo recurso de **"Inventário Físico de Estoque"** na aba/módulo de **Materiais**, permitindo auditorias e recontagens a qualquer momento do dia para corrigir eventuais divergências causadas por saídas aproximadas ou rápidas em campo:
+        Implemente um sistema de **Autenticação via Número do WhatsApp e Senha** para o acesso restrito da plataforma, substituindo ou complementando os métodos tradicionais de login:
 
-1. **Ação de "Realizar Inventário":**
+1. **Tela de Login Personalizada:**
 
-   - Na tela de Materiais, add um botão de destaque chamado **"Realizar Inventário"** ou **"Balanço de Estoque"**.
+   - Crie uma tela de login limpa e focada em dispositivos móveis que solicite apenas dois campos: **Número do WhatsApp** e **Senha**.
 
-   - Ao acionar, abra uma tela ou modal focada onde aparecem **todos os itens ativos** listados com sua foto, tipo, descrição e o estoque atual registrado no sistema.
+   - Adicione uma máscara no campo de WhatsApp (`(00) 00000-0000` ou formato padrão) para padronizar o login.
 
-2. **Recontagem e Ajuste Direto:**
+2. **Regras de Autenticação e Vínculo:**
 
-   - Para cada item, exiba um campo de input numérico claro para o operador digitar a **"Quantidade Real Contada"** (o que foi verificado fisicamente no comitê naquele momento).
+   - O sistema deve buscar na base de dados de usuários/equipe o registro correspondente àquele número de WhatsApp e validar a senha cadastrada.
 
-   - O sistema deve calcular automaticamente a diferença (quebra ou sobra) entre o estoque anterior e a nova contagem informada.
+   - Garanta que colaboradores, líderes ou administradores possam definir ou recuperar sua senha de forma simples.
 
-3. **Confirmação e Histórico de Auditoria:**
+3. **Segurança e Sessão:**
 
-   - Ao finalizar e clicar em "Salvar Inventário", o sistema deve atualizar o estoque oficial para a quantidade informada e registrar um registro automático no histórico de movimentações com a tag **"Ajuste de Inventário"**, garantindo total rastreabilidade e precisão para a campanha.
+   - Após a validação correta do WhatsApp e da senha, o sistema deve autenticar o usuário e redirecioná-lo para o painel restrito, respeitando as permissões do seu perfil (Administrador, Coordenador, etc.).
       </div>
 
       <PageHeader
