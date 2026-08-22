@@ -1,209 +1,241 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { PageHeader } from "@/components/PageHeader";
-import { QrCode, Camera, ShieldCheck, AlertCircle, Search, Info, BarChart } from "lucide-react";
 import { useState } from "react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { PageHeader } from "@/components/PageHeader";
+import { useStore } from "@/lib/store";
+import { formatNumero } from "@/lib/db";
+import { 
+  BarChart3, 
+  Target, 
+  Users, 
+  MapPin, 
+  QrCode, 
+  Clock, 
+  ShieldCheck, 
+  FileText,
+  TrendingUp,
+  ChevronRight,
+  AlertCircle
+} from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { toast } from "sonner";
-import { useStore } from "@/lib/store";
+import { Progress } from "@/components/ui/progress";
+import { 
+  BarChart, 
+  Bar, 
+  XAxis, 
+  YAxis, 
+  CartesianGrid, 
+  Tooltip, 
+  ResponsiveContainer,
+  Cell
+} from "recharts";
 
 export const Route = createFileRoute("/bu/")({
   head: () => ({
-    title: "Leitor Universal de Boletim de Urna (BU) — Inteligência Eleitoral",
+    title: "Apuração Paralela / Quick Count — Inteligência Eleitoral",
     meta: [
-      { name: "description", content: "Auditoria e digitalização rápida de Boletins de Urna (BU) via QR Code oficial do TSE." }
+      { name: "description", content: "Painel de apuração paralela em tempo real e auditoria de Boletins de Urna (BU)." }
     ]
   }),
-  component: LeitorBU,
+  component: ApuracaoParalela,
 });
 
-function LeitorBU() {
+function ApuracaoParalela() {
   const { db } = useStore();
-  const [scanning, setScanning] = useState(false);
-  const [buData, setBuData] = useState<any>(null);
-  const [codigoManual, setCodigoManual] = useState("");
+  const [tab, setTab] = useState<"dashboard" | "boletins">("dashboard");
 
-  const simulatedScan = async () => {
-    setScanning(true);
-    await new Promise(r => setTimeout(r, 2000));
-    
-    // Mock de dados de BU (Baseado no layout do TSE)
-    const mockBU = {
-      pleito: "Eleições Gerais 2026",
-      secao: "0124",
-      zona: "001",
-      municipio: "FORTALEZA",
-      uf: "CE",
-      data: "04/10/2026",
-      hora_abertura: "08:00:00",
-      hora_fechamento: "17:00:00",
-      votos: [
-        { candidato: db.config.candidato_urna || "MISSIAS DIAS", numero: db.config.numero || "13123", total: 184, meta_atingida: true },
-        { candidato: "CANDIDATO B", numero: "99000", total: 42, meta_atingida: false },
-        { candidato: "Nulos", numero: "-", total: 12, meta_atingida: false },
-        { candidato: "Brancos", numero: "-", total: 8, meta_atingida: false },
-      ],
-      total_votos: 246,
-      assinatura_digital: "v3_TSE_7a8b9c0d1e2f..."
-    };
+  const totalSecoesLidas = db.boletins.length;
+  const totalSecoesEstimado = db.config.total_secoes || 500;
+  const progressoSecoes = (totalSecoesLidas / totalSecoesEstimado) * 100;
+  
+  const votosCandidato = db.boletins.reduce((sum, b) => sum + b.votos_candidato, 0);
+  const metaExpectativa = db.config.meta_expectativa || 100000;
+  const progressoVotos = (votosCandidato / metaExpectativa) * 100;
 
-    setBuData(mockBU);
-    setScanning(false);
-    toast.success("Boletim de Urna validado e importado!");
-  };
+  // Dados para o gráfico por município
+  const dadosGrafico = db.cidade_metas
+    .filter(c => c.uf === db.config.uf)
+    .map(c => {
+      const votosNaCidade = db.boletins
+        .filter(b => b.municipio.toLowerCase() === c.municipio.toLowerCase())
+        .reduce((sum, b) => sum + b.votos_candidato, 0);
+      
+      return {
+        name: c.municipio,
+        votos: votosNaCidade,
+        expectativa: c.meta_campanha
+      };
+    })
+    .sort((a, b) => b.votos - a.votos)
+    .slice(0, 6);
 
   return (
     <div className="mx-auto w-full max-w-screen-xl px-5 py-6 mb-24 md:mb-0">
       <PageHeader 
-        eyebrow="Auditoria em Campo"
-        title="Leitor de BU"
+        eyebrow="Quick Count"
+        title="Apuração Paralela"
         right={
-          <Badge variant="outline" className="font-mono gap-1 text-[10px] uppercase border-primary/30 text-primary">
-            <ShieldCheck className="size-3" />
-            V3-TSE Digital
-          </Badge>
+          <div className="flex bg-muted p-1 rounded-xl">
+            <button 
+              onClick={() => setTab("dashboard")}
+              className={`px-4 py-1.5 text-[10px] font-black uppercase rounded-lg transition-all ${tab === "dashboard" ? "bg-background text-primary shadow-sm" : "text-muted-foreground"}`}
+            >
+              Dashboard
+            </button>
+            <button 
+              onClick={() => setTab("boletins")}
+              className={`px-4 py-1.5 text-[10px] font-black uppercase rounded-lg transition-all ${tab === "boletins" ? "bg-background text-primary shadow-sm" : "text-muted-foreground"}`}
+            >
+              Boletins Lidos
+            </button>
+          </div>
         }
       />
 
-      <div className="grid gap-6 md:grid-cols-2">
-        <section className="space-y-4">
-          <Card className="border-2 overflow-hidden bg-surface">
-            <CardHeader className="bg-primary/5 pb-4">
-              <CardTitle className="text-sm font-extrabold uppercase tracking-widest flex items-center gap-2">
-                <Camera className="size-4 text-primary" />
-                Captura Digital
+      {tab === "dashboard" ? (
+        <div className="space-y-6 animate-in fade-in duration-500">
+          {/* Top KPIs */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <Card className="border-2 border-primary/20 bg-primary/5">
+              <CardHeader className="pb-2">
+                <CardDescription className="text-[10px] font-black uppercase text-primary tracking-widest">Votos Computados</CardDescription>
+                <CardTitle className="text-4xl font-black font-mono">{formatNumero(votosCandidato)}</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-2">
+                  <Progress value={progressoVotos} className="h-2 bg-primary/10" />
+                  <p className="text-[10px] font-bold text-muted-foreground uppercase">{progressoVotos.toFixed(1)}% da meta final ({formatNumero(metaExpectativa)})</p>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="border-2">
+              <CardHeader className="pb-2">
+                <CardDescription className="text-[10px] font-black uppercase tracking-widest">Urnas Apuradas</CardDescription>
+                <CardTitle className="text-4xl font-black font-mono">{totalSecoesLidas} <span className="text-lg text-muted-foreground font-normal">/ {totalSecoesEstimado}</span></CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-2">
+                  <Progress value={progressoSecoes} className="h-2" />
+                  <p className="text-[10px] font-bold text-muted-foreground uppercase">{progressoSecoes.toFixed(1)}% das seções registradas</p>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="border-2 bg-accent/5 border-accent/20">
+              <CardHeader className="pb-2">
+                <CardDescription className="text-[10px] font-black uppercase text-accent tracking-widest">Projeção Final</CardDescription>
+                <CardTitle className="text-4xl font-black font-mono">
+                  {formatNumero(progressoSecoes > 0 ? (votosCandidato / totalSecoesLidas) * totalSecoesEstimado : 0)}
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-[10px] font-bold text-accent uppercase flex items-center gap-1">
+                  <TrendingUp className="size-3" />
+                  Baseado na média por seção
+                </p>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Gráfico Comparativo */}
+          <Card className="border-2">
+            <CardHeader>
+              <CardTitle className="text-sm font-black uppercase tracking-widest flex items-center gap-2">
+                <BarChart3 className="size-4 text-primary" />
+                Performance por Município (Top 6)
               </CardTitle>
-              <CardDescription className="text-xs">
-                Aponte a câmera para o QR Code no rodapé do Boletim impresso pela Urna.
-              </CardDescription>
             </CardHeader>
-            <CardContent className="pt-6">
-              <div className="relative aspect-square w-full max-w-[300px] mx-auto rounded-3xl border-4 border-dashed border-primary/20 bg-muted/30 flex items-center justify-center overflow-hidden group">
-                {scanning ? (
-                  <div className="flex flex-col items-center gap-3 animate-pulse">
-                    <QrCode className="size-20 text-primary/40" />
-                    <span className="text-[10px] font-black uppercase tracking-widest text-primary">Escaneando...</span>
-                    <div className="absolute inset-x-0 top-0 bg-gradient-to-b from-transparent via-primary/40 to-transparent h-1 w-full animate-scan-loop" />
-                  </div>
-                ) : buData ? (
-                  <div className="flex flex-col items-center gap-4 text-center p-6">
-                    <div className="size-20 rounded-full bg-green-500/10 flex items-center justify-center">
-                      <ShieldCheck className="size-10 text-green-500" />
-                    </div>
-                    <div>
-                      <p className="font-black text-xl uppercase leading-tight">BU Importado</p>
-                      <p className="text-xs text-muted-foreground">Digitalizado com sucesso</p>
-                    </div>
-                    <Button variant="outline" size="sm" onClick={() => setBuData(null)}>Novo Escaneamento</Button>
-                  </div>
-                ) : (
-                  <div className="flex flex-col items-center gap-4">
-                    <QrCode className="size-24 text-muted-foreground/20 group-hover:text-primary/20 transition-colors" />
-                    <Button className="h-12 px-8 font-bold uppercase gap-2 shadow-xl shadow-primary/20" onClick={simulatedScan}>
-                      Abrir Câmera
-                      <Camera className="size-4" />
-                    </Button>
-                  </div>
-                )}
+            <CardContent>
+              <div className="h-[300px] w-full mt-4">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={dadosGrafico} layout="vertical" margin={{ left: 20, right: 20 }}>
+                    <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} stroke="rgba(0,0,0,0.05)" />
+                    <XAxis type="number" hide />
+                    <YAxis 
+                      dataKey="name" 
+                      type="category" 
+                      width={100} 
+                      axisLine={false}
+                      tickLine={false}
+                      tick={{ fontSize: 10, fontWeight: 900, textTransform: 'uppercase' }}
+                    />
+                    <Tooltip 
+                      cursor={{ fill: 'transparent' }}
+                      content={({ active, payload }) => {
+                        if (active && payload && payload.length) {
+                          return (
+                            <div className="bg-background border-2 border-primary p-3 rounded-xl shadow-xl">
+                              <p className="text-[10px] font-black uppercase mb-1">{payload[0].payload.name}</p>
+                              <div className="space-y-1">
+                                <p className="text-xs font-bold text-primary">Votos: {payload[0].value}</p>
+                                <p className="text-[9px] font-medium text-muted-foreground uppercase">Expectativa: {payload[0].payload.expectativa}</p>
+                              </div>
+                            </div>
+                          );
+                        }
+                        return null;
+                      }}
+                    />
+                    <Bar dataKey="votos" radius={[0, 4, 4, 0]} barSize={24}>
+                      {dadosGrafico.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={entry.votos >= entry.expectativa * (totalSecoesLidas/totalSecoesEstimado) ? 'var(--primary)' : 'var(--accent)'} />
+                      ))}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
               </div>
             </CardContent>
           </Card>
-
-          <div className="rounded-2xl border bg-muted/30 p-4 space-y-3">
-            <div className="flex items-center gap-2 text-[10px] font-bold uppercase text-muted-foreground">
-              <Info className="size-3" />
-              Entrada Manual Alternativa
-            </div>
-            <div className="flex gap-2">
-              <Input 
-                placeholder="Hash da Assinatura Digital..." 
-                value={codigoManual}
-                onChange={e => setCodigoManual(e.target.value)}
-                className="h-10 text-xs font-mono"
-              />
-              <Button size="sm" variant="secondary" className="px-4 font-bold uppercase text-[10px]">Validar</Button>
-            </div>
-          </div>
-        </section>
-
-        <section>
-          {buData ? (
-            <div className="space-y-4 animate-in fade-in slide-in-from-right-4">
-              <Card className="border-2 border-primary/20">
-                <CardHeader className="pb-2 border-b">
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <CardTitle className="text-xl font-black uppercase tracking-tight">Resultado da Seção {buData.secao}</CardTitle>
-                      <CardDescription className="text-xs font-bold uppercase text-primary">{buData.municipio} - {buData.uf} | ZONA {buData.zona}</CardDescription>
-                    </div>
-                    <Badge className="bg-primary hover:bg-primary/90 font-mono">{buData.total_votos} Votos</Badge>
-                  </div>
-                </CardHeader>
-                <CardContent className="pt-4 space-y-6">
-                  <div className="space-y-3">
-                    {buData.votos.map((v: any, i: number) => (
-                      <div key={i} className={`flex items-center justify-between p-3 rounded-xl border-2 transition-all ${v.meta_atingida ? 'border-green-500/30 bg-green-500/5' : 'border-border bg-surface'}`}>
-                        <div className="flex items-center gap-3">
-                          <div className={`size-8 rounded-lg flex items-center justify-center font-black text-xs ${v.meta_atingida ? 'bg-green-500 text-white' : 'bg-muted text-muted-foreground'}`}>
-                            {i + 1}º
-                          </div>
-                          <div>
-                            <p className="font-black text-sm uppercase leading-none mb-1">{v.candidato}</p>
-                            <p className="text-[10px] font-mono text-muted-foreground">Número: {v.numero}</p>
-                          </div>
-                        </div>
-                        <div className="text-right">
-                          <p className="font-black text-xl leading-none">{v.total}</p>
-                          <p className="text-[9px] font-bold uppercase text-muted-foreground">Votos Totais</p>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="p-3 rounded-xl border bg-muted/20">
-                      <p className="text-[9px] font-bold uppercase text-muted-foreground mb-1">Abertura / Fechamento</p>
-                      <p className="font-mono text-[10px] font-bold">{buData.hora_abertura} - {buData.hora_fechamento}</p>
-                    </div>
-                    <div className="p-3 rounded-xl border bg-muted/20">
-                      <p className="text-[9px] font-bold uppercase text-muted-foreground mb-1">Assinatura TSE</p>
-                      <p className="font-mono text-[10px] font-bold truncate">{buData.pleito}</p>
-                    </div>
-                  </div>
-
-                  <Button className="w-full h-12 gap-2 font-black uppercase shadow-lg shadow-primary/10">
-                    Sincronizar com Inteligência Central
-                    <Search className="size-4" />
-                  </Button>
-                </CardContent>
-              </Card>
-
-              <div className="rounded-2xl border-2 border-dashed border-accent/30 p-4 bg-accent/5 flex items-center gap-4">
-                <div className="size-12 rounded-full bg-accent/20 flex items-center justify-center shrink-0">
-                  <BarChart className="size-6 text-accent" />
-                </div>
-                <div>
-                  <p className="text-xs font-black uppercase text-accent">Análise de Performance</p>
-                  <p className="text-[10px] font-medium leading-tight">Este resultado representa 104% da meta esperada para esta seção. Excelente desempenho!</p>
-                </div>
+        </div>
+      ) : (
+        <div className="space-y-4 animate-in fade-in duration-500">
+          {db.boletins.length === 0 ? (
+            <div className="py-20 text-center space-y-4 rounded-3xl border-2 border-dashed">
+              <div className="size-16 rounded-full bg-muted flex items-center justify-center mx-auto">
+                <FileText className="size-8 text-muted-foreground" />
+              </div>
+              <div>
+                <h3 className="text-sm font-black uppercase text-muted-foreground">Nenhum Boletim Registrado</h3>
+                <p className="text-xs text-muted-foreground">Escaneie os QR Codes dos BUs para iniciar a apuração paralela.</p>
               </div>
             </div>
           ) : (
-            <div className="h-full min-h-[400px] flex flex-col items-center justify-center text-center p-8 space-y-4 rounded-3xl border-2 border-dashed border-border bg-muted/10">
-              <div className="size-16 rounded-3xl bg-muted flex items-center justify-center">
-                <AlertCircle className="size-8 text-muted-foreground" />
-              </div>
-              <div>
-                <h3 className="text-sm font-black uppercase tracking-widest text-muted-foreground">Nenhum Boletim Selecionado</h3>
-                <p className="text-xs text-muted-foreground max-w-[200px] mx-auto mt-2">Os dados da apuração aparecerão aqui assim que o escaneamento for concluído.</p>
-              </div>
+            <div className="grid gap-3">
+              {db.boletins.map((bu) => (
+                <Card key={bu.id} className="border-2 overflow-hidden hover:border-primary/40 transition-colors">
+                  <div className="flex flex-col md:flex-row md:items-center p-4 gap-4">
+                    <div className="size-12 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
+                      <QrCode className="size-6 text-primary" />
+                    </div>
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-0.5">
+                        <h4 className="font-black text-sm uppercase">Seção {bu.secao} / Zona {bu.zona}</h4>
+                        <Badge variant="outline" className="text-[9px] uppercase font-mono">{bu.municipio}</Badge>
+                      </div>
+                      <div className="flex items-center gap-3 text-[10px] font-bold text-muted-foreground uppercase">
+                        <span className="flex items-center gap-1"><Clock className="size-3" /> {new Date(bu.data_leitura).toLocaleTimeString()}</span>
+                        <span className="flex items-center gap-1"><ShieldCheck className="size-3 text-green-500" /> TSE Validado</span>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-6 text-right">
+                      <div>
+                        <p className="text-xl font-black font-mono leading-none">{bu.votos_candidato}</p>
+                        <p className="text-[9px] font-bold uppercase text-primary">Votos Candidato</p>
+                      </div>
+                      <div className="border-l pl-6">
+                        <p className="text-xl font-black font-mono leading-none text-muted-foreground">{bu.total_votos}</p>
+                        <p className="text-[9px] font-bold uppercase text-muted-foreground">Total Urna</p>
+                      </div>
+                      <ChevronRight className="size-5 text-muted-foreground" />
+                    </div>
+                  </div>
+                </Card>
+              ))}
             </div>
           )}
-        </section>
-      </div>
+        </div>
+      )}
     </div>
   );
 }
