@@ -32,6 +32,7 @@
   --color-critical: var(--critical);
   --color-critical-foreground: var(--critical-foreground);
   --animate-slide-up: slide-up 0.35s ease-out both;
+  --animate-scan-loop: scan-loop 2s linear infinite;
 
   --color-background: var(--background);
   --color-foreground: var(--foreground);
