@@ -172,6 +172,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         ...p,
         cidade_metas: p.cidade_metas.map((x) => (x.id === id ? { ...x, ...cm } : x)),
       })),
+    updateConfig: (config) =>
+      commit((p) => ({
+        ...p,
+        config: { ...p.config, ...config },
+      })),
     resetarDados: () => commit(() => seed()),
   };
 
