@@ -88,31 +88,37 @@ function Dashboard() {
   return (
     <div className="mx-auto w-full md:max-w-screen-xl relative -+">
       <div className="sr-only">
-        Crie um novo módulo independente no sistema chamado **"Leitor Universal de Boletim de Urna (BU)"**, projetado para uso genérico, rápido e sem exigência de login (acesso público via link direto), com as seguintes especificações técnicas e de negócio:
+        Atualize a tela de configuração inicial de "Cadastrar Campanha" na página Início para buscar e autocompletar os dados oficiais via integração ou estrutura de dados do TSE:
 
-1. **Acesso Público e Leitor de QR Code Universal:**
+1. **Entrada Simplificada por Estado e Número:**
 
-   - A rota do leitor deve ser totalmente aberta (sem tela de login/autenticação), permitindo que qualquer fiscal ou apoiador abra no celular e escaneie imediatamente.
+   - No formulário de cadastro da campanha, o usuário deve informar apenas:
 
-   - Integre uma biblioteca de leitura de câmera focada em **QR Code** (ex: `jsQR` ou `html5-qrcode`).
+     - **Estado (UF)**
 
-   - O QR Code impresso no rodapé do Boletim de Urna oficial da Justiça Eleitoral contém todos os votos de todos os candidatos daquela seção.
+     - **Número do Candidato**
 
-2. **Processamento e Descodificação Genérica do BU:**
+   - Assim que esses dois dados forem preenchidos (ou ao clicar em "Buscar no TSE"), o sistema deve consultar a base de dados de candidaturas para preencher de forma automática os seguintes campos:
 
-   - Ao capturar a imagem do QR Code do BU, o sistema deve decodificar a string oficial gerada pela urna eletrônica (seguindo o padrão de dados públicos do TSE).
+     - **Nome Completo do Candidato**
 
-   - Como o BU é universal e contém o resultado de **todos os partidos e candidatos** daquela seção, o sistema deve processar o payload de forma inteligente:
+     - **Nome de Urna**
 
-     - Extrair automaticamente o identificador da Zona, Seção e Município.
+     - **Cargo**
 
-     - Varrer a lista de votos e cruzar os números/registros com a base de dados de **todos os candidatos** cadastrados no sistema (não apenas o seu).
+     - **Partido / Coligação**
 
-3. **Alimentação Automática e Relatório de Seção:**
+2. **Complementos Manuais da Campanha:**
 
-   - Após a leitura bem-sucedida, exiba instantaneamente na tela um resumo com os votos computados para o seu candidato e uma visão geral dos demais dados da seção (eleitorado, comparecimento).
+   - Deixe visíveis e abertos para o usuário preencher manualmente os dados estratégicos que a justiça eleitoral não possui, mas que são vitais para a gestão:
 
-   - Salve a apuração daquela seção no banco de dados para alimentar o painel de apuração em tempo real, comparando os votos reais das urnas com a expectativa mapeada da campanha.
+     - **Quantidade de Votos para ser Eleito (Meta / Qtd Necessária)**
+
+     - **Quantidade de Votos Esperados (Expectativa Total)**
+
+3. **Restrição de Escopo:**
+
+   - Com o Estado definido por essa configuração, garanta que todas as listagens do sistema (cidades, lideranças, mapa de calor e painel de apuração) filtrem e exibam exclusivamente os municípios pertencentes àquele estado.
       </div>
 
       <PageHeader
