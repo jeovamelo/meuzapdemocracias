@@ -13,6 +13,7 @@ import {
   type Saida,
   type SolicitacaoMaterial,
   type CidadeMeta,
+  type BoletimUrna,
 } from "./db";
 
 type Ctx = {
