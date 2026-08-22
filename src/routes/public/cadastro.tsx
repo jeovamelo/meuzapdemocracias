@@ -45,6 +45,8 @@ function PublicCadastro() {
   const [carregando, setCarregando] = useState(false);
   const [cepLoading, setCepLoading] = useState(false);
   const [abaAtiva, setAbaAtiva] = useState("apoiador");
+  const [scanning, setScanning] = useState(false);
+  const [buData, setBuData] = useState<any>(null);
 
   // Apoiador State
   const [apoiadorForm, setApoiadorForm] = useState({
