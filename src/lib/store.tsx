@@ -12,6 +12,7 @@ import {
   type Pessoa,
   type Saida,
   type SolicitacaoMaterial,
+  type CidadeMeta,
 } from "./db";
 
 type Ctx = {
