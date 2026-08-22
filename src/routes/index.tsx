@@ -166,37 +166,23 @@ function Dashboard() {
   return (
     <div className="mx-auto w-full md:max-w-screen-xl relative -+">
       <div className="sr-only">
-        Atualize a tela de configuração inicial de "Cadastrar Campanha" na página Início para buscar e autocompletar os dados oficiais via integração ou estrutura de dados do TSE:
+        Adicione um novo recurso de **"Inventário Físico de Estoque"** na aba/módulo de **Materiais**, permitindo auditorias e recontagens a qualquer momento do dia para corrigir eventuais divergências causadas por saídas aproximadas ou rápidas em campo:
 
-1. **Entrada Simplificada por Estado e Número:**
+1. **Ação de "Realizar Inventário":**
 
-   - No formulário de cadastro da campanha, o usuário deve informar apenas:
+   - Na tela de Materiais, add um botão de destaque chamado **"Realizar Inventário"** ou **"Balanço de Estoque"**.
 
-     - **Estado (UF)**
+   - Ao acionar, abra uma tela ou modal focada onde aparecem **todos os itens ativos** listados com sua foto, tipo, descrição e o estoque atual registrado no sistema.
 
-     - **Número do Candidato**
+2. **Recontagem e Ajuste Direto:**
 
-   - Assim que esses dois dados forem preenchidos (ou ao clicar em "Buscar no TSE"), o sistema deve consultar a base de dados de candidaturas para preencher de forma automática os seguintes campos:
+   - Para cada item, exiba um campo de input numérico claro para o operador digitar a **"Quantidade Real Contada"** (o que foi verificado fisicamente no comitê naquele momento).
 
-     - **Nome Completo do Candidato**
+   - O sistema deve calcular automaticamente a diferença (quebra ou sobra) entre o estoque anterior e a nova contagem informada.
 
-     - **Nome de Urna**
+3. **Confirmação e Histórico de Auditoria:**
 
-     - **Cargo**
-
-     - **Partido / Coligação**
-
-2. **Complementos Manuais da Campanha:**
-
-   - Deixe visíveis e abertos para o usuário preencher manualmente os dados estratégicos que a justiça eleitoral não possui, mas que são vitais para a gestão:
-
-     - **Quantidade de Votos para ser Eleito (Meta / Qtd Necessária)**
-
-     - **Quantidade de Votos Esperados (Expectativa Total)**
-
-3. **Restrição de Escopo:**
-
-   - Com o Estado definido por essa configuração, garanta que todas as listagens do sistema (cidades, lideranças, mapa de calor e painel de apuração) filtrem e exibam exclusivamente os municípios pertencentes àquele estado.
+   - Ao finalizar e clicar em "Salvar Inventário", o sistema deve atualizar o estoque oficial para a quantidade informada e registrar um registro automático no histórico de movimentações com a tag **"Ajuste de Inventário"**, garantindo total rastreabilidade e precisão para a campanha.
       </div>
 
       <PageHeader
