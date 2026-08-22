@@ -167,6 +167,8 @@ export function seed(): Database {
       cep: "60170-002",
       numero: "1000",
       complemento: "Térreo",
+      meta_votos: 50000,
+      meta_votos_conquistados: 12500,
     },
     {
       id: "c2",
@@ -179,6 +181,8 @@ export function seed(): Database {
       status: "ativo",
       ativo: true,
       cep: "61600-004",
+      meta_votos: 20000,
+      meta_votos_conquistados: 8000,
     },
     {
       id: "c3",
@@ -191,6 +195,8 @@ export function seed(): Database {
       status: "ativo",
       ativo: true,
       cep: "61939-200",
+      meta_votos: 15000,
+      meta_votos_conquistados: 3000,
     },
     {
       id: "c4",
@@ -203,6 +209,8 @@ export function seed(): Database {
       status: "ativo",
       ativo: true,
       cep: "63010-020",
+      meta_votos: 30000,
+      meta_votos_conquistados: 15000,
     },
   ];
 
