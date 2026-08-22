@@ -206,6 +206,7 @@ function PublicCadastro() {
         numero: comiteForm.numero,
         bairro: comiteForm.bairro,
         municipio: comiteForm.municipio,
+        uf: comiteForm.uf || db.config.uf || "CE",
         ponto_referencia: comiteForm.ponto_referencia,
         observacoes: "Cadastro via portal público.",
         status: "pendente_validacao",
