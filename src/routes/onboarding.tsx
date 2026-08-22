@@ -38,6 +38,7 @@ function OnboardingPage() {
     nomeUrna: string;
     cargo: string;
     partido: string;
+    fotoUrl?: string;
   } | null>(null);
 
   const buscarNoTse = async () => {
@@ -48,30 +49,46 @@ function OnboardingPage() {
 
     setIsLoadingTse(true);
     try {
-      // Endpoint público do TSE para divulgação de candidaturas (Exemplo para 2024/2026)
-      // Como a API pode mudar o ID da eleição, isso é um wrapper de simulação baseada na documentação aberta.
-      const eleicaoId = '2045202024'; // ID Fictício / Ano eleitoral genérico para o MVP
-      const response = await fetch(
-        `https://divulgacandcontas.tse.jus.br/divulga/rest/v1/candidatura/buscar/2024/${uf}/${eleicaoId}/candidato/${numero}`
-      ).catch(() => null);
+      // 1. Tenta buscar no proxy do backend (VPS ou localhost)
+      const backendUrl = window.location.hostname === 'localhost' 
+        ? `http://localhost:3001/tse/candidato?uf=${uf}&numero=${numero}`
+        : `/tse/candidato?uf=${uf}&numero=${numero}`;
 
-      if (response && response.ok) {
-        const data = await response.json();
-        // A API do TSE geralmente retorna um objeto complexo. Adaptando para o MVP:
+      let data: any = null;
+
+      try {
+        const response = await fetch(backendUrl);
+        if (response.ok) {
+          const resJson = await response.json();
+          if (resJson.success && resJson.candidate) {
+            data = resJson.candidate;
+          }
+        }
+      } catch (e) {
+        console.warn("Backend proxy offline ou falhou, tentando fallback direto", e);
+      }
+
+      if (data) {
         setCandidateData({
-          nome: data.nomeCompleto || '',
+          nome: data.nome || '',
           nomeUrna: data.nomeUrna || '',
-          cargo: data.cargo?.nome || 'Candidato',
-          partido: data.partido?.sigla || ''
+          cargo: data.cargo || 'Candidato(a)',
+          partido: data.partido || '',
+          fotoUrl: data.fotoUrl || '',
         });
-        toast.success('Dados importados do TSE!');
+        toast.success(`Candidato(a) ${data.nomeUrna || data.nome} localizado no TSE!`);
       } else {
-        throw new Error('Candidato não encontrado na API do TSE.');
+        toast.info('Candidato não encontrado automaticamente no TSE. Você pode preencher os dados manualmente abaixo.');
+        setCandidateData({
+          nome: '',
+          nomeUrna: '',
+          cargo: '',
+          partido: '',
+        });
       }
     } catch (err) {
       console.warn("Falha ao buscar TSE", err);
-      toast.info('Não foi possível buscar os dados automaticamente. Por favor, preencha manualmente.');
-      // Habilita preenchimento manual ativando o form vazio
+      toast.info('Não foi possível conectar ao TSE. Preencha os dados da campanha manualmente.');
       setCandidateData({
         nome: '',
         nomeUrna: '',
@@ -168,11 +185,26 @@ function OnboardingPage() {
             </Button>
           ) : (
             <form onSubmit={handleSave} className="space-y-6 border-t pt-6">
-              <div className="bg-green-50 border border-green-200 rounded-md p-4 flex items-start">
-                <CheckCircle2 className="h-5 w-5 text-green-500 mt-0.5 mr-3 flex-shrink-0" />
+              <div className="bg-green-50 border border-green-200 rounded-md p-4 flex items-center gap-4">
+                {candidateData.fotoUrl ? (
+                  <img 
+                    src={candidateData.fotoUrl} 
+                    alt={candidateData.nomeUrna || "Candidato"} 
+                    className="w-16 h-20 object-cover rounded shadow-sm border border-slate-200"
+                    onError={(e) => {
+                      (e.target as HTMLElement).style.display = 'none';
+                    }}
+                  />
+                ) : (
+                  <CheckCircle2 className="h-6 w-6 text-green-500 flex-shrink-0" />
+                )}
                 <div>
-                  <h4 className="text-sm font-medium text-green-800">Candidato Localizado / Editável</h4>
-                  <p className="text-sm text-green-700 mt-1">Confirme os dados abaixo para criar o ambiente.</p>
+                  <h4 className="text-sm font-medium text-green-800">
+                    {candidateData.nomeUrna ? `Candidato(a): ${candidateData.nomeUrna}` : 'Dados do Candidato / Editável'}
+                  </h4>
+                  <p className="text-xs text-green-700 mt-1">
+                    {candidateData.partido ? `Partido: ${candidateData.partido} | ` : ''}Confirme ou edite os dados para criar o ambiente.
+                  </p>
                 </div>
               </div>
 
