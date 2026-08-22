@@ -114,7 +114,9 @@ function Dashboard() {
 
 4. **Regras de Negócio de Dados:**
 
-   - Quando uma liderança for editada, o sistema deve atualizar o total de votos esperados da cidade pai automaticamente.`}
+   - Quando uma liderança for editada, o sistema deve atualizar o total de votos esperados da cidade pai automaticamente.
+
+crie um item so para administrar potencial de voto`}
       </div>
 
       <PageHeader

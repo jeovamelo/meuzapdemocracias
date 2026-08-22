@@ -25,6 +25,7 @@ export type Comite = {
   ponto_referencia?: string;
   foto?: string;
   meta_votos?: number;
+  meta_votos_conquistados?: number;
 };
 
 export type TipoPessoa = "responsavel" | "apoiador";
@@ -46,6 +47,7 @@ export type Pessoa = {
   zona: string;
   status: "ativo" | "inativo";
   meta_votos?: number;
+  meta_votos_conquistados?: number;
 };
 
 export type SolicitacaoMaterial = {
@@ -165,6 +167,8 @@ export function seed(): Database {
       cep: "60170-002",
       numero: "1000",
       complemento: "Térreo",
+      meta_votos: 50000,
+      meta_votos_conquistados: 12500,
     },
     {
       id: "c2",
@@ -177,6 +181,8 @@ export function seed(): Database {
       status: "ativo",
       ativo: true,
       cep: "61600-004",
+      meta_votos: 20000,
+      meta_votos_conquistados: 8000,
     },
     {
       id: "c3",
@@ -189,6 +195,8 @@ export function seed(): Database {
       status: "ativo",
       ativo: true,
       cep: "61939-200",
+      meta_votos: 15000,
+      meta_votos_conquistados: 3000,
     },
     {
       id: "c4",
@@ -201,6 +209,8 @@ export function seed(): Database {
       status: "ativo",
       ativo: true,
       cep: "63010-020",
+      meta_votos: 30000,
+      meta_votos_conquistados: 15000,
     },
   ];
 
@@ -216,6 +226,8 @@ export function seed(): Database {
       telefone: "85988770011",
       zona: "Zona 001",
       status: "ativo",
+      meta_votos: 5000,
+      meta_votos_conquistados: 1200,
     },
     {
       id: "p2",
@@ -228,6 +240,8 @@ export function seed(): Database {
       telefone: "85987661122",
       zona: "Zona 120",
       status: "ativo",
+      meta_votos: 3000,
+      meta_votos_conquistados: 1500,
     },
     {
       id: "p3",
@@ -240,6 +254,8 @@ export function seed(): Database {
       telefone: "85991234455",
       zona: "Zona 104",
       status: "ativo",
+      meta_votos: 2000,
+      meta_votos_conquistados: 400,
     },
     {
       id: "p4",
@@ -252,6 +268,8 @@ export function seed(): Database {
       telefone: "88994455667",
       zona: "Zona 028",
       status: "ativo",
+      meta_votos: 1000,
+      meta_votos_conquistados: 500,
     },
     {
       id: "p5",
@@ -264,6 +282,8 @@ export function seed(): Database {
       telefone: "85993322110",
       zona: "Zona 002",
       status: "ativo",
+      meta_votos: 500,
+      meta_votos_conquistados: 100,
     },
     {
       id: "p6",
@@ -276,6 +296,8 @@ export function seed(): Database {
       telefone: "85985566778",
       zona: "Zona 120",
       status: "ativo",
+      meta_votos: 800,
+      meta_votos_conquistados: 400,
     },
     {
       id: "p7",
@@ -288,6 +310,8 @@ export function seed(): Database {
       telefone: "85996677889",
       zona: "Zona 104",
       status: "ativo",
+      meta_votos: 1200,
+      meta_votos_conquistados: 300,
     },
     {
       id: "p8",
@@ -300,6 +324,8 @@ export function seed(): Database {
       telefone: "88998877665",
       zona: "Zona 024",
       status: "ativo",
+      meta_votos: 2000,
+      meta_votos_conquistados: 1800,
     },
   ];
 
