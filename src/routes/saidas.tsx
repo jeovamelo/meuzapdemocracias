@@ -132,9 +132,50 @@ function SaidasPage() {
                   </div>
                 </div>
               </article>
+                    })}
+                  </div>
+                </div>
+              </article>
             );
           })
         )}
+
+        <section className="mt-8 space-y-4">
+          <h2 className="text-sm font-extrabold uppercase tracking-wider flex items-center gap-2">
+            <CheckCircle2 className="size-4 text-primary" />
+            Solicitações Pendentes (Portal)
+          </h2>
+          <div className="space-y-3">
+            {db.solicitacoes.filter(s => s.status !== "entregue" && s.status !== "cancelado").map(s => (
+              <div key={s.id} className="rounded-2xl border border-border bg-surface p-4 shadow-sm">
+                <div className="flex justify-between items-start mb-3">
+                  <div>
+                    <p className="text-sm font-bold">{s.nome}</p>
+                    <p className="text-[10px] text-muted-foreground uppercase font-bold">{s.municipio}</p>
+                  </div>
+                  <Badge variant="outline" className="text-[9px] font-black uppercase">
+                    {s.status === "pronto" ? "Pronto para Retirada" : s.status}
+                  </Badge>
+                </div>
+                <div className="space-y-1 mb-3">
+                  {s.itens.map((i, idx) => {
+                    const m = db.materiais.find(mat => mat.id === i.material_id);
+                    return (
+                      <div key={idx} className="flex justify-between text-xs">
+                        <span className="text-muted-foreground">{m?.nome}</span>
+                        <span className="font-mono font-bold">{i.quantidade}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+                <div className="flex items-center gap-2 pt-3 border-t border-border/50 text-[10px] font-bold uppercase text-muted-foreground">
+                  <MapPin className="size-3" />
+                  {s.tipo_logistica === "retirada" ? "Retirada no Comitê" : "Entrega em Domicílio"}
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
       </div>
     </>
   );
