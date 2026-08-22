@@ -44,6 +44,7 @@ export type Pessoa = {
   complemento?: string;
   bairro?: string;
   municipio: string;
+  uf: string;
   telefone: string;
   zona: string;
   status: "ativo" | "inativo";
