@@ -86,6 +86,7 @@ function PublicCadastro() {
     numero: "",
     bairro: "",
     municipio: "Fortaleza",
+    uf: db.config.uf || "CE",
     ponto_referencia: "",
   });
 
