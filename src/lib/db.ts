@@ -24,6 +24,7 @@ export type Comite = {
   cep?: string;
   ponto_referencia?: string;
   foto?: string;
+  meta_votos?: number;
 };
 
 export type TipoPessoa = "responsavel" | "apoiador";
@@ -44,12 +45,15 @@ export type Pessoa = {
   telefone: string;
   zona: string;
   status: "ativo" | "inativo";
+  meta_votos?: number;
 };
 
 export type SolicitacaoMaterial = {
   id: string;
   nome: string;
   comite_id: string;
+  lideranca_id?: string;
+  municipio?: string;
   tipo_material: string;
   quantidade: number;
   status: "pendente" | "entregue" | "cancelado";
