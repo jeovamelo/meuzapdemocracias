@@ -7,7 +7,8 @@ import { Home, MapPin, Users, Package, ArrowRightLeft, Target, QrCode } from "lu
    { to: "/comites", label: "Comitês", icon: MapPin, exact: false },
    { to: "/pessoas", label: "Pessoas", icon: Users, exact: false },
    { to: "/materiais", label: "Materiais", icon: Package, exact: false },
-   { to: "/saidas", label: "Saídas", icon: ArrowRightLeft, exact: false },
+    { to: "/saidas", label: "Saídas", icon: ArrowRightLeft, exact: false },
+    { to: "/bu", label: "Scanner BU", icon: QrCode, exact: false },
  ] as const;
 
 export function BottomNav() {
