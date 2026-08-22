@@ -128,6 +128,7 @@ function PublicCadastro() {
         endereco: enderecoCompleto,
         meta_votos: Number(apoiadorForm.meta_votos),
         municipio: apoiadorForm.cidade || "Ceará",
+        uf: apoiadorForm.uf || db.config.uf || "CE",
         tipo: "apoiador",
         funcao: "Apoiador Voluntário",
         comite_id: db.comites.find(c => c.municipio === apoiadorForm.cidade)?.id || db.comites[0]?.id || "c1",
