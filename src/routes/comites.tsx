@@ -109,6 +109,7 @@ function ComitesPage() {
       whatsapp_coordenador: comite.whatsapp_coordenador || "",
       ponto_referencia: comite.ponto_referencia || "",
       observacoes: comite.observacoes || "",
+      meta_votos: comite.meta_votos || 0,
     });
     setOpen(true);
   }
