@@ -63,8 +63,13 @@ export type SolicitacaoMaterial = {
 export type CategoriaMaterial =
   | "Adesivo (Sanfonado / Pequeno)"
   | "Adesivo de Carro (Perfurado)"
+  | "Adesivo pára-choque"
+  | "Bóton"
   | "Bandeira"
   | "Folder / Santinho / Material Gráfico"
+  | "Santinho"
+  | "Santão"
+  | "Revista dobrada"
   | "Banner / Lona / Grande Formato"
   | "Vestuário (Camiseta, Boné, Colete)"
   | "Sons / Eletrônicos / Equipamentos"
