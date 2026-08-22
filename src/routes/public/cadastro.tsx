@@ -243,7 +243,7 @@ function PublicCadastro() {
         <header className="mx-auto max-w-lg text-center">
           <h1 className="text-3xl font-black uppercase tracking-tight">Portal da Campanha</h1>
           <p className="mt-2 text-primary-foreground/80 font-medium">
-            Fortaleça nosso time no Ceará
+            Fortaleça nosso time em {db.config.uf || "seu estado"}
           </p>
         </header>
       </div>

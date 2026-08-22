@@ -200,10 +200,10 @@ function Dashboard() {
 
       <PageHeader
         eyebrow="Painel Administrativo"
-        title="Gestão Ceará"
+        title={`Gestão ${db.config.uf || "Estadual"}`}
         right={
           <div className="flex items-center gap-2">
-            <span className="hidden font-mono text-xs text-muted-foreground md:inline">CE-LOG V2.0</span>
+            <span className="hidden font-mono text-xs text-muted-foreground md:inline">{db.config.uf || "BR"}-LOG V2.0</span>
             <div className="flex size-10 items-center justify-center rounded-full border border-border bg-surface font-mono text-xs font-bold">
               HQ
             </div>
