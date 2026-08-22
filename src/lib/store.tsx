@@ -38,6 +38,7 @@ type Ctx = {
   updateCidadeMeta: (id: string, cm: Partial<CidadeMeta>) => Promise<void>;
   updateConfig: (config: Partial<ConfigCampanha>) => Promise<void>;
   addBoletim: (b: Omit<BoletimUrna, "id" | "data_leitura">) => Promise<void>;
+  processarInventario: (ajustes: { material_id: string; quantidade_real: number }[]) => Promise<void>;
   resetarDados: () => Promise<void>;
 };
 
