@@ -16,6 +16,7 @@ export type Comite = {
   complemento?: string;
   bairro: string;
   municipio: string;
+  uf: string;
   coordenador: string;
   whatsapp_coordenador?: string;
   observacoes: string;
