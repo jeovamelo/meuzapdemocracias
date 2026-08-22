@@ -105,6 +105,7 @@ function PublicCadastro() {
             endereco: data.logradouro || prev.endereco,
             bairro: data.bairro || prev.bairro,
             municipio: data.localidade || prev.municipio,
+            uf: data.uf || prev.uf,
           }));
           toast.success("Endereço localizado!");
         }
