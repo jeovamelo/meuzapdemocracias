@@ -25,6 +25,7 @@ export type Comite = {
   ponto_referencia?: string;
   foto?: string;
   meta_votos?: number;
+  meta_votos_conquistados?: number;
 };
 
 export type TipoPessoa = "responsavel" | "apoiador";
