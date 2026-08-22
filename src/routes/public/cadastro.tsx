@@ -70,10 +70,12 @@ function PublicCadastro() {
   });
   
   const [passoMaterial, setPassoMaterial] = useState(1); // 1: WhatsApp, 2: Pedido, 3: Logística, 4: Resumo
+  const [passoComite, setPassoComite] = useState(1); // 1: WhatsApp/Responsável, 2: Endereço
 
   // Comitê State
   const [comiteForm, setComiteForm] = useState({
     responsavel: "",
+    whatsapp: "",
     cep: "",
     endereco: "",
     numero: "",
@@ -163,6 +165,7 @@ function PublicCadastro() {
       await addComite({
         nome: `Comitê Popular - ${comiteForm.responsavel}`,
         coordenador: comiteForm.responsavel,
+        whatsapp_coordenador: comiteForm.whatsapp,
         cep: comiteForm.cep,
         endereco: comiteForm.endereco,
         numero: comiteForm.numero,
@@ -505,73 +508,131 @@ function PublicCadastro() {
                 <h2 className="font-extrabold">Comitê Popular</h2>
               </div>
 
-              <form onSubmit={handleComiteSubmit} className="space-y-4">
-                <div className="space-y-1.5">
-                  <Label className="text-[10px] font-bold uppercase text-muted-foreground">Responsável</Label>
-                  <Input 
-                    value={comiteForm.responsavel}
-                    onChange={e => setComiteForm({...comiteForm, responsavel: e.target.value})}
-                    placeholder="Nome completo"
-                    className="h-12 border-2"
-                    required
-                  />
-                </div>
+              <div className="space-y-4">
+                {passoComite === 1 && (
+                  <div className="space-y-4 animate-in fade-in slide-in-from-right-4 duration-300">
+                    <div className="space-y-1.5">
+                      <Label className="text-[10px] font-bold uppercase text-muted-foreground">Número do WhatsApp do Responsável</Label>
+                      <div className="flex gap-2">
+                        <Input 
+                          value={comiteForm.whatsapp}
+                          onChange={e => setComiteForm({...comiteForm, whatsapp: e.target.value})}
+                          placeholder="85 9..."
+                          className="h-12 border-2"
+                        />
+                        <Button 
+                          type="button" 
+                          variant="secondary" 
+                          className="h-12 px-4"
+                          onClick={() => {
+                            const pessoa = db.pessoas.find(p => p.telefone.replace(/\D/g, '') === comiteForm.whatsapp.replace(/\D/g, ''));
+                            if (pessoa) {
+                              setComiteForm({
+                                ...comiteForm,
+                                responsavel: pessoa.nome,
+                              });
+                              toast.success(`Olá ${pessoa.nome}! Vamos cadastrar o comitê.`);
+                              setPassoComite(2);
+                            } else {
+                              toast.error("Responsável não cadastrado como apoiador.");
+                              setAbaAtiva("apoiador");
+                              setApoiadorForm(prev => ({ ...prev, telefone: comiteForm.whatsapp }));
+                            }
+                          }}
+                        >
+                          <Search className="size-4" />
+                        </Button>
+                      </div>
+                      <p className="text-[10px] text-muted-foreground italic">O responsável deve estar cadastrado como apoiador primeiro.</p>
+                    </div>
 
-                <div className="space-y-1.5">
-                  <Label className="text-[10px] font-bold uppercase text-muted-foreground">CEP</Label>
-                  <div className="relative">
-                    <Input 
-                      value={comiteForm.cep}
-                      onChange={e => handleCepLookup(e.target.value)}
-                      placeholder="00000-000"
-                      maxLength={9}
-                      className="h-12 border-2"
-                      required
-                    />
-                    {cepLoading && <Loader2 className="absolute right-3 top-1/2 size-4 -translate-y-1/2 animate-spin text-primary" />}
+                    {comiteForm.responsavel && (
+                      <div className="rounded-xl bg-muted/30 p-4 text-sm border border-border">
+                        <p className="text-[10px] font-bold uppercase text-muted-foreground mb-1">Responsável Identificado</p>
+                        <p className="font-bold">{comiteForm.responsavel}</p>
+                        <Button 
+                          variant="ghost" 
+                          className="mt-2 h-auto p-0 text-[10px] font-black uppercase text-primary underline"
+                          onClick={() => setPassoComite(2)}
+                        >
+                          Continuar para Endereço
+                        </Button>
+                      </div>
+                    )}
                   </div>
-                </div>
+                )}
 
-                <div className="grid grid-cols-3 gap-3">
-                  <div className="col-span-2 space-y-1.5">
-                    <Label className="text-[10px] font-bold uppercase text-muted-foreground">Endereço</Label>
-                    <Input 
-                      value={comiteForm.endereco}
-                      onChange={e => setComiteForm({...comiteForm, endereco: e.target.value})}
-                      className="h-12 border-2"
-                      required
-                    />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label className="text-[10px] font-bold uppercase text-muted-foreground">Nº</Label>
-                    <Input 
-                      value={comiteForm.numero}
-                      onChange={e => setComiteForm({...comiteForm, numero: e.target.value})}
-                      className="h-12 border-2"
-                      required
-                    />
-                  </div>
-                </div>
+                {passoComite === 2 && (
+                  <form onSubmit={handleComiteSubmit} className="space-y-4 animate-in fade-in slide-in-from-right-4 duration-300">
+                    <div className="rounded-xl bg-muted/30 p-4 text-sm border border-border mb-2">
+                      <p className="text-[10px] font-bold uppercase text-muted-foreground mb-1">Responsável</p>
+                      <p className="font-bold">{comiteForm.responsavel}</p>
+                      <button 
+                        type="button"
+                        onClick={() => setPassoComite(1)}
+                        className="mt-1 text-[10px] font-black uppercase text-primary underline"
+                      >
+                        Trocar Responsável
+                      </button>
+                    </div>
 
-                <div className="space-y-1.5">
-                  <Label className="text-[10px] font-bold uppercase text-muted-foreground">Ponto de Referência</Label>
-                  <Input 
-                    value={comiteForm.ponto_referencia}
-                    onChange={e => setComiteForm({...comiteForm, ponto_referencia: e.target.value})}
-                    placeholder="Ex: Perto do mercadinho..."
-                    className="h-12 border-2"
-                  />
-                </div>
+                    <div className="space-y-1.5">
+                      <Label className="text-[10px] font-bold uppercase text-muted-foreground">CEP</Label>
+                      <div className="relative">
+                        <Input 
+                          value={comiteForm.cep}
+                          onChange={e => handleCepLookup(e.target.value)}
+                          placeholder="00000-000"
+                          maxLength={9}
+                          className="h-12 border-2"
+                          required
+                        />
+                        {cepLoading && <Loader2 className="absolute right-3 top-1/2 size-4 -translate-y-1/2 animate-spin text-primary" />}
+                      </div>
+                    </div>
 
-                <div className="rounded-xl border-2 border-dashed border-border p-4 text-center">
-                  <Camera className="mx-auto size-6 text-muted-foreground" />
-                  <span className="mt-1 block text-[10px] font-bold uppercase text-muted-foreground">Foto do Local (Opcional)</span>
-                </div>
+                    <div className="grid grid-cols-3 gap-3">
+                      <div className="col-span-2 space-y-1.5">
+                        <Label className="text-[10px] font-bold uppercase text-muted-foreground">Endereço</Label>
+                        <Input 
+                          value={comiteForm.endereco}
+                          onChange={e => setComiteForm({...comiteForm, endereco: e.target.value})}
+                          className="h-12 border-2"
+                          required
+                        />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label className="text-[10px] font-bold uppercase text-muted-foreground">Nº</Label>
+                        <Input 
+                          value={comiteForm.numero}
+                          onChange={e => setComiteForm({...comiteForm, numero: e.target.value})}
+                          className="h-12 border-2"
+                          required
+                        />
+                      </div>
+                    </div>
 
-                <Button type="submit" className="h-14 w-full text-lg font-black uppercase" disabled={carregando}>
-                  {carregando ? "Enviando..." : "Solicitar Abertura"}
-                </Button>
-              </form>
+                    <div className="space-y-1.5">
+                      <Label className="text-[10px] font-bold uppercase text-muted-foreground">Ponto de Referência</Label>
+                      <Input 
+                        value={comiteForm.ponto_referencia}
+                        onChange={e => setComiteForm({...comiteForm, ponto_referencia: e.target.value})}
+                        placeholder="Ex: Perto do mercadinho..."
+                        className="h-12 border-2"
+                      />
+                    </div>
+
+                    <div className="rounded-xl border-2 border-dashed border-border p-4 text-center">
+                      <Camera className="mx-auto size-6 text-muted-foreground" />
+                      <span className="mt-1 block text-[10px] font-bold uppercase text-muted-foreground">Foto do Local (Opcional)</span>
+                    </div>
+
+                    <Button type="submit" className="h-14 w-full text-lg font-black uppercase" disabled={carregando}>
+                      {carregando ? <Loader2 className="animate-spin" /> : "Solicitar Abertura"}
+                    </Button>
+                  </form>
+                )}
+              </div>
             </TabsContent>
           </div>
         </Tabs>
