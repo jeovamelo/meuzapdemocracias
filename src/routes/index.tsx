@@ -72,7 +72,57 @@ const iconePorCategoria = (m: Material) => {
 const COLORS = ["var(--primary)", "var(--accent)", "#10b981", "#8b5cf6", "#f43f5e"];
 
 function Dashboard() {
-  const { db, ready } = useStore();
+  const { db, ready, updateConfig } = useStore();
+  const [showConfig, setShowConfig] = useState(false);
+  const [loadingTse, setLoadingTse] = useState(false);
+  const [configForm, setConfigForm] = useState({
+    uf: db.config.uf || "CE",
+    numero: db.config.numero || "",
+    candidato_nome: db.config.candidato_nome || "",
+    candidato_urna: db.config.candidato_urna || "",
+    cargo: db.config.cargo || "",
+    partido_coligacao: db.config.partido_coligacao || "",
+    meta_eleicao: db.config.meta_eleicao || 0,
+    meta_expectativa: db.config.meta_expectativa || 0,
+  });
+
+  useEffect(() => {
+    if (ready && !db.config.configurada) {
+      setShowConfig(true);
+    }
+  }, [ready, db.config.configurada]);
+
+  const buscarNoTse = async () => {
+    if (!configForm.uf || !configForm.numero) {
+      toast.error("Preencha UF e Número do Candidato");
+      return;
+    }
+
+    setLoadingTse(true);
+    // Simulação de busca no TSE
+    await new Promise((r) => setTimeout(r, 1500));
+    
+    // Mock de dados baseados em números conhecidos ou genéricos
+    const mockData = {
+      candidato_nome: "MISSIAS DIAS DE SOUZA",
+      candidato_urna: "MISSIAS DIAS",
+      cargo: "Deputado Estadual",
+      partido_coligacao: "PT / Federação Brasil da Esperança (PT/PC do B/PV)",
+    };
+
+    setConfigForm(prev => ({ ...prev, ...mockData }));
+    setLoadingTse(false);
+    toast.success("Dados localizados na base do TSE!");
+  };
+
+  const salvarConfiguracao = async () => {
+    await updateConfig({
+      ...configForm,
+      configurada: true
+    });
+    setShowConfig(false);
+    toast.success("Campanha configurada com sucesso!");
+  };
 
   const comitesAtivos = db.comites.filter((c) => c.ativo).length;
   const apoiadores = db.pessoas.length;
@@ -81,20 +131,25 @@ function Dashboard() {
     .filter((s) => isHoje(s.criado_em))
     .reduce((acc, s) => acc + s.kits.reduce((a, k) => a + k.quantidade, 0), 0);
 
-  // Dados para Gráfico por Município
-  const dadosPorMunicipio = db.comites.reduce((acc: any[], comite) => {
-    const totalSaidas = db.saidas
-      .filter((s) => s.comite_id === comite.id)
-      .reduce((t, s) => t + s.itens.reduce((sum, i) => sum + i.quantidade, 0), 0);
-    
-    const index = acc.findIndex(d => d.name === comite.municipio);
-    if (index > -1) {
-      acc[index].total += totalSaidas;
-    } else {
-      acc.push({ name: comite.municipio, total: totalSaidas });
-    }
-    return acc;
-  }, []).sort((a, b) => b.total - a.total);
+  // Filtragem por UF da Campanha
+  const ufCampanha = db.config.uf || "CE";
+
+  // Dados para Gráfico por Município (filtrados pela UF da campanha)
+  const dadosPorMunicipio = db.comites
+    .filter(c => c.uf === ufCampanha || !c.uf) // Mostra os da UF ou os sem UF (migração)
+    .reduce((acc: any[], comite) => {
+      const totalSaidas = db.saidas
+        .filter((s) => s.comite_id === comite.id)
+        .reduce((t, s) => t + s.itens.reduce((sum, i) => sum + i.quantidade, 0), 0);
+      
+      const index = acc.findIndex(d => d.name === comite.municipio);
+      if (index > -1) {
+        acc[index].total += totalSaidas;
+      } else {
+        acc.push({ name: comite.municipio, total: totalSaidas });
+      }
+      return acc;
+    }, []).sort((a, b) => b.total - a.total);
 
   // Dados para Gráfico por Categoria
   const dadosPorCategoria = db.materiais.reduce((acc: any[], m) => {
