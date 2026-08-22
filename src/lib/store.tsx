@@ -13,6 +13,7 @@ import {
   type Saida,
   type SolicitacaoMaterial,
   type CidadeMeta,
+  type BoletimUrna,
 } from "./db";
 
 type Ctx = {
@@ -36,6 +37,7 @@ type Ctx = {
   updateSolicitacao: (id: string, s: Partial<SolicitacaoMaterial>) => Promise<void>;
   updateCidadeMeta: (id: string, cm: Partial<CidadeMeta>) => Promise<void>;
   updateConfig: (config: Partial<Database["config"]>) => Promise<void>;
+  addBoletim: (b: Omit<BoletimUrna, "id" | "data_leitura">) => Promise<void>;
   resetarDados: () => Promise<void>;
 };
 
@@ -176,6 +178,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       commit((p) => ({
         ...p,
         config: { ...p.config, ...config },
+      })),
+    addBoletim: (b) =>
+      commit((p) => ({
+        ...p,
+        boletins: [{ ...b, id: uid(), data_leitura: new Date().toISOString() }, ...p.boletins],
       })),
     resetarDados: () => commit(() => seed()),
   };

@@ -84,6 +84,7 @@ function Dashboard() {
     partido_coligacao: db.config.partido_coligacao || "",
     meta_eleicao: db.config.meta_eleicao || 0,
     meta_expectativa: db.config.meta_expectativa || 0,
+    total_secoes: db.config.total_secoes || 500,
   });
 
   useEffect(() => {
@@ -544,6 +545,20 @@ function Dashboard() {
                     className="h-12 border-2 font-mono font-bold"
                   />
                   <p className="text-[9px] text-muted-foreground leading-tight italic">Meta agressiva de votos esperados</p>
+                </div>
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-[10px] font-bold uppercase text-muted-foreground">Total de Seções</Label>
+                    <Map className="size-3 text-muted-foreground" />
+                  </div>
+                  <Input 
+                    type="number"
+                    value={configForm.total_secoes}
+                    onChange={e => setConfigForm({...configForm, total_secoes: Number(e.target.value)})}
+                    placeholder="Qtd Seções"
+                    className="h-12 border-2 font-mono font-bold"
+                  />
+                  <p className="text-[9px] text-muted-foreground leading-tight italic">Total de urnas na região de atuação</p>
                 </div>
               </div>
             </section>

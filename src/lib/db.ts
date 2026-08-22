@@ -125,6 +125,21 @@ export type CidadeMeta = {
   realidade_votos: number;
 };
 
+export type BoletimUrna = {
+  id: string;
+  secao: string;
+  zona: string;
+  municipio: string;
+  uf: string;
+  total_votos: number;
+  votos_candidato: number;
+  data_leitura: string;
+  fiscal_id?: string;
+  foto?: string;
+  pleito: string;
+  assinatura_digital: string;
+};
+
 export type ConfigCampanha = {
   id: string;
   candidato_nome: string;
@@ -136,6 +151,7 @@ export type ConfigCampanha = {
   meta_eleicao: number;
   meta_expectativa: number;
   configurada: boolean;
+  total_secoes?: number;
 };
 
 export type Database = {
@@ -147,6 +163,7 @@ export type Database = {
   solicitacoes: SolicitacaoMaterial[];
   cidade_metas: CidadeMeta[];
   config: ConfigCampanha;
+  boletins: BoletimUrna[];
 };
 
 export const CATEGORIAS: CategoriaMaterial[] = [
@@ -559,7 +576,7 @@ export function seed(): Database {
     configurada: true,
   };
 
-  return { comites, pessoas, materiais, kits, saidas, solicitacoes, cidade_metas, config };
+  return { comites, pessoas, materiais, kits, saidas, solicitacoes, cidade_metas, config, boletins: [] };
 }
 
 export function loadDb(): Database {

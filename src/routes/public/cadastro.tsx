@@ -9,8 +9,11 @@ import {
   MapPin, 
   Loader2, 
   Camera,
-  Search
+  Search,
+  QrCode,
+  ShieldCheck
 } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 import { useStore } from "@/lib/store";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -40,11 +43,13 @@ export const Route = createFileRoute("/public/cadastro")({
 });
 
 function PublicCadastro() {
-  const { addPessoa, addComite, addSolicitacao, db } = useStore();
+  const { addPessoa, addComite, addSolicitacao, addBoletim, db } = useStore();
   const [enviado, setEnviado] = useState(false);
   const [carregando, setCarregando] = useState(false);
   const [cepLoading, setCepLoading] = useState(false);
   const [abaAtiva, setAbaAtiva] = useState("apoiador");
+  const [scanning, setScanning] = useState(false);
+  const [buData, setBuData] = useState<any>(null);
 
   // Apoiador State
   const [apoiadorForm, setApoiadorForm] = useState({
@@ -220,6 +225,40 @@ function PublicCadastro() {
     }
   };
 
+  const simulatedScan = async () => {
+    setScanning(true);
+    await new Promise(r => setTimeout(r, 2000));
+    
+    const mockBU = {
+      pleito: "Eleições Gerais 2026",
+      secao: "0124",
+      zona: "001",
+      municipio: "FORTALEZA",
+      uf: db.config.uf || "CE",
+      total_votos: 246,
+      votos_candidato: 184,
+      assinatura_digital: "v3_TSE_7a8b9c0d1e2f..."
+    };
+
+    setBuData(mockBU);
+    setScanning(false);
+    toast.success("Boletim de Urna validado!");
+  };
+
+  const handleBuSubmit = async () => {
+    if (!buData) return;
+    setCarregando(true);
+    try {
+      await addBoletim(buData);
+      setEnviado(true);
+      setBuData(null);
+    } catch (e) {
+      toast.error("Erro ao registrar BU.");
+    } finally {
+      setCarregando(false);
+    }
+  };
+
   if (enviado) {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center px-6 text-center animate-in fade-in zoom-in duration-300">
@@ -250,10 +289,11 @@ function PublicCadastro() {
 
       <div className="mx-auto -mt-8 max-w-lg px-4">
         <Tabs value={abaAtiva} onValueChange={setAbaAtiva} className="w-full">
-          <TabsList className="grid w-full grid-cols-3 rounded-2xl bg-surface h-16 p-2 shadow-xl border border-border">
+          <TabsList className="grid w-full grid-cols-4 rounded-2xl bg-surface h-16 p-2 shadow-xl border border-border">
             <TabsTrigger value="apoiador" className="rounded-xl text-[10px] font-black uppercase">Apoiador</TabsTrigger>
             <TabsTrigger value="material" className="rounded-xl text-[10px] font-black uppercase">Material</TabsTrigger>
             <TabsTrigger value="comite" className="rounded-xl text-[10px] font-black uppercase">Comitê</TabsTrigger>
+            <TabsTrigger value="bu" className="rounded-xl text-[10px] font-black uppercase">Scanner BU</TabsTrigger>
           </TabsList>
 
           <div className="mt-6 rounded-3xl border border-border bg-background p-6 shadow-sm">
@@ -759,9 +799,80 @@ function PublicCadastro() {
                 )}
               </div>
             </TabsContent>
-          </div>
-        </Tabs>
-      </div>
+            <TabsContent value="bu" className="mt-0 space-y-4">
+              <div className="mb-4 flex items-center gap-3">
+                <div className="rounded-lg bg-primary/10 p-2 text-primary">
+                  <QrCode className="size-5" />
+                </div>
+                <h2 className="font-extrabold">Escaneamento de BU</h2>
+              </div>
+              
+              <div className="space-y-6">
+                <div className="relative aspect-square w-full max-w-[280px] mx-auto rounded-3xl border-4 border-dashed border-primary/20 bg-muted/30 flex items-center justify-center overflow-hidden group">
+                  {scanning ? (
+                    <div className="flex flex-col items-center gap-3 animate-pulse">
+                      <QrCode className="size-16 text-primary/40" />
+                      <span className="text-[10px] font-black uppercase tracking-widest text-primary">Escaneando...</span>
+                      <div className="absolute inset-x-0 top-0 bg-gradient-to-b from-transparent via-primary/40 to-transparent h-1 w-full animate-scan-loop" />
+                    </div>
+                  ) : buData ? (
+                    <div className="flex flex-col items-center gap-4 text-center p-6">
+                      <div className="size-16 rounded-full bg-green-500/10 flex items-center justify-center">
+                        <ShieldCheck className="size-8 text-green-500" />
+                      </div>
+                      <div>
+                        <p className="font-black text-lg uppercase leading-tight">BU Digitalizado</p>
+                        <p className="text-[10px] text-muted-foreground uppercase font-bold">Pronto para envio</p>
+                      </div>
+                      <Button variant="outline" size="sm" className="h-9 px-4 text-[10px] font-black uppercase" onClick={() => setBuData(null)}>Repetir</Button>
+                    </div>
+                  ) : (
+                    <div className="flex flex-col items-center gap-4">
+                      <QrCode className="size-20 text-muted-foreground/20 group-hover:text-primary/20 transition-colors" />
+                      <Button className="h-12 px-6 font-bold uppercase gap-2 shadow-xl shadow-primary/20" onClick={simulatedScan}>
+                        Abrir Câmera
+                        <Camera className="size-4" />
+                      </Button>
+                    </div>
+                  )}
+                </div>
+
+                {buData && (
+                  <div className="space-y-4 animate-in fade-in slide-in-from-bottom-2">
+                    <div className="p-4 rounded-2xl border-2 border-primary/20 bg-primary/5 space-y-3">
+                      <div className="flex justify-between items-start">
+                        <div>
+                          <p className="text-xs font-black uppercase tracking-tight">Seção {buData.secao}</p>
+                          <p className="text-[9px] font-bold uppercase text-primary">{buData.municipio}</p>
+                        </div>
+                        <Badge className="font-mono text-[10px]">{buData.total_votos} Votos</Badge>
+                      </div>
+                      <div className="pt-2 border-t border-primary/10 flex justify-between">
+                        <span className="text-[10px] font-bold uppercase text-muted-foreground">Votos {db.config.candidato_urna || 'Candidato'}:</span>
+                        <span className="text-sm font-black text-primary">{buData.votos_candidato}</span>
+                      </div>
+                    </div>
+                    
+                    <Button 
+                      className="h-14 w-full text-lg font-black uppercase gap-2"
+                      onClick={handleBuSubmit}
+                      disabled={carregando}
+                    >
+                      {carregando ? <Loader2 className="size-5 animate-spin" /> : "Enviar Boletim"}
+                    </Button>
+                  </div>
+                )}
+
+                <div className="rounded-2xl border p-4 bg-muted/20 text-center">
+                  <p className="text-[9px] text-muted-foreground font-medium uppercase leading-tight">
+                    O fiscal não precisa estar logado para enviar. A auditoria é feita via assinatura digital do TSE.
+                  </p>
+                </div>
+              </div>
+            </TabsContent>
+            </div>
+          </Tabs>
+        </div>
 
       <div className="mt-10 px-6 text-center">
         <Link to="/" className="text-sm font-mono text-muted-foreground underline">
