@@ -123,6 +123,19 @@ export type CidadeMeta = {
   realidade_votos: number;
 };
 
+export type ConfigCampanha = {
+  id: string;
+  candidato_nome: string;
+  candidato_urna: string;
+  numero: string;
+  cargo: string;
+  partido_coligacao: string;
+  uf: string;
+  meta_eleicao: number;
+  meta_expectativa: number;
+  configurada: boolean;
+};
+
 export type Database = {
   comites: Comite[];
   pessoas: Pessoa[];
@@ -131,6 +144,7 @@ export type Database = {
   saidas: Saida[];
   solicitacoes: SolicitacaoMaterial[];
   cidade_metas: CidadeMeta[];
+  config: ConfigCampanha;
 };
 
 export const CATEGORIAS: CategoriaMaterial[] = [
