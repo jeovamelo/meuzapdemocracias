@@ -21,6 +21,7 @@ type Ctx = {
   updateComite: (id: string, c: Partial<Comite>) => Promise<void>;
   removeComite: (id: string) => Promise<void>;
   addPessoa: (p: Omit<Pessoa, "id" | "status"> & { status?: Pessoa["status"] }) => Promise<void>;
+  updatePessoa: (id: string, p: Partial<Pessoa>) => Promise<void>;
   removePessoa: (id: string) => Promise<void>;
   addMaterial: (m: Omit<Material, "id" | "unidade" | "arquivado">) => Promise<void>;
   updateMaterial: (id: string, m: Partial<Material>) => Promise<void>;
