@@ -132,10 +132,9 @@ function PublicCadastro() {
     }
   };
 
-  const handleSolicitacaoSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!solicitacaoForm.municipio || !solicitacaoForm.tipo_material) {
-      toast.error("Preencha todos os campos.");
+  const handleSolicitacaoSubmit = async () => {
+    if (solicitacaoForm.itens.length === 0) {
+      toast.error("Selecione ao menos um item.");
       return;
     }
     setCarregando(true);
