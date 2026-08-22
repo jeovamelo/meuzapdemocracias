@@ -69,9 +69,9 @@ export const Route = createFileRoute("/materiais")({
 const iconeCategoria = (c: CategoriaMaterial) => {
   if (c.includes("Adesivo")) return FileText;
   if (c.includes("Bandeira")) return Flag;
-  if (c.includes("Santinho")) return FileText;
+  if (c.includes("Santinho") || c === "Santão" || c === "Revista dobrada") return FileText;
   if (c.includes("Banner")) return Flag;
-  if (c.includes("Vestuário")) return Shirt;
+  if (c.includes("Vestuário") || c === "Bóton") return Shirt;
   return Package;
 };
 
