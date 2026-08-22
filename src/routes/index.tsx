@@ -166,33 +166,13 @@ function Dashboard() {
   return (
     <div className="mx-auto w-full md:max-w-screen-xl relative -+">
       <div className="sr-only">
-        Crie uma nova **Landing Page / Página Inicial Pública** do sistema com foco na apresentação da plataforma e no fluxo sequencial de criação de campanha, seguindo rigorosamente estas etapas:
+        Atualize as listagens de **Responsáveis** e **Apoiadores** com o recurso de edição direta:
 
-1. **Apresentação do Sistema:**
+1. **Botão de Edição (Lápis):**
 
-   - A página inicial deve conter uma apresentação clara, moderna e objetiva sobre a plataforma de gestão e inteligência para campanhas eleitorais (incluindo controle de estoque, leitor de boletim de urna/quick count e inteligência de votos).
+   - Adicione um **ícone de lápis (botão de editar)** em cada card ou linha nas abas de Responsáveis e Apoiadores, posicionado ao lado dos botões de ação atuais.
 
-   - No topo ou em destaque, exiba o botão principal: **"Cadastrar Campanha"**.
-
-2. **Passo 1: Credenciais do Administrador (WhatsApp e Senha):**
-
-   - Ao clicar em "Cadastrar Campanha", abra o primeiro passo do fluxo solicitando o **Número do WhatsApp** e a **Senha** do Administrador responsável pela nova campanha.
-
-   - O sistema deve validar que este número de WhatsApp ainda não está vinculado a nenhuma outra campanha (garantindo a exclusividade de 1 número para 1 campanha).
-
-3. **Passo 2: Dados do Candidato (Integração TSE ou Manual):**
-
-   - Logo após definir o WhatsApp e a senha do admin, o fluxo avança para capturar os dados do candidato.
-
-   - Solicite o **Estado (UF)** e o **Número do Candidato**.
-
-   - O sistema deve tentar buscar automaticamente os dados oficiais do TSE/DivulgaCandContas (Nome Completo, Nome de Urna, Cargo e Partido). Caso a busca automática não retorne ou ocorra falha, disponibilize os campos abertos para o preenchimento manual imediato.
-
-   - Solicite também a **Quantidade de Votos para ser Eleito (Meta)** e a **Expectativa Total de Votos**.
-
-4. **Finalização e Autorização Automática:**
-
-   - Ao concluir este cadastro, o criador torna-se o Administrador Master daquela campanha específica, tendo acesso imediato ao painel restrito para começar a gerenciar sua equipe, cidades, estoque e apuração paralela.
+   - Ao clicar no lápis, abra o modal correspondente de cadastro/edição preenchido com todos os dados existentes da pessoa selecionada, permitindo atualizar nome, WhatsApp, endereço, função ou votos de forma rápida e salvar as alterações.
       </div>
 
       <PageHeader
