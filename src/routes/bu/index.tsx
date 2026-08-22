@@ -86,7 +86,7 @@ function LeitorBU() {
                   <div className="flex flex-col items-center gap-3 animate-pulse">
                     <QrCode className="size-20 text-primary/40" />
                     <span className="text-[10px] font-black uppercase tracking-widest text-primary">Escaneando...</span>
-                    <div className="absolute inset-0 bg-gradient-to-b from-transparent via-primary/20 to-transparent h-1/2 w-full animate-scan-loop" />
+                    <div className="absolute inset-x-0 top-0 bg-gradient-to-b from-transparent via-primary/40 to-transparent h-1 w-full animate-scan-loop" />
                   </div>
                 ) : buData ? (
                   <div className="flex flex-col items-center gap-4 text-center p-6">
