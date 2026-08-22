@@ -179,6 +179,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         ...p,
         config: { ...p.config, ...config },
       })),
+    addBoletim: (b) =>
+      commit((p) => ({
+        ...p,
+        boletins: [{ ...b, id: uid(), data_leitura: new Date().toISOString() }, ...p.boletins],
+      })),
     resetarDados: () => commit(() => seed()),
   };
 
