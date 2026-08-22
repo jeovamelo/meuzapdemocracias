@@ -88,35 +88,43 @@ function Dashboard() {
   return (
     <div className="mx-auto w-full md:max-w-screen-xl relative">
       <div className="sr-only">
-        {`Transforme o sistema em uma ferramenta de Inteligência Eleitoral com os seguintes módulos:
+        Atualize o fluxo público do **Portal da Campanha** e o sistema de pedidos com as seguintes melhorias e regras de negócio:
 
-1. **Gestão de Potencial Eleitoral (Cidades e Lideranças):**
+1. **Cadastro de Apoiador Simplificado:**
 
-   - **Cadastro de Cidades:** Adicione campos de "Meta de Votos Esperados" e "Meta de Votos Conquistados". Permita que cada cidade liste suas lideranças vinculadas.
+   - O formulário público de "Apoiador" deve conter exatamente os campos: **Nome Completo**, **WhatsApp**, **Endereço Completo** e **Quantidade de Votos** esperados/comprometidos.
 
-   - **Cadastro de Lideranças:** Vincule cada liderança a uma cidade e adicione campos de "Meta de Votos Pessoais" (que deve ser uma sub-meta da cidade).
+2. **Fluxo Inteligente de Solicitação de Material por WhatsApp:**
 
-   - **Cálculo de Desempenho:** O sistema deve calcular automaticamente a % de atingimento da meta (votos conquistados vs. esperados) tanto para a cidade quanto para a liderança.
+   - O **primeiro campo** da tela de solicitação de material deve ser o **Número do WhatsApp**.
 
-2. **Módulo de Visualização Geográfica (Mapa de Calor do Ceará):**
+   - Ao digitar o WhatsApp, o sistema deve verificar automaticamente na base de dados:
 
-   - Crie uma tela chamada "Painel Estratégico".
+     - Se o número **já estiver cadastrado**, exiba o Nome Completo e o Endereço correspondentes, perguntando: *"As informações estão corretas?"*. Se o usuário confirmar, avance direto para a página de pedidos.
 
-   - **Mapa de Calor:** Integre um componente de mapa (como Leaflet ou um gráfico de mapa do Ceará) que destaque as cidades em tons de cores baseados na "Expectativa de Votos" ou "Atingimento da Meta".
+     - Se o número **não estiver cadastrado**, redirecione o usuário para a etapa de cadastro de apoiador para preencher os dados antes de prosseguir.
 
-   - **Interatividade:** Ao clicar em uma cidade no mapa, abra um *popover* com o resumo: [Nome da Cidade], [Meta Total], [Total Enviado de Material], [Votos Conquistados] e [Lista das principais Lideranças].
+3. **Seleção de Itens e Quantidade:**
 
-3. **Inteligência de Distribuição de Material:**
+   - Na página de pedidos, exiba a lista de **todos os itens disponíveis** no estoque.
 
-   - O sistema deve cruzar o dado de "Material Enviado para a Cidade" with a "Meta de Votos".
+   - Cada item deve ter um campo de **quantidade** para que o apoiador selecione quanto deseja solicitar.
 
-   - Crie uma métrica de "Eficiência de Distribuição": se o material enviado for muito alto e os votos conquistados muito baixos, destacar a cidade em vermelho no mapa (alerta de desperdício ou falha na estratégia).
+4. **Opção de Retirada ou Entrega:**
 
-4. **Regras de Negócio de Dados:**
+   - Após confirmar o pedido de materiais, exiba a opção para o usuário escolher entre: **"Retirar no Comitê"** ou **"Receber no Endereço (Entregador)"**.
 
-   - Quando uma liderança for editada, o sistema deve atualizar o total de votos esperados da cidade pai automaticamente.
+   - **Se escolher via Entregador:**
 
-crie um item so para administrar potencial de voto`}
+     - O sistema deve perguntar se deseja enviar para o **endereço já cadastrado** ou para um **novo endereço**.
+
+     - Caso não haja endereço cadastrado, o fluxo deve encaminhar obrigatoriamente para o preenchimento dos dados.
+
+5. **Resumo, Confirmação e Acompanhamento de Status:**
+
+   - Ao finalizar, exiba uma tela com o **Resumo do Pedido** completo.
+
+   - Implemente um indicador visual de status na interface do apoiador para que, **quando o pedido estiver pronto**, o sistema informe claramente na tela (ex: *"Seu pedido está pronto para retirada/envio!"*).
       </div>
 
       <PageHeader
