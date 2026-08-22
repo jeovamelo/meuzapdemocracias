@@ -57,6 +57,7 @@ function ComitesPage() {
     whatsapp_coordenador: "",
     ponto_referencia: "",
     observacoes: "",
+    meta_votos: 0,
   };
 
   const [form, setForm] = useState(initialForm);

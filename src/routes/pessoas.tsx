@@ -65,6 +65,7 @@ function PessoasPage() {
     municipio: "Fortaleza",
     telefone: "",
     zona: "",
+    meta_votos: 0,
   });
 
   const lista = (tipo: TipoPessoa) =>
@@ -96,6 +97,7 @@ function PessoasPage() {
       municipio: "Fortaleza",
       telefone: "",
       zona: "",
+      meta_votos: 0,
     });
     toast.success("Cadastro realizado.");
   }
