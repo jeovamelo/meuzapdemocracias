@@ -163,7 +163,7 @@ function ApuracaoParalela() {
                     <Tooltip 
                       cursor={{ fill: 'transparent' }}
                       content={({ active, payload }) => {
-                        if (active && payload && payload.length) {
+                        if (active && payload && payload.length && payload[0]) {
                           const data = payload[0].payload;
                           return (
                             <div className="bg-background border-2 border-primary p-3 rounded-xl shadow-xl">
