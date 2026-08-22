@@ -1,9 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useState } from "react";
 import type { ReactNode } from "react";
+import { supabase } from "@/integrations/supabase/client";
 import {
-  loadDb,
-  saveDb,
-  seed,
   uid,
   type Comite,
   type Database,
@@ -14,7 +12,9 @@ import {
   type SolicitacaoMaterial,
   type CidadeMeta,
   type BoletimUrna,
+  type ConfigCampanha,
 } from "./db";
+import { toast } from "sonner";
 
 type Ctx = {
   db: Database;
@@ -36,155 +36,213 @@ type Ctx = {
   addSolicitacao: (s: Omit<SolicitacaoMaterial, "id" | "criado_em" | "status">) => Promise<void>;
   updateSolicitacao: (id: string, s: Partial<SolicitacaoMaterial>) => Promise<void>;
   updateCidadeMeta: (id: string, cm: Partial<CidadeMeta>) => Promise<void>;
-  updateConfig: (config: Partial<Database["config"]>) => Promise<void>;
+  updateConfig: (config: Partial<ConfigCampanha>) => Promise<void>;
   addBoletim: (b: Omit<BoletimUrna, "id" | "data_leitura">) => Promise<void>;
   resetarDados: () => Promise<void>;
 };
 
 const StoreContext = createContext<Ctx | null>(null);
 
-const wait = (ms = 320) => new Promise((r) => setTimeout(r, ms));
+const DEFAULT_CONFIG: ConfigCampanha = {
+  id: "default",
+  candidato_nome: "",
+  candidato_urna: "",
+  numero: "",
+  cargo: "",
+  partido_coligacao: "",
+  uf: "CE",
+  meta_eleicao: 0,
+  meta_expectativa: 0,
+  configurada: false
+};
 
 export function StoreProvider({ children }: { children: ReactNode }) {
-  const [db, setDb] = useState<Database>(() => seed());
+  const [db, setDb] = useState<Database>({
+    comites: [],
+    pessoas: [],
+    materiais: [],
+    kits: [],
+    saidas: [],
+    solicitacoes: [],
+    cidade_metas: [],
+    config: DEFAULT_CONFIG,
+    boletins: [],
+  });
   const [ready, setReady] = useState(false);
 
-  useEffect(() => {
-    setDb(loadDb());
-    setReady(true);
+  const fetchAll = useCallback(async () => {
+    try {
+      const [
+        { data: comites },
+        { data: pessoas },
+        { data: materiais },
+        { data: kits },
+        { data: saidas },
+        { data: solicitacoes },
+        { data: cidade_metas },
+        { data: config },
+        { data: boletins },
+      ] = await Promise.all([
+        supabase.from("comites").select("*").order("criado_em", { ascending: false }),
+        supabase.from("pessoas").select("*").order("criado_em", { ascending: false }),
+        supabase.from("materiais").select("*").order("criado_em", { ascending: false }),
+        supabase.from("kits").select("*").order("criado_em", { ascending: false }),
+        supabase.from("saidas").select("*").order("criado_em", { ascending: false }),
+        supabase.from("solicitacoes").select("*").order("criado_em", { ascending: false }),
+        supabase.from("cidade_metas").select("*").order("criado_em", { ascending: false }),
+        supabase.from("config_campanha").select("*").single(),
+        supabase.from("boletins_urna").select("*").order("data_leitura", { ascending: false }),
+      ]);
+
+      setDb({
+        comites: (comites || []) as any,
+        pessoas: (pessoas || []) as any,
+        materiais: (materiais || []) as any,
+        kits: (kits || []) as any,
+        saidas: (saidas || []) as any,
+        solicitacoes: (solicitacoes || []) as any,
+        cidade_metas: (cidade_metas || []) as any,
+        config: (config || DEFAULT_CONFIG) as any,
+        boletins: (boletins || []) as any,
+      });
+      setReady(true);
+    } catch (error) {
+      console.error("Erro ao carregar dados:", error);
+    }
   }, []);
 
-  const commit = useCallback(
-    async (updater: (prev: Database) => Database) => {
-      await wait();
-      setDb((prev) => {
-        const next = updater(prev);
-        saveDb(next);
-        return next;
-      });
-    },
-    [],
-  );
+  useEffect(() => {
+    fetchAll();
+
+    // Inscrições para Realtime
+    const channels = [
+      supabase.channel('public:comites').on('postgres_changes', { event: '*', schema: 'public', table: 'comites' }, fetchAll),
+      supabase.channel('public:pessoas').on('postgres_changes', { event: '*', schema: 'public', table: 'pessoas' }, fetchAll),
+      supabase.channel('public:materiais').on('postgres_changes', { event: '*', schema: 'public', table: 'materiais' }, fetchAll),
+      supabase.channel('public:saidas').on('postgres_changes', { event: '*', schema: 'public', table: 'saidas' }, fetchAll),
+      supabase.channel('public:solicitacoes').on('postgres_changes', { event: '*', schema: 'public', table: 'solicitacoes' }, fetchAll),
+      supabase.channel('public:boletins_urna').on('postgres_changes', { event: '*', schema: 'public', table: 'boletins_urna' }, fetchAll),
+    ].map(c => c.subscribe());
+
+    return () => {
+      channels.forEach(c => supabase.removeChannel(c));
+    };
+  }, [fetchAll]);
 
   const value: Ctx = {
     db,
     ready,
-    addComite: (c) =>
-      commit((p) => ({
-        ...p,
-        comites: [{ ...c, id: uid(), ativo: c.status === "ativo", status: c.status || "ativo" }, ...p.comites],
-      })),
-    updateComite: (id, c) =>
-      commit((p) => ({
-        ...p,
-        comites: p.comites.map((x) => {
-          if (x.id === id) {
-            const next = { ...x, ...c };
-            if (c.status) next.ativo = c.status === "ativo";
-            return next;
-          }
-          return x;
-        }),
-      })),
-    removeComite: (id) =>
-      commit((p) => ({ ...p, comites: p.comites.filter((c) => c.id !== id) })),
-    addPessoa: (pessoa) =>
-      commit((p) => ({ ...p, pessoas: [{ ...pessoa, id: uid(), status: pessoa.status || "ativo" }, ...p.pessoas] })),
-    updatePessoa: (id, pessoa) =>
-      commit((p) => {
-        const nextPessoas = p.pessoas.map((x) => (x.id === id ? { ...x, ...pessoa } : x));
-        
-        // Regra de Negócio: Atualizar meta do comitê se a meta da liderança mudar
-        if (pessoa.meta_votos !== undefined) {
-          const pEditada = p.pessoas.find(x => x.id === id);
-          if (pEditada) {
-            const comiteId = pEditada.comite_id;
-            const novasMetas = nextPessoas
-              .filter(x => x.comite_id === comiteId)
-              .reduce((sum, x) => sum + (x.meta_votos || 0), 0);
-            
-            return {
-              ...p,
-              pessoas: nextPessoas,
-              comites: p.comites.map(c => c.id === comiteId ? { ...c, meta_votos: novasMetas } : c)
-            };
-          }
+    addComite: async (c) => {
+      const { error } = await supabase.from("comites").insert([{ 
+        ...c, 
+        ativo: c.status === "ativo", 
+        status: c.status || "ativo" 
+      }]);
+      if (error) toast.error("Erro ao adicionar comitê");
+    },
+    updateComite: async (id, c) => {
+      const updateData = { ...c };
+      if (c.status) (updateData as any).ativo = c.status === "ativo";
+      const { error } = await supabase.from("comites").update(updateData).eq("id", id);
+      if (error) toast.error("Erro ao atualizar comitê");
+    },
+    removeComite: async (id) => {
+      const { error } = await supabase.from("comites").delete().eq("id", id);
+      if (error) toast.error("Erro ao remover comitê");
+    },
+    addPessoa: async (pessoa) => {
+      const { error } = await supabase.from("pessoas").insert([{ 
+        ...pessoa, 
+        status: pessoa.status || "ativo" 
+      }]);
+      if (error) toast.error("Erro ao adicionar pessoa");
+    },
+    updatePessoa: async (id, pessoa) => {
+      const { error } = await supabase.from("pessoas").update(pessoa).eq("id", id);
+      if (error) toast.error("Erro ao atualizar pessoa");
+    },
+    removePessoa: async (id) => {
+      const { error } = await supabase.from("pessoas").delete().eq("id", id);
+      if (error) toast.error("Erro ao remover pessoa");
+    },
+    addMaterial: async (m) => {
+      const { error } = await supabase.from("materiais").insert([{ 
+        ...m, 
+        unidade: "un", 
+        arquivado: false 
+      }]);
+      if (error) toast.error("Erro ao adicionar material");
+    },
+    updateMaterial: async (id, m) => {
+      const { error } = await supabase.from("materiais").update(m).eq("id", id);
+      if (error) toast.error("Erro ao atualizar material");
+    },
+    ajustarEstoque: async (id, delta) => {
+      const material = db.materiais.find(m => m.id === id);
+      if (material) {
+        const { error } = await supabase.from("materiais")
+          .update({ estoque: Math.max(0, material.estoque + delta) })
+          .eq("id", id);
+        if (error) toast.error("Erro ao ajustar estoque");
+      }
+    },
+    archiveMaterial: async (id) => {
+      const { error } = await supabase.from("materiais").update({ arquivado: true }).eq("id", id);
+      if (error) toast.error("Erro ao arquivar material");
+    },
+    addKit: async (k) => {
+      const { error } = await supabase.from("kits").insert([{ ...k, arquivado: false }]);
+      if (error) toast.error("Erro ao adicionar kit");
+    },
+    updateKit: async (id, k) => {
+      const { error } = await supabase.from("kits").update(k).eq("id", id);
+      if (error) toast.error("Erro ao atualizar kit");
+    },
+    archiveKit: async (id) => {
+      const { error } = await supabase.from("kits").update({ arquivado: true }).eq("id", id);
+      if (error) toast.error("Erro ao arquivar kit");
+    },
+    registrarSaida: async (s) => {
+      const { error: errorSaida } = await supabase.from("saidas").insert([s]);
+      if (errorSaida) {
+        toast.error("Erro ao registrar saída");
+        return;
+      }
+      
+      // Atualizar estoque dos materiais
+      for (const item of s.itens) {
+        const mat = db.materiais.find(m => m.id === item.material_id);
+        if (mat) {
+          await supabase.from("materiais")
+            .update({ estoque: Math.max(0, mat.estoque - item.quantidade) })
+            .eq("id", mat.id);
         }
-        
-        return { ...p, pessoas: nextPessoas };
-      }),
-    removePessoa: (id) =>
-      commit((p) => ({ ...p, pessoas: p.pessoas.filter((x) => x.id !== id) })),
-    addMaterial: (m) =>
-      commit((p) => ({
-        ...p,
-        materiais: [{ ...m, id: uid(), unidade: "un", arquivado: false }, ...p.materiais],
-      })),
-    updateMaterial: (id, m) =>
-      commit((p) => ({
-        ...p,
-        materiais: p.materiais.map((x) => (x.id === id ? { ...x, ...m } : x)),
-      })),
-    ajustarEstoque: (id, delta) =>
-      commit((p) => ({
-        ...p,
-        materiais: p.materiais.map((m) =>
-          m.id === id ? { ...m, estoque: Math.max(0, m.estoque + delta) } : m,
-        ),
-      })),
-    archiveMaterial: (id) =>
-      commit((p) => ({
-        ...p,
-        materiais: p.materiais.map((m) => (m.id === id ? { ...m, arquivado: true } : m)),
-      })),
-    addKit: (k) => commit((p) => ({ ...p, kits: [{ ...k, id: uid(), arquivado: false }, ...p.kits] })),
-    updateKit: (id, k) =>
-      commit((p) => ({
-        ...p,
-        kits: p.kits.map((x) => (x.id === id ? { ...x, ...k } : x)),
-      })),
-    archiveKit: (id) =>
-      commit((p) => ({
-        ...p,
-        kits: p.kits.map((k) => (k.id === id ? { ...k, arquivado: true } : k)),
-      })),
-    registrarSaida: (s) =>
-      commit((p) => {
-        const saida: Saida = { ...s, id: uid(), criado_em: new Date().toISOString() };
-        const materiais = p.materiais.map((m) => {
-          const total = saida.itens
-            .filter((i) => i.material_id === m.id)
-            .reduce((acc, i) => acc + i.quantidade, 0);
-          return total ? { ...m, estoque: Math.max(0, m.estoque - total) } : m;
-        });
-        return { ...p, materiais, saidas: [saida, ...p.saidas] };
-      }),
-    addSolicitacao: (s) =>
-      commit((p) => ({
-        ...p,
-        solicitacoes: [{ ...s, id: uid(), criado_em: new Date().toISOString(), status: "pendente" }, ...p.solicitacoes],
-      })),
-    updateSolicitacao: (id, s) =>
-      commit((p) => ({
-        ...p,
-        solicitacoes: p.solicitacoes.map((x) => (x.id === id ? { ...x, ...s } : x)),
-      })),
-    updateCidadeMeta: (id, cm) =>
-      commit((p) => ({
-        ...p,
-        cidade_metas: p.cidade_metas.map((x) => (x.id === id ? { ...x, ...cm } : x)),
-      })),
-    updateConfig: (config) =>
-      commit((p) => ({
-        ...p,
-        config: { ...p.config, ...config },
-      })),
-    addBoletim: (b) =>
-      commit((p) => ({
-        ...p,
-        boletins: [{ ...b, id: uid(), data_leitura: new Date().toISOString() }, ...p.boletins],
-      })),
-    resetarDados: () => commit(() => seed()),
+      }
+    },
+    addSolicitacao: async (s) => {
+      const { error } = await supabase.from("solicitacoes").insert([{ ...s, status: "pendente" }]);
+      if (error) toast.error("Erro ao adicionar solicitação");
+    },
+    updateSolicitacao: async (id, s) => {
+      const { error } = await supabase.from("solicitacoes").update(s).eq("id", id);
+      if (error) toast.error("Erro ao atualizar solicitação");
+    },
+    updateCidadeMeta: async (id, cm) => {
+      const { error } = await supabase.from("cidade_metas").update(cm).eq("id", id);
+      if (error) toast.error("Erro ao atualizar meta");
+    },
+    updateConfig: async (config) => {
+      const { error } = await supabase.from("config_campanha").upsert([{ ...db.config, ...config }]);
+      if (error) toast.error("Erro ao atualizar configuração");
+    },
+    addBoletim: async (b) => {
+      const { error } = await supabase.from("boletins_urna").insert([b]);
+      if (error) toast.error("Erro ao registrar boletim");
+    },
+    resetarDados: async () => {
+      // Opcional: Implementar se necessário resetar banco remoto
+      toast.info("Função de reset não disponível para banco real.");
+    },
   };
 
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>;
