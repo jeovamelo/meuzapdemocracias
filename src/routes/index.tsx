@@ -302,7 +302,7 @@ function Dashboard() {
         <section className="animate-slide-up">
           <div className="mb-4 flex items-center justify-between">
             <h2 className="text-sm font-extrabold uppercase tracking-wider">
-              Últimas Saídas
+              Últimas Movimentações
             </h2>
             <Link to="/saidas" className="font-mono text-xs text-muted-foreground">
               VER TUDO
