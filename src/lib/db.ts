@@ -576,7 +576,7 @@ export function seed(): Database {
     configurada: true,
   };
 
-  return { comites, pessoas, materiais, kits, saidas, solicitacoes, cidade_metas, config };
+  return { comites, pessoas, materiais, kits, saidas, solicitacoes, cidade_metas, config, boletins: [] };
 }
 
 export function loadDb(): Database {
