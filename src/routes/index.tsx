@@ -88,25 +88,31 @@ function Dashboard() {
   return (
     <div className="mx-auto w-full md:max-w-screen-xl relative">
       <div className="sr-only">
-        Atualize a aba/formulário público de **"Comitê Popular"** com as seguintes regras de negócio e ordem de campos:
+        Crie um novo módulo no sistema chamado **"Inteligência Eleitoral - Gestão de Votos por Cidade"**, contendo as seguintes funcionalidades e regras:
 
-1. **WhatsApp como Primeiro Campo:**
+1. **Seleção Hierárquica Geográfica:**
 
-   - O primeiro campo do formulário de cadastro de comitê popular deve ser obrigatoriamente o **Número do WhatsApp** do responsável.
+   - Adicione um seletor inicial de **Estado (UF)** (com foco inicial ou padrão para o Ceará).
 
-   - Ao preencher o número do WhatsApp, o sistema deve verificar automaticamente na base de dados de pessoas/apoiadores:
+   - Ao selecionar o estado, exiba uma lista completa com **todas as cidades/municípios** pertencentes a ele.
 
-     - Se o número **já estiver cadastrado**, exiba o nome e os dados já existentes, permitindo avançar para o endereço.
+   - Permita ao administrador gerenciar os dados **cidade por cidade (individualmente)** ou preencher uma **visão geral em lote**, facilitando o preenchimento rápido das expectativas da campanha.
 
-     - Se o número **não estiver cadastrado**, exiba um aviso amigável informando que o responsável precisa estar cadastrado primeiro, bloqueando o envio até que o cadastro prévio seja feito (ou solicitando o nome e dados básicos na mesma hora).
+2. **Métricas e Comparativo de Desempenho (Três Pilares):**
 
-2. **Endereço Completo e CEP:**
+   - Para cada cidade, o sistema deve registrar e exibir visualmente três frentes de dados fundamentais para cruzamento estratégico:
 
-   - Logo após a validação do responsável via WhatsApp, exiba os campos de **CEP** (com busca automática via ViaCEP), **Endereço**, **Número**, **Bairro/Zona** e **Ponto de Referência**.
+     - **Expectativa da Campanha (Meta):** O planejamento estratégico estipulado pela coordenação.
 
-3. **Validação do Administrator:**
+     - **Expectativa dos Apoiadores:** O somatório consolidado dos votos cadastrados pelos apoiadores e lideranças daquela localidade através dos formulários públicos.
 
-   - Mantenha o fluxo onde o comitê popular cadastrado fica com status pendente até que o administrador aprove no painel interno.x'
+     - **Realidade dos Votos (Apurados/Conquistados):** O resultado prático obtido.
+
+   - O sistema deve calcular automaticamente a diferença percentual e absoluta entre a Meta, os Cadastros de Apoiadores e a Realidade, destacando com indicadores visuais (cores/badges) quais cidades estão atingindo o potencial e quais estão abaixo do esperado.
+
+3. **Integração com o Painel Estratégico:**
+
+   - Garanta que esses dados alimentem o painel geográfico e o mapa de calor para que a coordenação saiba exatamente onde intensificar o envio de materiais ou a atuação de lideranças.
       </div>
 
       <PageHeader
