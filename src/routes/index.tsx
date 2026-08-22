@@ -88,39 +88,7 @@ function Dashboard() {
   return (
     <div className="mx-auto w-full md:max-w-screen-xl relative">
       <div className="sr-only">
-        {"Crie uma nova lógica de fluxo para o cadastro de \"Solicitação de Material\" com as seguintes regras de negócio:"}
-        <br />
-        {"1. **Seleção de Localidade e Liderança (Lógica Condicional):**"}
-        <br />
-        {"   - Campo **Cidade/Município**: Seleção obrigatória ou filtro inicial."}
-        <br />
-        {"   - Campo **Liderança**: "}
-        <br />
-        {"     - Deve ser um campo do tipo *Combobox/Select* dinâmico."}
-        <br />
-        {"     - **Regra de Priorização:** Ao listar as lideranças, o sistema deve priorizar automaticamente (exibir no topo da lista) as lideranças vinculadas à cidade selecionada. Se a cidade for 'Fortaleza', priorizar ainda mais as lideranças de lá."}
-        <br />
-        {"     - Se nenhuma cidade for selecionada, listar todas as lideranças cadastradas no sistema."}
-        <br />
-        {"2. **Controle de Metas e Distribuição (Gestão de Votos):**"}
-        <br />
-        {"   - Adicione no cadastro de \"Lideranças\" e de \"Cidades\" um campo chamado **\"Meta de Votos\"** ou **\"Estimativa de Votos\"**."}
-        <br />
-        {"   - No formulário de Solicitação de Material, após selecionar a cidade/liderança, exiba um pequeno card informativo ou *badge* mostrando:"}
-        <br />
-        {"     - \"Votos Estimados: X\""}
-        <br />
-        {"     - \"Material já enviado: Y\""}
-        <br />
-        {"     - \"Status: [Suficiente / Necessita mais]\" (Calculado automaticamente baseando-se em uma regra simples: Material Enviado vs. Estimativa de Votos)."}
-        <br />
-        {"3. **Painel de Controle de Envio:**"}
-        <br />
-        {"   - Na listagem de pedidos, adicione uma coluna que mostre o status da entrega para aquela cidade/liderança, permitindo identificar rapidamente onde a distribuição já foi suficiente ou onde ainda há déficit de material, evitando desperdícios."}
-        <br />
-        {"4. **Banco de Dados:**"}
-        <br />
-        {"   - Certifique-se de que a tabela de \"Solicitações\" esteja vinculada tanto a \"Cidade\" quanto a \"Liderança\" para permitir esses cálculos de balanço de material."}
+        {"segue mais materias Bóton \n\nSantão \n\nRevista dobrada \n\nAdesivo pára-choque \n\nSantinho"}
       </div>
 
       <PageHeader
