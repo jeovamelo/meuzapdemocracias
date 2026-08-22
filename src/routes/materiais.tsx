@@ -91,12 +91,15 @@ function MateriaisPage() {
         }
       />
       <Tabs defaultValue="itens" className="px-5 py-6 pb-10">
-        <TabsList className="grid w-full grid-cols-2 rounded-xl bg-surface">
+        <TabsList className="grid w-full grid-cols-3 rounded-xl bg-surface">
           <TabsTrigger value="itens" className="rounded-lg text-xs font-bold">
             Estoque
           </TabsTrigger>
           <TabsTrigger value="kits" className="rounded-lg text-xs font-bold">
             Kits
+          </TabsTrigger>
+          <TabsTrigger value="historico" className="rounded-lg text-xs font-bold">
+            Histórico
           </TabsTrigger>
         </TabsList>
         <TabsContent value="itens" className="mt-4">
@@ -104,6 +107,9 @@ function MateriaisPage() {
         </TabsContent>
         <TabsContent value="kits" className="mt-4">
           <Kits />
+        </TabsContent>
+        <TabsContent value="historico" className="mt-4">
+          <Historico />
         </TabsContent>
       </Tabs>
     </>
