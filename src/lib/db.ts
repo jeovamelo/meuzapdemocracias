@@ -163,6 +163,7 @@ export type Database = {
   solicitacoes: SolicitacaoMaterial[];
   cidade_metas: CidadeMeta[];
   config: ConfigCampanha;
+  boletins: BoletimUrna[];
 };
 
 export const CATEGORIAS: CategoriaMaterial[] = [
