@@ -114,7 +114,23 @@ function ApuracaoParalela() {
         right={
           <div className="flex bg-muted p-1 rounded-xl">
             <button 
+              onClick={() => setTab("dashboard")}
+              className={`px-4 py-1.5 text-[10px] font-black uppercase rounded-lg transition-all ${tab === "dashboard" ? "bg-background text-primary shadow-sm" : "text-muted-foreground"}`}
+            >
+              Dashboard
+            </button>
+            <button 
+              onClick={() => setTab("boletins")}
+              className={`px-4 py-1.5 text-[10px] font-black uppercase rounded-lg transition-all ${tab === "boletins" ? "bg-background text-primary shadow-sm" : "text-muted-foreground"}`}
+            >
+              Boletins Lidos
+            </button>
+            <button 
               onClick={() => setTab("scanner")}
+              className={`px-4 py-1.5 text-[10px] font-black uppercase rounded-lg transition-all ${tab === "scanner" ? "bg-background text-primary shadow-sm" : "text-muted-foreground"}`}
+            >
+              Scanner
+            </button>
               className={`px-4 py-1.5 text-[10px] font-black uppercase rounded-lg transition-all ${tab === "scanner" ? "bg-background text-primary shadow-sm" : "text-muted-foreground"}`}
             >
               Scanner
