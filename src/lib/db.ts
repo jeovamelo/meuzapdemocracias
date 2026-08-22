@@ -63,8 +63,13 @@ export type SolicitacaoMaterial = {
 export type CategoriaMaterial =
   | "Adesivo (Sanfonado / Pequeno)"
   | "Adesivo de Carro (Perfurado)"
+  | "Adesivo pára-choque"
+  | "Bóton"
   | "Bandeira"
   | "Folder / Santinho / Material Gráfico"
+  | "Santinho"
+  | "Santão"
+  | "Revista dobrada"
   | "Banner / Lona / Grande Formato"
   | "Vestuário (Camiseta, Boné, Colete)"
   | "Sons / Eletrônicos / Equipamentos"
@@ -119,8 +124,13 @@ export type Database = {
 export const CATEGORIAS: CategoriaMaterial[] = [
   "Adesivo (Sanfonado / Pequeno)",
   "Adesivo de Carro (Perfurado)",
+  "Adesivo pára-choque",
+  "Bóton",
   "Bandeira",
   "Folder / Santinho / Material Gráfico",
+  "Santinho",
+  "Santão",
+  "Revista dobrada",
   "Banner / Lona / Grande Formato",
   "Vestuário (Camiseta, Boné, Colete)",
   "Sons / Eletrônicos / Equipamentos",
@@ -354,6 +364,42 @@ export function seed(): Database {
       categoria: "Folder / Santinho / Material Gráfico",
       estoque: 94000,
       estoque_minimo: 20000,
+      unidade: "un",
+      arquivado: false,
+    },
+    {
+      id: "m8",
+      nome: "Bóton 45mm",
+      categoria: "Bóton",
+      estoque: 5000,
+      estoque_minimo: 1000,
+      unidade: "un",
+      arquivado: false,
+    },
+    {
+      id: "m9",
+      nome: "Santão 15x20cm",
+      categoria: "Santão",
+      estoque: 20000,
+      estoque_minimo: 5000,
+      unidade: "un",
+      arquivado: false,
+    },
+    {
+      id: "m10",
+      nome: "Revista da Campanha",
+      categoria: "Revista dobrada",
+      estoque: 3000,
+      estoque_minimo: 500,
+      unidade: "un",
+      arquivado: false,
+    },
+    {
+      id: "m11",
+      nome: "Adesivo de Pára-choque 30x10",
+      categoria: "Adesivo pára-choque",
+      estoque: 1200,
+      estoque_minimo: 300,
       unidade: "un",
       arquivado: false,
     },
