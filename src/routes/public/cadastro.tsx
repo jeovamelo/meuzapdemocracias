@@ -50,21 +50,26 @@ function PublicCadastro() {
   const [apoiadorForm, setApoiadorForm] = useState({
     nome: "",
     telefone: "",
-    bairro: "",
-    zona: "",
+    endereco_completo: "",
+    meta_votos: "0",
   });
   
   const municipios = Array.from(new Set(db.comites.map(c => c.municipio))).sort();
 
   // Solicitação State
   const [solicitacaoForm, setSolicitacaoForm] = useState({
+    whatsapp: "",
     nome: "",
+    endereco: "",
     comite_id: "",
     lideranca_id: "",
     municipio: "",
-    tipo_material: "",
-    quantidade: "1",
+    itens: [] as { material_id: string; quantidade: number }[],
+    tipo_logistica: "retirada" as "retirada" | "entrega",
+    endereco_entrega: "",
   });
+  
+  const [passoMaterial, setPassoMaterial] = useState(1); // 1: WhatsApp, 2: Pedido, 3: Logística, 4: Resumo
 
   // Comitê State
   const [comiteForm, setComiteForm] = useState({
@@ -110,12 +115,14 @@ function PublicCadastro() {
       await addPessoa({
         nome: apoiadorForm.nome,
         telefone: apoiadorForm.telefone,
-        zona: apoiadorForm.zona,
-        municipio: apoiadorForm.bairro || "Fortaleza",
+        endereco: apoiadorForm.endereco_completo,
+        meta_votos: Number(apoiadorForm.meta_votos),
+        municipio: "Ceará", // Simplificado para campo geral
         tipo: "apoiador",
         funcao: "Apoiador Voluntário",
         comite_id: db.comites[0]?.id || "c1",
         status: "ativo",
+        zona: "", // Padrão
       });
       setEnviado(true);
     } catch (error) {
@@ -138,8 +145,9 @@ function PublicCadastro() {
         comite_id: solicitacaoForm.comite_id || db.comites.find(c => c.municipio === solicitacaoForm.municipio)?.id || db.comites[0]?.id || "c1",
         lideranca_id: solicitacaoForm.lideranca_id,
         municipio: solicitacaoForm.municipio,
-        tipo_material: solicitacaoForm.tipo_material,
-        quantidade: Number(solicitacaoForm.quantidade),
+        itens: solicitacaoForm.itens,
+        tipo_logistica: solicitacaoForm.tipo_logistica,
+        endereco_entrega: solicitacaoForm.endereco_entrega,
       });
       setEnviado(true);
     } catch (error) {
@@ -240,26 +248,26 @@ function PublicCadastro() {
                     required
                   />
                 </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="space-y-1.5">
-                    <Label className="text-[10px] font-bold uppercase text-muted-foreground">Bairro</Label>
-                    <Input 
-                      value={apoiadorForm.bairro}
-                      onChange={e => setApoiadorForm({...apoiadorForm, bairro: e.target.value})}
-                      placeholder="Ex: Aldeota"
-                      className="h-12 border-2"
-                      required
-                    />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label className="text-[10px] font-bold uppercase text-muted-foreground">Zona (Opcional)</Label>
-                    <Input 
-                      value={apoiadorForm.zona}
-                      onChange={e => setApoiadorForm({...apoiadorForm, zona: e.target.value})}
-                      placeholder="Ex: 001"
-                      className="h-12 border-2"
-                    />
-                  </div>
+                <div className="space-y-1.5">
+                  <Label className="text-[10px] font-bold uppercase text-muted-foreground">Endereço Completo</Label>
+                  <Input 
+                    value={apoiadorForm.endereco_completo}
+                    onChange={e => setApoiadorForm({...apoiadorForm, endereco_completo: e.target.value})}
+                    placeholder="Rua, Número, Bairro, Cidade"
+                    className="h-12 border-2"
+                    required
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-[10px] font-bold uppercase text-muted-foreground">Quantidade de Votos (Compromisso)</Label>
+                  <Input 
+                    type="number"
+                    value={apoiadorForm.meta_votos}
+                    onChange={e => setApoiadorForm({...apoiadorForm, meta_votos: e.target.value})}
+                    placeholder="0"
+                    className="h-12 border-2"
+                    required
+                  />
                 </div>
                 <Button type="submit" className="h-14 w-full text-lg font-black uppercase" disabled={carregando}>
                   {carregando ? "Enviando..." : "Confirmar Cadastro"}
@@ -275,82 +283,219 @@ function PublicCadastro() {
                 <h2 className="font-extrabold">Solicitar Material</h2>
               </div>
 
-              <form onSubmit={handleSolicitacaoSubmit} className="space-y-4">
-                <div className="space-y-1.5">
-                  <Label className="text-[10px] font-bold uppercase text-muted-foreground">Seu Nome</Label>
-                  <Input 
-                    value={solicitacaoForm.nome}
-                    onChange={e => setSolicitacaoForm({...solicitacaoForm, nome: e.target.value})}
-                    placeholder="Nome completo"
-                    className="h-12 border-2"
-                    required
-                  />
-                </div>
-                
-                <div className="space-y-1.5">
-                  <Label className="text-[10px] font-bold uppercase text-muted-foreground">Cidade / Município</Label>
-                  <Select 
-                    value={solicitacaoForm.municipio} 
-                    onValueChange={v => setSolicitacaoForm({...solicitacaoForm, municipio: v})}
-                  >
-                    <SelectTrigger className="h-12 border-2">
-                      <SelectValue placeholder="Selecione a cidade" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {municipios.map(m => (
-                        <SelectItem key={m} value={m}>{m}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
+              <div className="space-y-4">
+                {passoMaterial === 1 && (
+                  <div className="space-y-4 animate-in fade-in slide-in-from-right-4 duration-300">
+                    <div className="space-y-1.5">
+                      <Label className="text-[10px] font-bold uppercase text-muted-foreground">Número do WhatsApp</Label>
+                      <div className="flex gap-2">
+                        <Input 
+                          value={solicitacaoForm.whatsapp}
+                          onChange={e => setSolicitacaoForm({...solicitacaoForm, whatsapp: e.target.value})}
+                          placeholder="85 9..."
+                          className="h-12 border-2"
+                        />
+                        <Button 
+                          type="button" 
+                          variant="secondary" 
+                          className="h-12 px-4"
+                          onClick={() => {
+                            const pessoa = db.pessoas.find(p => p.telefone.replace(/\D/g, '') === solicitacaoForm.whatsapp.replace(/\D/g, ''));
+                            if (pessoa) {
+                              setSolicitacaoForm({
+                                ...solicitacaoForm,
+                                nome: pessoa.nome,
+                                endereco: pessoa.endereco || "",
+                                municipio: pessoa.municipio
+                              });
+                              toast.success(`Olá ${pessoa.nome}!`);
+                              setPassoMaterial(2);
+                            } else {
+                              toast.error("WhatsApp não cadastrado como apoiador.");
+                              setAbaAtiva("apoiador");
+                              setApoiadorForm(prev => ({ ...prev, telefone: solicitacaoForm.whatsapp }));
+                            }
+                          }}
+                        >
+                          <Search className="size-4" />
+                        </Button>
+                      </div>
+                      <p className="text-[10px] text-muted-foreground italic">Insira seu WhatsApp para começar o pedido.</p>
+                    </div>
+                  </div>
+                )}
 
-                <LiderancaSelect 
-                  municipio={solicitacaoForm.municipio} 
-                  value={solicitacaoForm.lideranca_id}
-                  onChange={v => setSolicitacaoForm({...solicitacaoForm, lideranca_id: v})}
-                  db={db}
-                />
+                {passoMaterial === 2 && (
+                  <div className="space-y-4 animate-in fade-in slide-in-from-right-4 duration-300">
+                    <div className="rounded-xl bg-muted/30 p-4 text-sm border border-border">
+                      <p className="font-bold">{solicitacaoForm.nome}</p>
+                      <p className="text-xs text-muted-foreground">{solicitacaoForm.endereco}</p>
+                      <button 
+                        onClick={() => setPassoMaterial(1)}
+                        className="mt-2 text-[10px] font-black uppercase text-primary underline"
+                      >
+                        Não sou eu / Corrigir
+                      </button>
+                    </div>
 
-                <MetaInfo 
-                  municipio={solicitacaoForm.municipio}
-                  liderancaId={solicitacaoForm.lideranca_id}
-                  db={db}
-                />
+                    <div className="space-y-3">
+                      <Label className="text-[10px] font-bold uppercase text-muted-foreground">Escolha os Materiais</Label>
+                      <div className="grid gap-3">
+                        {db.materiais.filter(m => !m.arquivado).map(m => {
+                          const item = solicitacaoForm.itens.find(i => i.material_id === m.id);
+                          return (
+                            <div key={m.id} className="flex items-center justify-between rounded-xl border border-border p-3 bg-surface">
+                              <div className="flex-1">
+                                <p className="text-xs font-bold leading-tight">{m.nome}</p>
+                                <p className="text-[9px] uppercase text-muted-foreground">{m.categoria}</p>
+                              </div>
+                              <div className="w-20">
+                                <Input 
+                                  type="number"
+                                  min="0"
+                                  placeholder="0"
+                                  className="h-9 border-2 text-center"
+                                  value={item?.quantidade || ""}
+                                  onChange={e => {
+                                    const qty = parseInt(e.target.value) || 0;
+                                    const novosItens = solicitacaoForm.itens.filter(i => i.material_id !== m.id);
+                                    if (qty > 0) {
+                                      novosItens.push({ material_id: m.id, quantidade: qty });
+                                    }
+                                    setSolicitacaoForm({ ...solicitacaoForm, itens: novosItens });
+                                  }}
+                                />
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
 
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="space-y-1.5">
-                    <Label className="text-[10px] font-bold uppercase text-muted-foreground">Tipo</Label>
-                    <Select 
-                      value={solicitacaoForm.tipo_material} 
-                      onValueChange={v => setSolicitacaoForm({...solicitacaoForm, tipo_material: v})}
+                    <Button 
+                      className="h-14 w-full text-lg font-black uppercase" 
+                      onClick={() => {
+                        if (solicitacaoForm.itens.length === 0) {
+                          toast.error("Selecione ao menos um item.");
+                          return;
+                        }
+                        setPassoMaterial(3);
+                      }}
                     >
-                      <SelectTrigger className="h-12 border-2">
-                        <SelectValue placeholder="O que deseja?" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="Adesivo">Adesivo</SelectItem>
-                        <SelectItem value="Bandeira">Bandeira</SelectItem>
-                        <SelectItem value="Folder">Folder</SelectItem>
-                      </SelectContent>
-                    </Select>
+                      Continuar
+                    </Button>
                   </div>
-                  <div className="space-y-1.5">
-                    <Label className="text-[10px] font-bold uppercase text-muted-foreground">Qtd</Label>
-                    <Input 
-                      type="number" 
-                      min="1"
-                      value={solicitacaoForm.quantidade}
-                      onChange={e => setSolicitacaoForm({...solicitacaoForm, quantidade: e.target.value})}
-                      className="h-12 border-2"
-                      required
-                    />
-                  </div>
-                </div>
+                )}
 
-                <Button type="submit" className="h-14 w-full text-lg font-black uppercase" disabled={carregando}>
-                  {carregando ? "Enviando..." : "Solicitar Agora"}
-                </Button>
-              </form>
+                {passoMaterial === 3 && (
+                  <div className="space-y-4 animate-in fade-in slide-in-from-right-4 duration-300">
+                    <div className="space-y-3">
+                      <Label className="text-[10px] font-bold uppercase text-muted-foreground">Forma de Recebimento</Label>
+                      <div className="grid grid-cols-2 gap-3">
+                        <Button 
+                          type="button"
+                          variant={solicitacaoForm.tipo_logistica === "retirada" ? "default" : "outline"}
+                          className="h-20 flex-col gap-2 rounded-2xl"
+                          onClick={() => setSolicitacaoForm({ ...solicitacaoForm, tipo_logistica: "retirada" })}
+                        >
+                          <MapPin className="size-5" />
+                          <span className="text-[10px] font-black uppercase">Retirar no Comitê</span>
+                        </Button>
+                        <Button 
+                          type="button"
+                          variant={solicitacaoForm.tipo_logistica === "entrega" ? "default" : "outline"}
+                          className="h-20 flex-col gap-2 rounded-2xl"
+                          onClick={() => setSolicitacaoForm({ ...solicitacaoForm, tipo_logistica: "entrega" })}
+                        >
+                          <Send className="size-5" />
+                          <span className="text-[10px] font-black uppercase">Receber em Casa</span>
+                        </Button>
+                      </div>
+                    </div>
+
+                    {solicitacaoForm.tipo_logistica === "entrega" && (
+                      <div className="space-y-3 animate-in fade-in duration-300">
+                        <Label className="text-[10px] font-bold uppercase text-muted-foreground">Endereço de Entrega</Label>
+                        <Select 
+                          value={solicitacaoForm.endereco_entrega === solicitacaoForm.endereco ? "atual" : "novo"}
+                          onValueChange={(v) => {
+                            if (v === "atual") setSolicitacaoForm({ ...solicitacaoForm, endereco_entrega: solicitacaoForm.endereco });
+                            else setSolicitacaoForm({ ...solicitacaoForm, endereco_entrega: "" });
+                          }}
+                        >
+                          <SelectTrigger className="h-12 border-2">
+                            <SelectValue placeholder="Onde entregar?" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="atual">Meu endereço cadastrado</SelectItem>
+                            <SelectItem value="novo">Outro endereço</SelectItem>
+                          </SelectContent>
+                        </Select>
+
+                        {solicitacaoForm.endereco_entrega !== solicitacaoForm.endereco && (
+                          <Textarea 
+                            placeholder="Rua, número, bairro, cidade e complemento..."
+                            className="border-2 min-h-[100px]"
+                            value={solicitacaoForm.endereco_entrega}
+                            onChange={e => setSolicitacaoForm({ ...solicitacaoForm, endereco_entrega: e.target.value })}
+                          />
+                        )}
+                      </div>
+                    )}
+
+                    <Button 
+                      className="h-14 w-full text-lg font-black uppercase" 
+                      onClick={() => setPassoMaterial(4)}
+                    >
+                      Revisar Pedido
+                    </Button>
+                  </div>
+                )}
+
+                {passoMaterial === 4 && (
+                  <div className="space-y-4 animate-in fade-in slide-in-from-right-4 duration-300">
+                    <div className="rounded-2xl border-2 border-primary bg-primary/5 p-5">
+                      <h3 className="text-sm font-black uppercase tracking-wider mb-3">Resumo do Pedido</h3>
+                      <div className="space-y-3">
+                        <div className="space-y-1">
+                          <p className="text-[10px] font-bold uppercase text-muted-foreground">Apoiador</p>
+                          <p className="text-sm font-bold">{solicitacaoForm.nome}</p>
+                        </div>
+                        <div className="space-y-1">
+                          <p className="text-[10px] font-bold uppercase text-muted-foreground">Itens</p>
+                          <div className="space-y-1">
+                            {solicitacaoForm.itens.map(i => {
+                              const m = db.materiais.find(mat => mat.id === i.material_id);
+                              return (
+                                <p key={i.material_id} className="text-xs font-medium">
+                                  {i.quantidade}x {m?.nome}
+                                </p>
+                              );
+                            })}
+                          </div>
+                        </div>
+                        <div className="space-y-1">
+                          <p className="text-[10px] font-bold uppercase text-muted-foreground">Logística</p>
+                          <p className="text-sm font-bold">
+                            {solicitacaoForm.tipo_logistica === "retirada" ? "Retirada no Comitê" : `Entrega em: ${solicitacaoForm.endereco_entrega}`}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+
+                    <Button 
+                      className="h-14 w-full text-lg font-black uppercase" 
+                      onClick={handleSolicitacaoSubmit}
+                      disabled={carregando}
+                    >
+                      {carregando ? <Loader2 className="animate-spin" /> : "Confirmar e Finalizar"}
+                    </Button>
+                    <Button variant="ghost" className="w-full text-[10px] font-black uppercase" onClick={() => setPassoMaterial(2)}>
+                      Voltar e Editar
+                    </Button>
+                  </div>
+                )}
+              </div>
             </TabsContent>
 
             <TabsContent value="comite" className="mt-0 space-y-4">
