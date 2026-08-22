@@ -164,12 +164,13 @@ function ApuracaoParalela() {
                       cursor={{ fill: 'transparent' }}
                       content={({ active, payload }) => {
                         if (active && payload && payload.length) {
+                          const data = payload[0].payload;
                           return (
                             <div className="bg-background border-2 border-primary p-3 rounded-xl shadow-xl">
-                              <p className="text-[10px] font-black uppercase mb-1">{payload[0].payload.name}</p>
+                              <p className="text-[10px] font-black uppercase mb-1">{data.name}</p>
                               <div className="space-y-1">
                                 <p className="text-xs font-bold text-primary">Votos: {payload[0].value}</p>
-                                <p className="text-[9px] font-medium text-muted-foreground uppercase">Expectativa: {payload[0].payload.expectativa}</p>
+                                <p className="text-[9px] font-medium text-muted-foreground uppercase">Expectativa: {data.expectativa}</p>
                               </div>
                             </div>
                           );
