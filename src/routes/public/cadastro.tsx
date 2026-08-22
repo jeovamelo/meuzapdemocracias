@@ -40,7 +40,7 @@ export const Route = createFileRoute("/public/cadastro")({
 });
 
 function PublicCadastro() {
-  const { addPessoa, addComite, addSolicitacao, db } = useStore();
+  const { addPessoa, addComite, addSolicitacao, addBoletim, db } = useStore();
   const [enviado, setEnviado] = useState(false);
   const [carregando, setCarregando] = useState(false);
   const [cepLoading, setCepLoading] = useState(false);
