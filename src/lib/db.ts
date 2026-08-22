@@ -56,7 +56,15 @@ export type SolicitacaoMaterial = {
   criado_em: string;
 };
 
-export type CategoriaMaterial = "Papelaria" | "Grande Formato" | "Vestuário";
+export type CategoriaMaterial =
+  | "Adesivo (Sanfonado / Pequeno)"
+  | "Adesivo de Carro (Perfurado)"
+  | "Bandeira"
+  | "Folder / Santinho / Material Gráfico"
+  | "Banner / Lona / Grande Formato"
+  | "Vestuário (Camiseta, Boné, Colete)"
+  | "Sons / Eletrônicos / Equipamentos"
+  | "Outros";
 
 export type Material = {
   id: string;
@@ -65,6 +73,8 @@ export type Material = {
   estoque: number;
   estoque_minimo: number;
   unidade: string;
+  descricao?: string;
+  foto?: string;
   arquivado: boolean;
 };
 
@@ -103,9 +113,14 @@ export type Database = {
 };
 
 export const CATEGORIAS: CategoriaMaterial[] = [
-  "Papelaria",
-  "Grande Formato",
-  "Vestuário",
+  "Adesivo (Sanfonado / Pequeno)",
+  "Adesivo de Carro (Perfurado)",
+  "Bandeira",
+  "Folder / Santinho / Material Gráfico",
+  "Banner / Lona / Grande Formato",
+  "Vestuário (Camiseta, Boné, Colete)",
+  "Sons / Eletrônicos / Equipamentos",
+  "Outros",
 ];
 
 const STORAGE_KEY = "campanha-logistica-db-v1";
@@ -278,7 +293,7 @@ export function seed(): Database {
     {
       id: "m1",
       nome: "Santinho A5 - Candidato 01",
-      categoria: "Papelaria",
+      categoria: "Folder / Santinho / Material Gráfico",
       estoque: 125000,
       estoque_minimo: 50000,
       unidade: "un",
@@ -287,7 +302,7 @@ export function seed(): Database {
     {
       id: "m2",
       nome: "Bandeira 1,0 x 0,7m",
-      categoria: "Grande Formato",
+      categoria: "Bandeira",
       estoque: 1450,
       estoque_minimo: 500,
       unidade: "un",
@@ -296,7 +311,7 @@ export function seed(): Database {
     {
       id: "m3",
       nome: "Adesivo Perfurado 20x10cm",
-      categoria: "Papelaria",
+      categoria: "Adesivo (Sanfonado / Pequeno)",
       estoque: 8600,
       estoque_minimo: 3000,
       unidade: "un",
@@ -305,7 +320,7 @@ export function seed(): Database {
     {
       id: "m4",
       nome: "Camiseta Branca Campanha",
-      categoria: "Vestuário",
+      categoria: "Vestuário (Camiseta, Boné, Colete)",
       estoque: 2400,
       estoque_minimo: 600,
       unidade: "un",
@@ -314,7 +329,7 @@ export function seed(): Database {
     {
       id: "m5",
       nome: "Boné Campanha",
-      categoria: "Vestuário",
+      categoria: "Vestuário (Camiseta, Boné, Colete)",
       estoque: 380,
       estoque_minimo: 500,
       unidade: "un",
@@ -323,7 +338,7 @@ export function seed(): Database {
     {
       id: "m6",
       nome: "Faixa 3x1m Lona",
-      categoria: "Grande Formato",
+      categoria: "Banner / Lona / Grande Formato",
       estoque: 220,
       estoque_minimo: 100,
       unidade: "un",
@@ -332,7 +347,7 @@ export function seed(): Database {
     {
       id: "m7",
       nome: "Panfleto A4 Propostas",
-      categoria: "Papelaria",
+      categoria: "Folder / Santinho / Material Gráfico",
       estoque: 94000,
       estoque_minimo: 20000,
       unidade: "un",

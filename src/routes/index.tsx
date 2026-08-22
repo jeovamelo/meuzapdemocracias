@@ -38,8 +38,14 @@ export const Route = createFileRoute("/")({
   component: Dashboard,
 });
 
-const iconePorCategoria = (m: Material) =>
-  m.categoria === "Papelaria" ? FileText : m.categoria === "Grande Formato" ? Flag : Shirt;
+const iconePorCategoria = (m: Material) => {
+  if (m.categoria.includes("Adesivo")) return FileText;
+  if (m.categoria.includes("Bandeira")) return Flag;
+  if (m.categoria.includes("Santinho")) return FileText;
+  if (m.categoria.includes("Banner")) return Flag;
+  if (m.categoria.includes("Vestuário")) return Shirt;
+  return Package;
+};
 
 const COLORS = ["var(--primary)", "var(--accent)", "#10b981", "#8b5cf6", "#f43f5e"];
 
@@ -82,54 +88,45 @@ function Dashboard() {
   return (
     <div className="mx-auto w-full md:max-w-screen-xl relative">
       <div className="sr-only">
-        {"Atualize o módulo de \"Materiais e Estoque\" com as seguintes melhorias críticas de regras de negócio e usabilidade:"}
+        {"Atualize o modal de \"Novo Material\" com um design mais completo e flexível, incluindo os seguintes campos e melhorias:"}
         <br />
-        {"1. **Edição de Kits:**"}
+        {"1. **Campo de Foto (Upload / Câmera):**"}
         <br />
-        {"   - Na aba \"Kits\", adicione um ícone de edição (lápis) em cada card de kit cadastrado."}
+        {"   - Adicione uma área de destaque no topo do modal para o envio ou captura de foto do material (`<input type=\"file\" accept=\"image/*\" capture=\"environment\">`)."}
         <br />
-        {"   - Ao clicar no lápis, abra o modal de criação/edição de kit já preenchido com seu nome, descrição e os itens/quantidades vinculados, permitindo alterar qualquer dado e salvar as modificações."}
+        {"   - Exiba um preview imediato da imagem selecionada (ou miniatura com botão de remover/trocar)."}
         <br />
-        {"2. **Política de Arquivamento (Substituição de Exclusão):**"}
+        {"2. **Nome e Descrição Detalhada:**"}
         <br />
-        {"   - **Remova** qualquer opção de exclusão definitiva/deleção direta (botão de lixeira) para **Materiais** e **Kits**."}
+        {"   - Mantenha o campo de **Nome do Item**."}
         <br />
-        {"   - No lugar de deletar, substitua a ação por **\"Arquivar\"** (ou adicione um status `arquivado` no banco de dados)."}
+        {"   - Adicione um campo de texto livre de **Descrição / Especificações** (ex: tamanho, cor, material, versão da arte, etc.)."}
         <br />
-        {"   - Materiais ou kits arquivados deixam de aparecer nas listagens ativas do dia a dia, mas o histórico e a integridade das saídas/entradas passadas são preservados por segurança."}
+        {"3. **Categorias Ampliadas (Select rico):**"}
         <br />
-        {"3. **Fluxo de \"Dar Entrada em Estoque\" (Lote):**"}
+        {"   - No campo **Categoria / Tipo de Material**, expanda as opções disponíveis para abranger toda a gama de itens de campanha: - `Bandeiras` - `Bottons` - `Adesivos Carro` - `Adesivos Moto` - `Santinhos` - `Outros`"}
         <br />
-        {"   - Mantenha a tela/modal de entrada em lote listando todos os itens ativos com foto, tipo, descrição, estoque atual e um input numérico livre de \"Quantidade a Adicionar\", processando a soma e registrando no histórico ao confirmar."}
+        {"     - `Adesivo (Sanfonado / Pequeno)`"}
         <br />
-        {"4. **Edição Rápida de Quantidade:**"}
+        {"     - `Adesivo de Carro (Perfurado)`"}
         <br />
-        {"   - Mantenha a possibilidade de editar a quantidade diretamente na listagem de materiais (via input ou clique rápido)."}
+        {"     - `Bandeira`"}
         <br />
+        {"     - `Folder / Santinho / Material Gráfico`"}
         <br />
-        {"Atualize a tela de cadastro na seção de \"Equipe de Campo / Pessoas\" com as seguintes melhorias:"}
+        {"     - `Banner / Lona / Grande Formato`"}
         <br />
-        {"1. **Busca de Endereço via CEP:**"}
+        {"     - `Vestuário (Camiseta, Boné, Colete)`"}
         <br />
-        {"   - No modal de cadastro de pessoa, adicione um campo de **CEP** (com máscara `00000-000`) antes dos campos de endereço."}
+        {"     - `Sons / Eletrônicos / Equipamentos`"}
         <br />
-        {"   - Ao preencher o CEP com 8 dígitos, consuma automaticamente a API pública do ViaCEP (`https://viacep.com.br/ws/{cep}/json/`) para preencher de forma automática os campos de: **Endereço (logradouro)**, **Bairro** e **Município**."}
+        {"     - `Outros`"}
         <br />
-        {"   - Adicione também um campo explícito de **Número** (e opcionalmente Complemento) logo após o endereço, permitindo que o usuário digite o número do imóvel."}
+        {"4. **Controles de Estoque e Organização:**"}
         <br />
-        {"   - Garanta que todos os campos preenchidos automaticamente continuem totalmente editáveis caso o usuário precise fazer ajustes manuais."}
+        {"   - Mantenha os campos de **Estoque Atual** e **Estoque Mínimo**."}
         <br />
-        {"2. **Campo de Função Flexível (Select + Outros):**"}
-        <br />
-        {"   - No campo **Função / Cargo**, substitua o campo de texto livre por um componente que funcione como um seletor inteligente ou permita digitação livre."}
-        <br />
-        {"   - Inclua as opções padrão pré-definidas: `Cabo Eleitoral`, `Apoiador` e `Coordenador`."}
-        <br />
-        {"   - Permita que o usuário selecione uma das opções da lista OU digite livremente caso a função desejada não esteja na lista."}
-        <br />
-        {"3. **Ajustes Gerais:**"}
-        <br />
-        {"   - Organize o layout do modal de forma limpa, em colunas ou seções bem espaçadas (Dados Pessoais, Endereço com CEP, Função e Vínculo com Comitê), mantendo o design responsivo e consistente com o restante da aplicação."}
+        {"   - Garanta que o layout do modal seja responsivo, organizado em duas colunas onde couber, mantendo o botão \"Salvar Material\" bem destacado na parte inferior."}
       </div>
 
       <PageHeader
