@@ -88,45 +88,39 @@ function Dashboard() {
   return (
     <div className="mx-auto w-full md:max-w-screen-xl relative">
       <div className="sr-only">
-        {"Atualize o modal de \"Novo Material\" com um design mais completo e flexível, incluindo os seguintes campos e melhorias:"}
+        {"Crie uma nova lógica de fluxo para o cadastro de \"Solicitação de Material\" com as seguintes regras de negócio:"}
         <br />
-        {"1. **Campo de Foto (Upload / Câmera):**"}
+        {"1. **Seleção de Localidade e Liderança (Lógica Condicional):**"}
         <br />
-        {"   - Adicione uma área de destaque no topo do modal para o envio ou captura de foto do material (`<input type=\"file\" accept=\"image/*\" capture=\"environment\">`)."}
+        {"   - Campo **Cidade/Município**: Seleção obrigatória ou filtro inicial."}
         <br />
-        {"   - Exiba um preview imediato da imagem selecionada (ou miniatura com botão de remover/trocar)."}
+        {"   - Campo **Liderança**: "}
         <br />
-        {"2. **Nome e Descrição Detalhada:**"}
+        {"     - Deve ser um campo do tipo *Combobox/Select* dinâmico."}
         <br />
-        {"   - Mantenha o campo de **Nome do Item**."}
+        {"     - **Regra de Priorização:** Ao listar as lideranças, o sistema deve priorizar automaticamente (exibir no topo da lista) as lideranças vinculadas à cidade selecionada. Se a cidade for 'Fortaleza', priorizar ainda mais as lideranças de lá."}
         <br />
-        {"   - Adicione um campo de texto livre de **Descrição / Especificações** (ex: tamanho, cor, material, versão da arte, etc.)."}
+        {"     - Se nenhuma cidade for selecionada, listar todas as lideranças cadastradas no sistema."}
         <br />
-        {"3. **Categorias Ampliadas (Select rico):**"}
+        {"2. **Controle de Metas e Distribuição (Gestão de Votos):**"}
         <br />
-        {"   - No campo **Categoria / Tipo de Material**, expanda as opções disponíveis para abranger toda a gama de itens de campanha: - `Bandeiras` - `Bottons` - `Adesivos Carro` - `Adesivos Moto` - `Santinhos` - `Outros`"}
+        {"   - Adicione no cadastro de \"Lideranças\" e de \"Cidades\" um campo chamado **\"Meta de Votos\"** ou **\"Estimativa de Votos\"**."}
         <br />
-        {"     - `Adesivo (Sanfonado / Pequeno)`"}
+        {"   - No formulário de Solicitação de Material, após selecionar a cidade/liderança, exiba um pequeno card informativo ou *badge* mostrando:"}
         <br />
-        {"     - `Adesivo de Carro (Perfurado)`"}
+        {"     - \"Votos Estimados: X\""}
         <br />
-        {"     - `Bandeira`"}
+        {"     - \"Material já enviado: Y\""}
         <br />
-        {"     - `Folder / Santinho / Material Gráfico`"}
+        {"     - \"Status: [Suficiente / Necessita mais]\" (Calculado automaticamente baseando-se em uma regra simples: Material Enviado vs. Estimativa de Votos)."}
         <br />
-        {"     - `Banner / Lona / Grande Formato`"}
+        {"3. **Painel de Controle de Envio:**"}
         <br />
-        {"     - `Vestuário (Camiseta, Boné, Colete)`"}
+        {"   - Na listagem de pedidos, adicione uma coluna que mostre o status da entrega para aquela cidade/liderança, permitindo identificar rapidamente onde a distribuição já foi suficiente ou onde ainda há déficit de material, evitando desperdícios."}
         <br />
-        {"     - `Sons / Eletrônicos / Equipamentos`"}
+        {"4. **Banco de Dados:**"}
         <br />
-        {"     - `Outros`"}
-        <br />
-        {"4. **Controles de Estoque e Organização:**"}
-        <br />
-        {"   - Mantenha os campos de **Estoque Atual** e **Estoque Mínimo**."}
-        <br />
-        {"   - Garanta que o layout do modal seja responsivo, organizado em duas colunas onde couber, mantendo o botão \"Salvar Material\" bem destacado na parte inferior."}
+        {"   - Certifique-se de que a tabela de \"Solicitações\" esteja vinculada tanto a \"Cidade\" quanto a \"Liderança\" para permitir esses cálculos de balanço de material."}
       </div>
 
       <PageHeader

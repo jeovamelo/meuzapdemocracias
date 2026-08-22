@@ -65,6 +65,7 @@ function PessoasPage() {
     municipio: "Fortaleza",
     telefone: "",
     zona: "",
+    meta_votos: 0,
   });
 
   const lista = (tipo: TipoPessoa) =>
@@ -96,6 +97,7 @@ function PessoasPage() {
       municipio: "Fortaleza",
       telefone: "",
       zona: "",
+      meta_votos: 0,
     });
     toast.success("Cadastro realizado.");
   }
@@ -158,6 +160,14 @@ function PessoasPage() {
                     />
                   </Campo>
                 </div>
+                <Campo label="Meta de Votos (Estimativa)">
+                  <Input
+                    type="number"
+                    value={form.meta_votos || ""}
+                    onChange={(e) => setForm({ ...form, meta_votos: Number(e.target.value) })}
+                    placeholder="0"
+                  />
+                </Campo>
                 <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                   <Campo label="Telefone / WhatsApp">
                     <Input

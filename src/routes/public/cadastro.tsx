@@ -1,5 +1,5 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { 
   CheckCircle2, 
   UserPlus, 
@@ -53,11 +53,15 @@ function PublicCadastro() {
     bairro: "",
     zona: "",
   });
+  
+  const municipios = Array.from(new Set(db.comites.map(c => c.municipio))).sort();
 
   // Solicitação State
   const [solicitacaoForm, setSolicitacaoForm] = useState({
     nome: "",
     comite_id: "",
+    lideranca_id: "",
+    municipio: "",
     tipo_material: "",
     quantidade: "1",
   });
@@ -123,7 +127,7 @@ function PublicCadastro() {
 
   const handleSolicitacaoSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!solicitacaoForm.comite_id || !solicitacaoForm.tipo_material) {
+    if (!solicitacaoForm.municipio || !solicitacaoForm.tipo_material) {
       toast.error("Preencha todos os campos.");
       return;
     }
@@ -131,7 +135,9 @@ function PublicCadastro() {
     try {
       await addSolicitacao({
         nome: solicitacaoForm.nome,
-        comite_id: solicitacaoForm.comite_id,
+        comite_id: solicitacaoForm.comite_id || db.comites.find(c => c.municipio === solicitacaoForm.municipio)?.id || db.comites[0]?.id || "c1",
+        lideranca_id: solicitacaoForm.lideranca_id,
+        municipio: solicitacaoForm.municipio,
         tipo_material: solicitacaoForm.tipo_material,
         quantidade: Number(solicitacaoForm.quantidade),
       });
@@ -282,21 +288,34 @@ function PublicCadastro() {
                 </div>
                 
                 <div className="space-y-1.5">
-                  <Label className="text-[10px] font-bold uppercase text-muted-foreground">Local de Retirada</Label>
+                  <Label className="text-[10px] font-bold uppercase text-muted-foreground">Cidade / Município</Label>
                   <Select 
-                    value={solicitacaoForm.comite_id} 
-                    onValueChange={v => setSolicitacaoForm({...solicitacaoForm, comite_id: v})}
+                    value={solicitacaoForm.municipio} 
+                    onValueChange={v => setSolicitacaoForm({...solicitacaoForm, municipio: v})}
                   >
                     <SelectTrigger className="h-12 border-2">
-                      <SelectValue placeholder="Selecione o comitê" />
+                      <SelectValue placeholder="Selecione a cidade" />
                     </SelectTrigger>
                     <SelectContent>
-                      {db.comites.filter(c => c.status === "ativo").map(c => (
-                        <SelectItem key={c.id} value={c.id}>{c.nome}</SelectItem>
+                      {municipios.map(m => (
+                        <SelectItem key={m} value={m}>{m}</SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
                 </div>
+
+                <LiderancaSelect 
+                  municipio={solicitacaoForm.municipio} 
+                  value={solicitacaoForm.lideranca_id}
+                  onChange={v => setSolicitacaoForm({...solicitacaoForm, lideranca_id: v})}
+                  db={db}
+                />
+
+                <MetaInfo 
+                  municipio={solicitacaoForm.municipio}
+                  liderancaId={solicitacaoForm.lideranca_id}
+                  db={db}
+                />
 
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-1.5">
@@ -418,6 +437,81 @@ function PublicCadastro() {
         <Link to="/" className="text-sm font-mono text-muted-foreground underline">
           VOLTAR AO ACESSO RESTRITO
         </Link>
+      </div>
+    </div>
+  );
+}
+
+function LiderancaSelect({ municipio, value, onChange, db }: { municipio: string, value: string, onChange: (v: string) => void, db: any }) {
+  const liderancas = useMemo(() => {
+    let list = [...db.pessoas];
+    
+    // Priorização
+    return list.sort((a, b) => {
+      // 1. Prioridade por município selecionado
+      const aMatches = a.municipio === municipio;
+      const bMatches = b.municipio === municipio;
+      if (aMatches && !bMatches) return -1;
+      if (!aMatches && bMatches) return 1;
+
+      // 2. Destaque extra para Fortaleza
+      if (a.municipio === "Fortaleza" && b.municipio !== "Fortaleza") return -1;
+      if (a.municipio !== "Fortaleza" && b.municipio === "Fortaleza") return 1;
+
+      return a.nome.localeCompare(b.nome);
+    });
+  }, [db.pessoas, municipio]);
+
+  return (
+    <div className="space-y-1.5">
+      <Label className="text-[10px] font-bold uppercase text-muted-foreground">Liderança</Label>
+      <Select value={value} onValueChange={onChange}>
+        <SelectTrigger className="h-12 border-2">
+          <SelectValue placeholder="Selecione a liderança" />
+        </SelectTrigger>
+        <SelectContent>
+          {liderancas.map(p => (
+            <SelectItem key={p.id} value={p.id}>
+              {p.nome} {p.municipio ? `(${p.municipio})` : ""}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    </div>
+  );
+}
+
+function MetaInfo({ municipio, liderancaId, db }: { municipio: string, liderancaId: string, db: any }) {
+  if (!municipio && !liderancaId) return null;
+
+  const lideranca = db.pessoas.find((p: any) => p.id === liderancaId);
+  const comiteLocal = db.comites.find((c: any) => c.municipio === municipio);
+  
+  const meta = lideranca?.meta_votos || comiteLocal?.meta_votos || 0;
+  
+  // Cálculo simplificado de material enviado
+  const enviado = db.saidas
+    .filter((s: any) => (liderancaId && s.pessoa_id === liderancaId) || (municipio && !liderancaId && db.comites.find((c: any) => c.id === s.comite_id)?.municipio === municipio))
+    .reduce((acc: number, s: any) => acc + s.itens.reduce((sum: number, i: any) => sum + i.quantidade, 0), 0);
+
+  const status = enviado >= meta && meta > 0 ? "Suficiente" : "Necessita mais";
+  const statusColor = status === "Suficiente" ? "text-green-600 bg-green-50" : "text-amber-600 bg-amber-50";
+
+  return (
+    <div className="rounded-2xl border-2 border-border bg-surface p-4 space-y-2 animate-in fade-in slide-in-from-top-2 duration-300">
+      <div className="flex items-center justify-between">
+        <span className="text-[10px] font-bold uppercase text-muted-foreground">Votos Estimados</span>
+        <span className="font-mono font-bold text-sm">{meta}</span>
+      </div>
+      <div className="flex items-center justify-between">
+        <span className="text-[10px] font-bold uppercase text-muted-foreground">Material já enviado</span>
+        <span className="font-mono font-bold text-sm">{enviado}</span>
+      </div>
+      <div className="flex items-center justify-between pt-1 border-t border-border">
+        <span className="text-[10px] font-bold uppercase text-muted-foreground">Status</span>
+        <span className={`px-2 py-0.5 rounded-full text-[10px] font-black uppercase ${statusColor}`}>
+          {status}
+        </span>
       </div>
     </div>
   );
