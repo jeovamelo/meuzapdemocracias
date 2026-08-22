@@ -41,9 +41,9 @@ export const Route = createFileRoute("/")({
 const iconePorCategoria = (m: Material) => {
   if (m.categoria.includes("Adesivo")) return FileText;
   if (m.categoria.includes("Bandeira")) return Flag;
-  if (m.categoria.includes("Santinho")) return FileText;
+  if (m.categoria.includes("Santinho") || m.categoria === "Santão" || m.categoria === "Revista dobrada") return FileText;
   if (m.categoria.includes("Banner")) return Flag;
-  if (m.categoria.includes("Vestuário")) return Shirt;
+  if (m.categoria.includes("Vestuário") || m.categoria === "Bóton") return Shirt;
   return Package;
 };
 
