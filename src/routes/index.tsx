@@ -166,23 +166,33 @@ function Dashboard() {
   return (
     <div className="mx-auto w-full md:max-w-screen-xl relative -+">
       <div className="sr-only">
-        Implemente um sistema de **Autenticação via Número do WhatsApp e Senha** para o acesso restrito da plataforma, substituindo ou complementando os métodos tradicionais de login:
+        Crie uma nova **Landing Page / Página Inicial Pública** do sistema com foco na apresentação da plataforma e no fluxo sequencial de criação de campanha, seguindo rigorosamente estas etapas:
 
-1. **Tela de Login Personalizada:**
+1. **Apresentação do Sistema:**
 
-   - Crie uma tela de login limpa e focada em dispositivos móveis que solicite apenas dois campos: **Número do WhatsApp** e **Senha**.
+   - A página inicial deve conter uma apresentação clara, moderna e objetiva sobre a plataforma de gestão e inteligência para campanhas eleitorais (incluindo controle de estoque, leitor de boletim de urna/quick count e inteligência de votos).
 
-   - Adicione uma máscara no campo de WhatsApp (`(00) 00000-0000` ou formato padrão) para padronizar o login.
+   - No topo ou em destaque, exiba o botão principal: **"Cadastrar Campanha"**.
 
-2. **Regras de Autenticação e Vínculo:**
+2. **Passo 1: Credenciais do Administrador (WhatsApp e Senha):**
 
-   - O sistema deve buscar na base de dados de usuários/equipe o registro correspondente àquele número de WhatsApp e validar a senha cadastrada.
+   - Ao clicar em "Cadastrar Campanha", abra o primeiro passo do fluxo solicitando o **Número do WhatsApp** e a **Senha** do Administrador responsável pela nova campanha.
 
-   - Garanta que colaboradores, líderes ou administradores possam definir ou recuperar sua senha de forma simples.
+   - O sistema deve validar que este número de WhatsApp ainda não está vinculado a nenhuma outra campanha (garantindo a exclusividade de 1 número para 1 campanha).
 
-3. **Segurança e Sessão:**
+3. **Passo 2: Dados do Candidato (Integração TSE ou Manual):**
 
-   - Após a validação correta do WhatsApp e da senha, o sistema deve autenticar o usuário e redirecioná-lo para o painel restrito, respeitando as permissões do seu perfil (Administrador, Coordenador, etc.).
+   - Logo após definir o WhatsApp e a senha do admin, o fluxo avança para capturar os dados do candidato.
+
+   - Solicite o **Estado (UF)** e o **Número do Candidato**.
+
+   - O sistema deve tentar buscar automaticamente os dados oficiais do TSE/DivulgaCandContas (Nome Completo, Nome de Urna, Cargo e Partido). Caso a busca automática não retorne ou ocorra falha, disponibilize os campos abertos para o preenchimento manual imediato.
+
+   - Solicite também a **Quantidade de Votos para ser Eleito (Meta)** e a **Expectativa Total de Votos**.
+
+4. **Finalização e Autorização Automática:**
+
+   - Ao concluir este cadastro, o criador torna-se o Administrador Master daquela campanha específica, tendo acesso imediato ao painel restrito para começar a gerenciar sua equipe, cidades, estoque e apuração paralela.
       </div>
 
       <PageHeader
