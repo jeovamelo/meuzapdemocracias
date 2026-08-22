@@ -132,10 +132,6 @@ function SaidasPage() {
                   </div>
                 </div>
               </article>
-                    })}
-                  </div>
-                </div>
-              </article>
             );
           })
         )}
