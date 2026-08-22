@@ -115,8 +115,10 @@ function Estoque() {
   const [busca, setBusca] = useState("");
   const [open, setOpen] = useState(false);
   const [openEntrada, setOpenEntrada] = useState(false);
+  const [openInventario, setOpenInventario] = useState(false);
   const [salvando, setSalvando] = useState(false);
   const [entradas, setEntradas] = useState<Record<string, string>>({});
+  const [inventario, setInventario] = useState<Record<string, string>>({});
   
   const [form, setForm] = useState<{
     nome: string;
