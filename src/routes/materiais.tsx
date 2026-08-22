@@ -195,6 +195,27 @@ function Estoque() {
     toast.success("Estoque atualizado com sucesso.");
   }
 
+  async function processarInventarioFisico() {
+    setSalvando(true);
+    const ajustes = Object.entries(inventario)
+      .filter(([_, qtd]) => qtd.trim() !== "")
+      .map(([id, qtd]) => ({
+        material_id: id,
+        quantidade_real: Number(qtd),
+      }));
+
+    if (ajustes.length > 0) {
+      await ajustarEstoqueGlobal(ajustes);
+      toast.success("Inventário processado com sucesso.");
+    }
+
+    setSalvando(false);
+    setOpenInventario(false);
+    setInventario({});
+  }
+
+  const { processarInventario: ajustarEstoqueGlobal } = useStore();
+
   return (
     <div className="space-y-3">
       <div className="relative">
@@ -207,7 +228,7 @@ function Estoque() {
         />
       </div>
 
-      <div className="grid grid-cols-2 gap-2">
+      <div className="grid grid-cols-2 gap-2 md:grid-cols-3">
         <Dialog open={open} onOpenChange={setOpen}>
           <DialogTrigger className="flex items-center justify-center gap-2 rounded-xl bg-foreground px-4 py-4 text-xs font-bold text-background transition-transform active:scale-95">
             Novo Material
@@ -375,6 +396,79 @@ function Estoque() {
               >
                 {salvando && <Loader2 className="size-4 animate-spin" />}
                 Confirmar Entradas
+              </button>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        <Dialog open={openInventario} onOpenChange={setOpenInventario}>
+          <DialogTrigger className="flex items-center justify-center gap-2 rounded-xl bg-accent text-accent-foreground px-4 py-4 text-xs font-bold transition-transform active:scale-95 md:col-span-1">
+            Realizar Inventário
+            <Package className="size-4" />
+          </DialogTrigger>
+          <DialogContent className="max-h-[85vh] max-w-[500px] overflow-y-auto rounded-2xl">
+            <DialogHeader>
+              <DialogTitle>Balanço de Estoque</DialogTitle>
+              <DialogDescription>
+                Auditoria física: informe a quantidade real contada no comitê.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div className="divide-y divide-border">
+                {ativos.map((m) => {
+                  const valorContado = inventario[m.id] !== undefined ? Number(inventario[m.id]) : null;
+                  const diferenca = valorContado !== null ? valorContado - m.estoque : 0;
+                  
+                  return (
+                    <div key={m.id} className="py-4">
+                      <div className="flex items-center gap-3">
+                        <div className="flex size-10 shrink-0 items-center justify-center overflow-hidden rounded bg-foreground/5">
+                          {m.foto ? (
+                            <img src={m.foto} alt="" className="h-full w-full object-cover" />
+                          ) : (
+                            (() => {
+                              const Icon = iconeCategoria(m.categoria);
+                              return <Icon className="size-4 text-muted-foreground" />;
+                            })()
+                          )}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-xs font-bold leading-tight">{m.nome}</p>
+                          <p className="text-[10px] text-muted-foreground">{m.categoria}</p>
+                        </div>
+                        <div className="w-24">
+                          <Input
+                            inputMode="numeric"
+                            placeholder={String(m.estoque)}
+                            value={inventario[m.id] || ""}
+                            onChange={(e) => setInventario({ ...inventario, [m.id]: e.target.value })}
+                            className="h-9 text-center font-mono font-bold"
+                          />
+                        </div>
+                      </div>
+                      
+                      {inventario[m.id] !== "" && inventario[m.id] !== undefined && (
+                        <div className="mt-2 flex items-center justify-end gap-2 px-1">
+                          <span className="text-[10px] font-bold uppercase text-muted-foreground">Diferença:</span>
+                          <span className={`font-mono text-xs font-black ${diferenca > 0 ? "text-green-600" : diferenca < 0 ? "text-critical" : "text-muted-foreground"}`}>
+                            {diferenca > 0 ? "+" : ""}{diferenca}
+                          </span>
+                          <span className="text-[10px] font-medium text-muted-foreground">
+                            ({diferenca > 0 ? "sobra" : diferenca < 0 ? "quebra" : "ok"})
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+              <button
+                onClick={processarInventarioFisico}
+                disabled={salvando || Object.keys(inventario).length === 0}
+                className="flex w-full items-center justify-center gap-2 rounded-xl bg-primary py-4 font-bold text-primary-foreground shadow-lg disabled:opacity-60"
+              >
+                {salvando && <Loader2 className="size-4 animate-spin" />}
+                Salvar Inventário
               </button>
             </div>
           </DialogContent>
