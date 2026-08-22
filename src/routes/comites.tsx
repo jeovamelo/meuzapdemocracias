@@ -118,9 +118,10 @@ function ComitesPage() {
   }
 
   const filtrados = db.comites.filter((c) => {
+    const matchesUf = c.uf === db.config.uf;
     const matchesBusca = `${c.nome} ${c.bairro} ${c.coordenador} ${c.municipio}`.toLowerCase().includes(busca.toLowerCase());
     const matchesStatus = abaInterna === "ativos" ? c.status === "ativo" : c.status === "pendente_validacao";
-    return matchesBusca && matchesStatus;
+    return matchesUf && matchesBusca && matchesStatus;
   });
 
   async function salvar() {
