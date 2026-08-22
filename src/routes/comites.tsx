@@ -53,6 +53,7 @@ function ComitesPage() {
     complemento: "",
     bairro: "",
     municipio: "Fortaleza",
+    uf: db.config.uf || "CE",
     coordenador: "",
     whatsapp_coordenador: "",
     ponto_referencia: "",
