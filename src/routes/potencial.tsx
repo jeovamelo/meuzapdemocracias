@@ -214,8 +214,9 @@ function PotencialEleitoral() {
               <Tooltip 
                 cursor={{ fill: 'rgba(0,0,0,0.02)' }}
                 content={({ active, payload }) => {
-                  if (active && payload && payload.length) {
+                  if (active && payload && payload.length > 0) {
                     const data = payload[0].payload;
+                    if (!data) return null;
                     return (
                       <div className="rounded-lg border border-border bg-background p-3 shadow-xl">
                         <p className="text-[10px] font-bold uppercase text-muted-foreground">{data.municipio}</p>
