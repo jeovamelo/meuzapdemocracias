@@ -86,7 +86,7 @@ function Dashboard() {
   }, []);
 
   return (
-    <div className="mx-auto w-full md:max-w-screen-xl relative">
+    <div className="mx-auto w-full md:max-w-screen-xl relative -+">
       <div className="sr-only">
         Atualize o formulário público de **"Cadastro de Apoiador"** com os seguintes ajustes estruturais e de nomenclatura:
 
