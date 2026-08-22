@@ -86,6 +86,7 @@ function PublicCadastro() {
     numero: "",
     bairro: "",
     municipio: "Fortaleza",
+    uf: db.config.uf || "CE",
     ponto_referencia: "",
   });
 
@@ -104,6 +105,7 @@ function PublicCadastro() {
             endereco: data.logradouro || prev.endereco,
             bairro: data.bairro || prev.bairro,
             municipio: data.localidade || prev.municipio,
+            uf: data.uf || prev.uf,
           }));
           toast.success("Endereço localizado!");
         }
@@ -127,6 +129,7 @@ function PublicCadastro() {
         endereco: enderecoCompleto,
         meta_votos: Number(apoiadorForm.meta_votos),
         municipio: apoiadorForm.cidade || "Ceará",
+        uf: apoiadorForm.uf || db.config.uf || "CE",
         tipo: "apoiador",
         funcao: "Apoiador Voluntário",
         comite_id: db.comites.find(c => c.municipio === apoiadorForm.cidade)?.id || db.comites[0]?.id || "c1",
@@ -204,6 +207,7 @@ function PublicCadastro() {
         numero: comiteForm.numero,
         bairro: comiteForm.bairro,
         municipio: comiteForm.municipio,
+        uf: comiteForm.uf || db.config.uf || "CE",
         ponto_referencia: comiteForm.ponto_referencia,
         observacoes: "Cadastro via portal público.",
         status: "pendente_validacao",
@@ -239,7 +243,7 @@ function PublicCadastro() {
         <header className="mx-auto max-w-lg text-center">
           <h1 className="text-3xl font-black uppercase tracking-tight">Portal da Campanha</h1>
           <p className="mt-2 text-primary-foreground/80 font-medium">
-            Fortaleça nosso time no Ceará
+            Fortaleça nosso time em {db.config.uf || "seu estado"}
           </p>
         </header>
       </div>
@@ -703,6 +707,30 @@ function PublicCadastro() {
                         <Input 
                           value={comiteForm.numero}
                           onChange={e => setComiteForm({...comiteForm, numero: e.target.value})}
+                          className="h-12 border-2"
+                          required
+                        />
+                      </div>
+                    </div>
+                    
+                    <div className="grid grid-cols-4 gap-3">
+                      <div className="col-span-3 space-y-1.5">
+                        <Label className="text-[10px] font-bold uppercase text-muted-foreground">Cidade</Label>
+                        <Input 
+                          value={comiteForm.municipio}
+                          onChange={e => setComiteForm({...comiteForm, municipio: e.target.value})}
+                          placeholder="Sua cidade"
+                          className="h-12 border-2"
+                          required
+                        />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label className="text-[10px] font-bold uppercase text-muted-foreground">UF</Label>
+                        <Input 
+                          value={comiteForm.uf}
+                          onChange={e => setComiteForm({...comiteForm, uf: e.target.value.toUpperCase()})}
+                          placeholder="CE"
+                          maxLength={2}
                           className="h-12 border-2"
                           required
                         />

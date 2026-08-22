@@ -53,6 +53,7 @@ function ComitesPage() {
     complemento: "",
     bairro: "",
     municipio: "Fortaleza",
+    uf: db.config.uf || "CE",
     coordenador: "",
     whatsapp_coordenador: "",
     ponto_referencia: "",
@@ -84,6 +85,7 @@ function ComitesPage() {
             endereco: data.logradouro || prev.endereco,
             bairro: data.bairro || prev.bairro,
             municipio: data.localidade || prev.municipio,
+            uf: data.uf || prev.uf,
           }));
           toast.success("Endereço preenchido via CEP.");
         }
@@ -105,6 +107,7 @@ function ComitesPage() {
       complemento: comite.complemento || "",
       bairro: comite.bairro,
       municipio: comite.municipio,
+      uf: comite.uf,
       coordenador: comite.coordenador,
       whatsapp_coordenador: comite.whatsapp_coordenador || "",
       ponto_referencia: comite.ponto_referencia || "",
@@ -115,9 +118,10 @@ function ComitesPage() {
   }
 
   const filtrados = db.comites.filter((c) => {
+    const matchesUf = c.uf === db.config.uf;
     const matchesBusca = `${c.nome} ${c.bairro} ${c.coordenador} ${c.municipio}`.toLowerCase().includes(busca.toLowerCase());
     const matchesStatus = abaInterna === "ativos" ? c.status === "ativo" : c.status === "pendente_validacao";
-    return matchesBusca && matchesStatus;
+    return matchesUf && matchesBusca && matchesStatus;
   });
 
   async function salvar() {
@@ -269,13 +273,27 @@ function ComitesPage() {
                   placeholder="Vila Maria / Zona Norte"
                 />
               </Campo>
-              <Campo label="Município">
-                <Input
-                  value={form.municipio}
-                  onChange={(e) => setForm({ ...form, municipio: e.target.value })}
-                  placeholder="Fortaleza, Caucaia..."
-                />
-              </Campo>
+              <div className="grid grid-cols-4 gap-3">
+                <div className="col-span-3">
+                  <Campo label="Município">
+                    <Input
+                      value={form.municipio}
+                      onChange={(e) => setForm({ ...form, municipio: e.target.value })}
+                      placeholder="Fortaleza, Caucaia..."
+                    />
+                  </Campo>
+                </div>
+                <div>
+                  <Campo label="UF">
+                    <Input
+                      value={form.uf}
+                      onChange={(e) => setForm({ ...form, uf: e.target.value.toUpperCase() })}
+                      placeholder="CE"
+                      maxLength={2}
+                    />
+                  </Campo>
+                </div>
+              </div>
               <Campo label="Ponto de Referência">
                 <Input
                   value={form.ponto_referencia}

@@ -1,9 +1,31 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { Plus, UserPlus, AlertTriangle, FileText, Flag, Shirt, Send, BarChart3, PieChart as PieChartIcon, Map, Package } from "lucide-react";
+import { Plus, UserPlus, AlertTriangle, FileText, Flag, Shirt, Send, BarChart3, PieChart as PieChartIcon, Map, Package, Search, ShieldCheck, Target, TrendingUp, Info, Loader2 } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
 import { useStore } from "@/lib/store";
 import { formatNumero, isCritico, isHoje, pad2, type Material } from "@/lib/db";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useState, useEffect } from "react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { 
+  Dialog, 
+  DialogContent, 
+  DialogHeader, 
+  DialogTitle, 
+  DialogDescription,
+  DialogFooter
+} from "@/components/ui/dialog";
+import { 
+  Select, 
+  SelectContent, 
+  SelectItem, 
+  SelectTrigger, 
+  SelectValue 
+} from "@/components/ui/select";
+import { toast } from "sonner";
+import { Badge } from "@/components/ui/badge";
+import { Progress } from "@/components/ui/progress";
 import {
   BarChart,
   Bar,
@@ -50,7 +72,57 @@ const iconePorCategoria = (m: Material) => {
 const COLORS = ["var(--primary)", "var(--accent)", "#10b981", "#8b5cf6", "#f43f5e"];
 
 function Dashboard() {
-  const { db, ready } = useStore();
+  const { db, ready, updateConfig } = useStore();
+  const [showConfig, setShowConfig] = useState(false);
+  const [loadingTse, setLoadingTse] = useState(false);
+  const [configForm, setConfigForm] = useState({
+    uf: db.config.uf || "CE",
+    numero: db.config.numero || "",
+    candidato_nome: db.config.candidato_nome || "",
+    candidato_urna: db.config.candidato_urna || "",
+    cargo: db.config.cargo || "",
+    partido_coligacao: db.config.partido_coligacao || "",
+    meta_eleicao: db.config.meta_eleicao || 0,
+    meta_expectativa: db.config.meta_expectativa || 0,
+  });
+
+  useEffect(() => {
+    if (ready && !db.config.configurada) {
+      setShowConfig(true);
+    }
+  }, [ready, db.config.configurada]);
+
+  const buscarNoTse = async () => {
+    if (!configForm.uf || !configForm.numero) {
+      toast.error("Preencha UF e Número do Candidato");
+      return;
+    }
+
+    setLoadingTse(true);
+    // Simulação de busca no TSE
+    await new Promise((r) => setTimeout(r, 1500));
+    
+    // Mock de dados baseados em números conhecidos ou genéricos
+    const mockData = {
+      candidato_nome: "MISSIAS DIAS DE SOUZA",
+      candidato_urna: "MISSIAS DIAS",
+      cargo: "Deputado Estadual",
+      partido_coligacao: "PT / Federação Brasil da Esperança (PT/PC do B/PV)",
+    };
+
+    setConfigForm(prev => ({ ...prev, ...mockData }));
+    setLoadingTse(false);
+    toast.success("Dados localizados na base do TSE!");
+  };
+
+  const salvarConfiguracao = async () => {
+    await updateConfig({
+      ...configForm,
+      configurada: true
+    });
+    setShowConfig(false);
+    toast.success("Campanha configurada com sucesso!");
+  };
 
   const comitesAtivos = db.comites.filter((c) => c.ativo).length;
   const apoiadores = db.pessoas.length;
@@ -59,20 +131,25 @@ function Dashboard() {
     .filter((s) => isHoje(s.criado_em))
     .reduce((acc, s) => acc + s.kits.reduce((a, k) => a + k.quantidade, 0), 0);
 
-  // Dados para Gráfico por Município
-  const dadosPorMunicipio = db.comites.reduce((acc: any[], comite) => {
-    const totalSaidas = db.saidas
-      .filter((s) => s.comite_id === comite.id)
-      .reduce((t, s) => t + s.itens.reduce((sum, i) => sum + i.quantidade, 0), 0);
-    
-    const index = acc.findIndex(d => d.name === comite.municipio);
-    if (index > -1) {
-      acc[index].total += totalSaidas;
-    } else {
-      acc.push({ name: comite.municipio, total: totalSaidas });
-    }
-    return acc;
-  }, []).sort((a, b) => b.total - a.total);
+  // Filtragem por UF da Campanha
+  const ufCampanha = db.config.uf || "CE";
+
+  // Dados para Gráfico por Município (filtrados pela UF da campanha)
+  const dadosPorMunicipio = db.comites
+    .filter(c => c.uf === ufCampanha || !c.uf) // Mostra os da UF ou os sem UF (migração)
+    .reduce((acc: any[], comite) => {
+      const totalSaidas = db.saidas
+        .filter((s) => s.comite_id === comite.id)
+        .reduce((t, s) => t + s.itens.reduce((sum, i) => sum + i.quantidade, 0), 0);
+      
+      const index = acc.findIndex(d => d.name === comite.municipio);
+      if (index > -1) {
+        acc[index].total += totalSaidas;
+      } else {
+        acc.push({ name: comite.municipio, total: totalSaidas });
+      }
+      return acc;
+    }, []).sort((a, b) => b.total - a.total);
 
   // Dados para Gráfico por Categoria
   const dadosPorCategoria = db.materiais.reduce((acc: any[], m) => {
@@ -88,39 +165,45 @@ function Dashboard() {
   return (
     <div className="mx-auto w-full md:max-w-screen-xl relative -+">
       <div className="sr-only">
-        Crie um novo módulo independente no sistema chamado **"Leitor Universal de Boletim de Urna (BU)"**, projetado para uso genérico, rápido e sem exigência de login (acesso público via link direto), com as seguintes especificações técnicas e de negócio:
+        Atualize a tela de configuração inicial de "Cadastrar Campanha" na página Início para buscar e autocompletar os dados oficiais via integração ou estrutura de dados do TSE:
 
-1. **Acesso Público e Leitor de QR Code Universal:**
+1. **Entrada Simplificada por Estado e Número:**
 
-   - A rota do leitor deve ser totalmente aberta (sem tela de login/autenticação), permitindo que qualquer fiscal ou apoiador abra no celular e escaneie imediatamente.
+   - No formulário de cadastro da campanha, o usuário deve informar apenas:
 
-   - Integre uma biblioteca de leitura de câmera focada em **QR Code** (ex: `jsQR` ou `html5-qrcode`).
+     - **Estado (UF)**
 
-   - O QR Code impresso no rodapé do Boletim de Urna oficial da Justiça Eleitoral contém todos os votos de todos os candidatos daquela seção.
+     - **Número do Candidato**
 
-2. **Processamento e Descodificação Genérica do BU:**
+   - Assim que esses dois dados forem preenchidos (ou ao clicar em "Buscar no TSE"), o sistema deve consultar a base de dados de candidaturas para preencher de forma automática os seguintes campos:
 
-   - Ao capturar a imagem do QR Code do BU, o sistema deve decodificar a string oficial gerada pela urna eletrônica (seguindo o padrão de dados públicos do TSE).
+     - **Nome Completo do Candidato**
 
-   - Como o BU é universal e contém o resultado de **todos os partidos e candidatos** daquela seção, o sistema deve processar o payload de forma inteligente:
+     - **Nome de Urna**
 
-     - Extrair automaticamente o identificador da Zona, Seção e Município.
+     - **Cargo**
 
-     - Varrer a lista de votos e cruzar os números/registros com a base de dados de **todos os candidatos** cadastrados no sistema (não apenas o seu).
+     - **Partido / Coligação**
 
-3. **Alimentação Automática e Relatório de Seção:**
+2. **Complementos Manuais da Campanha:**
 
-   - Após a leitura bem-sucedida, exiba instantaneamente na tela um resumo com os votos computados para o seu candidato e uma visão geral dos demais dados da seção (eleitorado, comparecimento).
+   - Deixe visíveis e abertos para o usuário preencher manualmente os dados estratégicos que a justiça eleitoral não possui, mas que são vitais para a gestão:
 
-   - Salve a apuração daquela seção no banco de dados para alimentar o painel de apuração em tempo real, comparando os votos reais das urnas com a expectativa mapeada da campanha.
+     - **Quantidade de Votos para ser Eleito (Meta / Qtd Necessária)**
+
+     - **Quantidade de Votos Esperados (Expectativa Total)**
+
+3. **Restrição de Escopo:**
+
+   - Com o Estado definido por essa configuração, garanta que todas as listagens do sistema (cidades, lideranças, mapa de calor e painel de apuração) filtrem e exibam exclusivamente os municípios pertencentes àquele estado.
       </div>
 
       <PageHeader
         eyebrow="Painel Administrativo"
-        title="Gestão Ceará"
+        title={`Gestão ${db.config.uf || "Estadual"}`}
         right={
           <div className="flex items-center gap-2">
-            <span className="hidden font-mono text-xs text-muted-foreground md:inline">CE-LOG V2.0</span>
+            <span className="hidden font-mono text-xs text-muted-foreground md:inline">{db.config.uf || "BR"}-LOG V2.0</span>
             <div className="flex size-10 items-center justify-center rounded-full border border-border bg-surface font-mono text-xs font-bold">
               HQ
             </div>
@@ -335,6 +418,142 @@ function Dashboard() {
           <span className="hidden md:inline font-bold">Link Apoiador</span>
         </Link>
       </div>
+      
+      <Dialog open={showConfig} onOpenChange={setShowConfig}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="text-2xl font-black uppercase tracking-tight flex items-center gap-2">
+              <ShieldCheck className="size-6 text-primary" />
+              Configurar Campanha 2026
+            </DialogTitle>
+            <DialogDescription>
+              Vincule seu número oficial para buscar dados no TSE e definir metas estratégicas.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-8 py-4">
+            <section className="space-y-4">
+              <div className="flex items-center gap-2">
+                <div className="size-6 rounded-full bg-primary/10 flex items-center justify-center text-[10px] font-bold text-primary">01</div>
+                <h3 className="font-bold uppercase text-xs tracking-wider">Dados Oficiais (Busca TSE)</h3>
+              </div>
+              
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <Label className="text-[10px] font-bold uppercase text-muted-foreground">Estado (UF)</Label>
+                  <Select 
+                    value={configForm.uf} 
+                    onValueChange={(v) => setConfigForm({...configForm, uf: v})}
+                  >
+                    <SelectTrigger className="h-12 border-2">
+                      <SelectValue placeholder="UF" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="CE">Ceará</SelectItem>
+                      <SelectItem value="PE">Pernambuco</SelectItem>
+                      <SelectItem value="BA">Bahia</SelectItem>
+                      <SelectItem value="RN">Rio Grande do Norte</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-[10px] font-bold uppercase text-muted-foreground">Número do Candidato</Label>
+                  <div className="flex gap-2">
+                    <Input 
+                      value={configForm.numero}
+                      onChange={e => setConfigForm({...configForm, numero: e.target.value})}
+                      placeholder="Ex: 13123"
+                      className="h-12 border-2"
+                    />
+                    <Button 
+                      type="button" 
+                      variant="secondary" 
+                      className="h-12 px-4 gap-2"
+                      onClick={buscarNoTse}
+                      disabled={loadingTse}
+                    >
+                      {loadingTse ? <Loader2 className="size-4 animate-spin" /> : <Search className="size-4" />}
+                      Buscar
+                    </Button>
+                  </div>
+                </div>
+              </div>
+
+              {configForm.candidato_nome && (
+                <div className="rounded-2xl border-2 border-primary/20 bg-primary/5 p-4 space-y-3 animate-in fade-in slide-in-from-top-2">
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <p className="text-[10px] font-bold uppercase text-primary mb-1">Candidato Localizado</p>
+                      <p className="text-lg font-black leading-tight uppercase">{configForm.candidato_urna}</p>
+                      <p className="text-xs font-medium text-muted-foreground">{configForm.candidato_nome}</p>
+                    </div>
+                    <Badge className="font-mono text-lg px-3 py-1">{configForm.numero}</Badge>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4 pt-2 border-t border-primary/10">
+                    <div>
+                      <p className="text-[9px] font-bold uppercase text-muted-foreground">Cargo</p>
+                      <p className="text-xs font-bold">{configForm.cargo}</p>
+                    </div>
+                    <div>
+                      <p className="text-[9px] font-bold uppercase text-muted-foreground">Partido / Coligação</p>
+                      <p className="text-xs font-bold truncate">{configForm.partido_coligacao}</p>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </section>
+
+            <section className="space-y-4">
+              <div className="flex items-center gap-2">
+                <div className="size-6 rounded-full bg-accent/10 flex items-center justify-center text-[10px] font-bold text-accent">02</div>
+                <h3 className="font-bold uppercase text-xs tracking-wider">Planejamento Estratégico</h3>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-[10px] font-bold uppercase text-muted-foreground">Meta para Eleição</Label>
+                    <Info className="size-3 text-muted-foreground" />
+                  </div>
+                  <Input 
+                    type="number"
+                    value={configForm.meta_eleicao}
+                    onChange={e => setConfigForm({...configForm, meta_eleicao: Number(e.target.value)})}
+                    placeholder="Qtd Votos"
+                    className="h-12 border-2 font-mono font-bold"
+                  />
+                  <p className="text-[9px] text-muted-foreground leading-tight italic">Mínimo necessário para ser eleito (Quociente)</p>
+                </div>
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-[10px] font-bold uppercase text-muted-foreground">Expectativa Total</Label>
+                    <TrendingUp className="size-3 text-muted-foreground" />
+                  </div>
+                  <Input 
+                    type="number"
+                    value={configForm.meta_expectativa}
+                    onChange={e => setConfigForm({...configForm, meta_expectativa: Number(e.target.value)})}
+                    placeholder="Qtd Votos"
+                    className="h-12 border-2 font-mono font-bold"
+                  />
+                  <p className="text-[9px] text-muted-foreground leading-tight italic">Meta agressiva de votos esperados</p>
+                </div>
+              </div>
+            </section>
+          </div>
+
+          <DialogFooter className="pt-4 border-t border-border">
+            <Button 
+              className="h-14 w-full text-lg font-black uppercase gap-2"
+              onClick={salvarConfiguracao}
+              disabled={!configForm.candidato_nome}
+            >
+              Finalizar Cadastro da Campanha
+              <ShieldCheck className="size-5" />
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

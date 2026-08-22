@@ -16,6 +16,7 @@ export type Comite = {
   complemento?: string;
   bairro: string;
   municipio: string;
+  uf: string;
   coordenador: string;
   whatsapp_coordenador?: string;
   observacoes: string;
@@ -43,6 +44,7 @@ export type Pessoa = {
   complemento?: string;
   bairro?: string;
   municipio: string;
+  uf: string;
   telefone: string;
   zona: string;
   status: "ativo" | "inativo";
@@ -123,6 +125,19 @@ export type CidadeMeta = {
   realidade_votos: number;
 };
 
+export type ConfigCampanha = {
+  id: string;
+  candidato_nome: string;
+  candidato_urna: string;
+  numero: string;
+  cargo: string;
+  partido_coligacao: string;
+  uf: string;
+  meta_eleicao: number;
+  meta_expectativa: number;
+  configurada: boolean;
+};
+
 export type Database = {
   comites: Comite[];
   pessoas: Pessoa[];
@@ -131,6 +146,7 @@ export type Database = {
   saidas: Saida[];
   solicitacoes: SolicitacaoMaterial[];
   cidade_metas: CidadeMeta[];
+  config: ConfigCampanha;
 };
 
 export const CATEGORIAS: CategoriaMaterial[] = [
@@ -169,6 +185,7 @@ export function seed(): Database {
       endereco: "Av. Desembargador Moreira, 1000",
       bairro: "Aldeota",
       municipio: "Fortaleza",
+      uf: "CE",
       coordenador: "Maria Oliveira",
       whatsapp_coordenador: "85988770011",
       observacoes: "Base principal de distribuição. Abre às 07h.",
@@ -186,6 +203,7 @@ export function seed(): Database {
       endereco: "Rua Juaci Sampaio Pontes, 88",
       bairro: "Centro",
       municipio: "Caucaia",
+      uf: "CE",
       coordenador: "Ana Paula Santos",
       observacoes: "Galpão com estoque de bandeiras.",
       status: "ativo",
@@ -200,6 +218,7 @@ export function seed(): Database {
       endereco: "Av. Mendel Steinbruch, 12",
       bairro: "Pajuçara",
       municipio: "Maracanaú",
+      uf: "CE",
       coordenador: "Roberto Mendes",
       observacoes: "Ponto estratégico de rua.",
       status: "ativo",
@@ -214,6 +233,7 @@ export function seed(): Database {
       endereco: "Rua Padre Cícero, 501",
       bairro: "Centro",
       municipio: "Juazeiro do Norte",
+      uf: "CE",
       coordenador: "Cleber Araújo",
       observacoes: "Chave com o coordenador local.",
       status: "ativo",
@@ -233,6 +253,7 @@ export function seed(): Database {
       funcao: "Coordenadora Geral",
       comite_id: "c1",
       municipio: "Fortaleza",
+      uf: "CE",
       telefone: "85988770011",
       zona: "Zona 001",
       status: "ativo",
@@ -247,6 +268,7 @@ export function seed(): Database {
       funcao: "Coordenadora de Base",
       comite_id: "c2",
       municipio: "Caucaia",
+      uf: "CE",
       telefone: "85987661122",
       zona: "Zona 120",
       status: "ativo",
@@ -261,6 +283,7 @@ export function seed(): Database {
       funcao: "Responsável de Ponto",
       comite_id: "c3",
       municipio: "Maracanaú",
+      uf: "CE",
       telefone: "85991234455",
       zona: "Zona 104",
       status: "ativo",
@@ -275,6 +298,7 @@ export function seed(): Database {
       funcao: "Cabo Eleitoral",
       comite_id: "c4",
       municipio: "Juazeiro do Norte",
+      uf: "CE",
       telefone: "88994455667",
       zona: "Zona 028",
       status: "ativo",
@@ -289,6 +313,7 @@ export function seed(): Database {
       funcao: "Panfletagem",
       comite_id: "c1",
       municipio: "Fortaleza",
+      uf: "CE",
       telefone: "85993322110",
       zona: "Zona 002",
       status: "ativo",
@@ -303,6 +328,7 @@ export function seed(): Database {
       funcao: "Cabo Eleitoral",
       comite_id: "c2",
       municipio: "Caucaia",
+      uf: "CE",
       telefone: "85985566778",
       zona: "Zona 120",
       status: "ativo",
@@ -317,6 +343,7 @@ export function seed(): Database {
       funcao: "Carro de Som",
       comite_id: "c3",
       municipio: "Maracanaú",
+      uf: "CE",
       telefone: "85996677889",
       zona: "Zona 104",
       status: "ativo",
@@ -331,6 +358,7 @@ export function seed(): Database {
       funcao: "Mobilizador",
       comite_id: "c1",
       municipio: "Sobral",
+      uf: "CE",
       telefone: "88998877665",
       zona: "Zona 024",
       status: "ativo",
@@ -518,7 +546,20 @@ export function seed(): Database {
     { id: "cm6", municipio: "Maranguape", uf: "CE", meta_campanha: 25000, realidade_votos: 0 },
   ];
 
-  return { comites, pessoas, materiais, kits, saidas, solicitacoes, cidade_metas };
+  const config: ConfigCampanha = {
+    id: "main-config",
+    candidato_nome: "Missias Dias",
+    candidato_urna: "Missias Dias 13123",
+    numero: "13123",
+    cargo: "Deputado Estadual",
+    partido_coligacao: "PT / Federação Brasil da Esperança",
+    uf: "CE",
+    meta_eleicao: 80000,
+    meta_expectativa: 100000,
+    configurada: true,
+  };
+
+  return { comites, pessoas, materiais, kits, saidas, solicitacoes, cidade_metas, config };
 }
 
 export function loadDb(): Database {
@@ -527,7 +568,7 @@ export function loadDb(): Database {
     const raw = window.localStorage.getItem(STORAGE_KEY);
     if (!raw) return seed();
     const parsed = JSON.parse(raw) as Database;
-    if (!parsed.comites || !parsed.materiais || !parsed.cidade_metas) return seed();
+    if (!parsed.comites || !parsed.materiais || !parsed.cidade_metas || !parsed.config) return seed();
     return parsed;
   } catch {
     return seed();

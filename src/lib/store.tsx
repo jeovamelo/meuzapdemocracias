@@ -35,6 +35,7 @@ type Ctx = {
   addSolicitacao: (s: Omit<SolicitacaoMaterial, "id" | "criado_em" | "status">) => Promise<void>;
   updateSolicitacao: (id: string, s: Partial<SolicitacaoMaterial>) => Promise<void>;
   updateCidadeMeta: (id: string, cm: Partial<CidadeMeta>) => Promise<void>;
+  updateConfig: (config: Partial<Database["config"]>) => Promise<void>;
   resetarDados: () => Promise<void>;
 };
 
@@ -170,6 +171,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       commit((p) => ({
         ...p,
         cidade_metas: p.cidade_metas.map((x) => (x.id === id ? { ...x, ...cm } : x)),
+      })),
+    updateConfig: (config) =>
+      commit((p) => ({
+        ...p,
+        config: { ...p.config, ...config },
       })),
     resetarDados: () => commit(() => seed()),
   };

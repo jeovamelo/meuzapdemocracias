@@ -42,7 +42,7 @@ export const Route = createFileRoute("/potencial")({
 
 function InteligenciaEleitoral() {
   const { db, updateCidadeMeta } = useStore();
-  const [selectedUf, setSelectedUf] = useState("CE");
+  const [selectedUf, setSelectedUf] = useState(db.config.uf || "CE");
   const [editMode, setEditMode] = useState<string | null>(null);
   const [tempValues, setTempValues] = useState({ meta: 0, realidade: 0 });
 
