@@ -273,13 +273,27 @@ function ComitesPage() {
                   placeholder="Vila Maria / Zona Norte"
                 />
               </Campo>
-              <Campo label="Município">
-                <Input
-                  value={form.municipio}
-                  onChange={(e) => setForm({ ...form, municipio: e.target.value })}
-                  placeholder="Fortaleza, Caucaia..."
-                />
-              </Campo>
+              <div className="grid grid-cols-4 gap-3">
+                <div className="col-span-3">
+                  <Campo label="Município">
+                    <Input
+                      value={form.municipio}
+                      onChange={(e) => setForm({ ...form, municipio: e.target.value })}
+                      placeholder="Fortaleza, Caucaia..."
+                    />
+                  </Campo>
+                </div>
+                <div>
+                  <Campo label="UF">
+                    <Input
+                      value={form.uf}
+                      onChange={(e) => setForm({ ...form, uf: e.target.value.toUpperCase() })}
+                      placeholder="CE"
+                      maxLength={2}
+                    />
+                  </Campo>
+                </div>
+              </div>
               <Campo label="Ponto de Referência">
                 <Input
                   value={form.ponto_referencia}
