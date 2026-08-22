@@ -367,6 +367,42 @@ export function seed(): Database {
       unidade: "un",
       arquivado: false,
     },
+    {
+      id: "m8",
+      nome: "Bóton 45mm",
+      categoria: "Bóton",
+      estoque: 5000,
+      estoque_minimo: 1000,
+      unidade: "un",
+      arquivado: false,
+    },
+    {
+      id: "m9",
+      nome: "Santão 15x20cm",
+      categoria: "Santão",
+      estoque: 20000,
+      estoque_minimo: 5000,
+      unidade: "un",
+      arquivado: false,
+    },
+    {
+      id: "m10",
+      nome: "Revista da Campanha",
+      categoria: "Revista dobrada",
+      estoque: 3000,
+      estoque_minimo: 500,
+      unidade: "un",
+      arquivado: false,
+    },
+    {
+      id: "m11",
+      nome: "Adesivo de Pára-choque 30x10",
+      categoria: "Adesivo pára-choque",
+      estoque: 1200,
+      estoque_minimo: 300,
+      unidade: "un",
+      arquivado: false,
+    },
   ];
 
   const kits: Kit[] = [
