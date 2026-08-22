@@ -53,11 +53,15 @@ function PublicCadastro() {
     bairro: "",
     zona: "",
   });
+  
+  const municipios = Array.from(new Set(db.comites.map(c => c.municipio))).sort();
 
   // Solicitação State
   const [solicitacaoForm, setSolicitacaoForm] = useState({
     nome: "",
     comite_id: "",
+    lideranca_id: "",
+    municipio: "",
     tipo_material: "",
     quantidade: "1",
   });
