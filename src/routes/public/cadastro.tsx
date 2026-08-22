@@ -222,6 +222,40 @@ function PublicCadastro() {
     }
   };
 
+  const simulatedScan = async () => {
+    setScanning(true);
+    await new Promise(r => setTimeout(r, 2000));
+    
+    const mockBU = {
+      pleito: "Eleições Gerais 2026",
+      secao: "0124",
+      zona: "001",
+      municipio: "FORTALEZA",
+      uf: db.config.uf || "CE",
+      total_votos: 246,
+      votos_candidato: 184,
+      assinatura_digital: "v3_TSE_7a8b9c0d1e2f..."
+    };
+
+    setBuData(mockBU);
+    setScanning(false);
+    toast.success("Boletim de Urna validado!");
+  };
+
+  const handleBuSubmit = async () => {
+    if (!buData) return;
+    setCarregando(true);
+    try {
+      await addBoletim(buData);
+      setEnviado(true);
+      setBuData(null);
+    } catch (e) {
+      toast.error("Erro ao registrar BU.");
+    } finally {
+      setCarregando(false);
+    }
+  };
+
   if (enviado) {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center px-6 text-center animate-in fade-in zoom-in duration-300">
