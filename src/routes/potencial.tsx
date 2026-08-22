@@ -214,14 +214,13 @@ function PotencialEleitoral() {
               <Tooltip 
                 cursor={{ fill: 'rgba(0,0,0,0.02)' }}
                 content={({ active, payload }) => {
-                  if (active && payload && payload.length > 0) {
+                  if (active && payload && payload.length > 0 && payload[0]?.payload) {
                     const data = payload[0].payload;
-                    if (!data) return null;
                     return (
                       <div className="rounded-lg border border-border bg-background p-3 shadow-xl">
                         <p className="text-[10px] font-bold uppercase text-muted-foreground">{data.municipio}</p>
-                        <p className="font-mono text-sm font-bold">{data.porcentagem.toFixed(1)}% da meta</p>
-                        <p className="text-[10px] text-muted-foreground">{formatNumero(data.conquistados)} / {formatNumero(data.meta)} votos</p>
+                        <p className="font-mono text-sm font-bold">{data.porcentagem?.toFixed(1) || "0.0"}% da meta</p>
+                        <p className="text-[10px] text-muted-foreground">{formatNumero(data.conquistados || 0)} / {formatNumero(data.meta || 0)} votos</p>
                       </div>
                     );
                   }
