@@ -125,6 +125,21 @@ export type CidadeMeta = {
   realidade_votos: number;
 };
 
+export type BoletimUrna = {
+  id: string;
+  secao: string;
+  zona: string;
+  municipio: string;
+  uf: string;
+  total_votos: number;
+  votos_candidato: number;
+  data_leitura: string;
+  fiscal_id?: string;
+  foto?: string;
+  pleito: string;
+  assinatura_digital: string;
+};
+
 export type ConfigCampanha = {
   id: string;
   candidato_nome: string;
@@ -136,6 +151,7 @@ export type ConfigCampanha = {
   meta_eleicao: number;
   meta_expectativa: number;
   configurada: boolean;
+  total_secoes?: number;
 };
 
 export type Database = {
