@@ -198,14 +198,22 @@ function ComitesPage() {
                   placeholder="Base Norte - Vila Maria"
                 />
               </Campo>
-              <Campo label="Coordenador Responsável">
-                <Input
-                  value={form.coordenador}
-                  onChange={(e) => setForm({ ...form, coordenador: e.target.value })}
-                  placeholder="Nome do responsável"
-                />
-              </Campo>
-              <Campo label="WhatsApp Coordenador">
+                  <Campo label="Coordenador Responsável">
+                    <Input
+                      value={form.coordenador}
+                      onChange={(e) => setForm({ ...form, coordenador: e.target.value })}
+                      placeholder="Nome do responsável"
+                    />
+                  </Campo>
+                  <Campo label="Meta de Votos (Estimativa)">
+                    <Input
+                      type="number"
+                      value={form.meta_votos || ""}
+                      onChange={(e) => setForm({ ...form, meta_votos: Number(e.target.value) })}
+                      placeholder="0"
+                    />
+                  </Campo>
+                  <Campo label="WhatsApp Coordenador">
                 <Input
                   value={form.whatsapp_coordenador}
                   onChange={(e) => setForm({ ...form, whatsapp_coordenador: e.target.value })}
