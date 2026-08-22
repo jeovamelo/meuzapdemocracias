@@ -107,6 +107,7 @@ function ComitesPage() {
       complemento: comite.complemento || "",
       bairro: comite.bairro,
       municipio: comite.municipio,
+      uf: comite.uf,
       coordenador: comite.coordenador,
       whatsapp_coordenador: comite.whatsapp_coordenador || "",
       ponto_referencia: comite.ponto_referencia || "",
