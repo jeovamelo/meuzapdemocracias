@@ -1,13 +1,14 @@
 import { Link } from "@tanstack/react-router";
-import { Home, MapPin, Users, Package, ArrowRightLeft } from "lucide-react";
-
-const tabs = [
-  { to: "/", label: "Início", icon: Home, exact: true },
-  { to: "/comites", label: "Comitês", icon: MapPin, exact: false },
-  { to: "/pessoas", label: "Pessoas", icon: Users, exact: false },
-  { to: "/materiais", label: "Materiais", icon: Package, exact: false },
-  { to: "/saidas", label: "Saídas", icon: ArrowRightLeft, exact: false },
-] as const;
+import { Home, MapPin, Users, Package, ArrowRightLeft, Target } from "lucide-react";
+ 
+ const tabs = [
+   { to: "/", label: "Início", icon: Home, exact: true },
+   { to: "/potencial", label: "Inteligência", icon: Target, exact: false },
+   { to: "/comites", label: "Comitês", icon: MapPin, exact: false },
+   { to: "/pessoas", label: "Pessoas", icon: Users, exact: false },
+   { to: "/materiais", label: "Materiais", icon: Package, exact: false },
+   { to: "/saidas", label: "Saídas", icon: ArrowRightLeft, exact: false },
+ ] as const;
 
 export function BottomNav() {
   return (
