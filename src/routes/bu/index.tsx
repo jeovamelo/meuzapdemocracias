@@ -79,7 +79,7 @@ function ApuracaoParalela() {
       setCarregando(false);
     }
   };
-  const [tab, setTab] = useState<"dashboard" | "boletins">("dashboard");
+  
 
   const totalSecoesLidas = db.boletins.length;
   const totalSecoesEstimado = db.config.total_secoes || 500;
