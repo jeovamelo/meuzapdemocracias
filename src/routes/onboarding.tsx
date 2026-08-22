@@ -13,6 +13,7 @@ import {
 import { Loader2, Search, CheckCircle2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useCampaignScope } from '@/hooks/useCampaignScope';
+import { supabase } from '@/integrations/supabase/client';
 
 export const Route = createFileRoute('/onboarding')({
   component: OnboardingPage,
@@ -49,7 +50,33 @@ function OnboardingPage() {
 
     setIsLoadingTse(true);
     try {
-      // 1. Tenta buscar no proxy do backend (VPS ou localhost)
+      // 1. Busca direta no Banco de Dados Supabase (Instantâneo)
+      try {
+        const { data: dbCand, error: dbError } = await (supabase as any)
+          .from('tse_candidatos')
+          .select('*')
+          .eq('sg_uf', uf.toUpperCase().trim())
+          .eq('nr_candidato', numero.trim())
+          .limit(1)
+          .maybeSingle();
+
+        if (dbCand && !dbError) {
+          setCandidateData({
+            nome: dbCand.nm_candidato || '',
+            nomeUrna: dbCand.nm_urna_candidato || '',
+            cargo: dbCand.ds_cargo || 'Candidato(a)',
+            partido: dbCand.sg_partido || '',
+            fotoUrl: dbCand.foto_url || '',
+          });
+          toast.success(`Candidato(a) ${dbCand.nm_urna_candidato} localizado no Banco do TSE!`);
+          setIsLoadingTse(false);
+          return;
+        }
+      } catch (errDb) {
+        console.warn('Erro ao consultar tabela tse_candidatos no Supabase:', errDb);
+      }
+
+      // 2. Fallback para o Microserviço Backend
       const backendUrl = window.location.hostname === 'localhost' 
         ? `http://localhost:3001/tse/candidato?uf=${uf}&numero=${numero}`
         : `/tse/candidato?uf=${uf}&numero=${numero}`;
@@ -65,7 +92,7 @@ function OnboardingPage() {
           }
         }
       } catch (e) {
-        console.warn("Backend proxy offline ou falhou, tentando fallback direto", e);
+        console.warn("Backend proxy offline ou falhou, tentando fallback", e);
       }
 
       if (data) {
