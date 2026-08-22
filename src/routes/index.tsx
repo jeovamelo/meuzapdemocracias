@@ -315,30 +315,39 @@ function Dashboard() {
                 <Skeleton className="h-12 w-full" />
                 <Skeleton className="h-12 w-full" />
               </div>
-            ) : db.saidas.length === 0 ? (
+            ) : db.historico_estoque.length === 0 ? (
               <p className="p-6 text-sm text-muted-foreground">
-                Nenhuma saída registrada ainda.
+                Nenhuma movimentação registrada ainda.
               </p>
             ) : (
-              db.saidas.slice(0, 5).map((s) => {
-                const pessoa = db.pessoas.find((p) => p.id === s.pessoa_id);
-                const comite = db.comites.find((c) => c.id === s.comite_id);
-                const totalItens = s.itens.reduce((a, i) => a + i.quantidade, 0);
+              db.historico_estoque.slice(0, 5).map((m) => {
+                const material = db.materiais.find((mat) => mat.id === m.material_id);
+                const Icon = material ? iconePorCategoria(material) : Package;
                 return (
                   <div
-                    key={s.id}
+                    key={m.id}
                     className="flex items-center justify-between border-b border-border/60 p-4 last:border-0 hover:bg-muted/5 transition-colors"
                   >
-                    <div>
-                      <p className="font-bold leading-tight">{pessoa?.nome ?? "—"}</p>
-                      <p className="text-xs text-muted-foreground">{comite?.nome} • {comite?.municipio}</p>
+                    <div className="flex items-center gap-3">
+                      <div className={`flex size-8 items-center justify-center rounded ${
+                        m.tipo === 'ajuste_inventario' ? 'bg-accent/10 text-accent' :
+                        m.diferenca > 0 ? 'bg-green-100 text-green-600' : 'bg-critical/10 text-critical'
+                      }`}>
+                        <Icon className="size-4" />
+                      </div>
+                      <div>
+                        <p className="font-bold text-xs leading-tight">{material?.nome ?? "—"}</p>
+                        <p className="text-[10px] text-muted-foreground uppercase">{m.tipo.replace('_', ' ')}</p>
+                      </div>
                     </div>
                     <div className="text-right">
-                      <p className="font-mono text-sm font-bold">
-                        {formatNumero(totalItens)} itens
+                      <p className={`font-mono text-sm font-bold ${
+                        m.diferenca > 0 ? 'text-green-600' : 'text-critical'
+                      }`}>
+                        {m.diferenca > 0 ? "+" : ""}{m.diferenca}
                       </p>
                       <p className="text-[10px] uppercase text-muted-foreground">
-                        {s.kits.reduce((a, k) => a + k.quantidade, 0)} kits
+                        Saldo: {m.quantidade_nova}
                       </p>
                     </div>
                   </div>
