@@ -88,43 +88,25 @@ function Dashboard() {
   return (
     <div className="mx-auto w-full md:max-w-screen-xl relative">
       <div className="sr-only">
-        Atualize o fluxo público do **Portal da Campanha** e o sistema de pedidos com as seguintes melhorias e regras de negócio:
+        Atualize a aba/formulário público de **"Comitê Popular"** com as seguintes regras de negócio e ordem de campos:
 
-1. **Cadastro de Apoiador Simplificado:**
+1. **WhatsApp como Primeiro Campo:**
 
-   - O formulário público de "Apoiador" deve conter exatamente os campos: **Nome Completo**, **WhatsApp**, **Endereço Completo** e **Quantidade de Votos** esperados/comprometidos.
+   - O primeiro campo do formulário de cadastro de comitê popular deve ser obrigatoriamente o **Número do WhatsApp** do responsável.
 
-2. **Fluxo Inteligente de Solicitação de Material por WhatsApp:**
+   - Ao preencher o número do WhatsApp, o sistema deve verificar automaticamente na base de dados de pessoas/apoiadores:
 
-   - O **primeiro campo** da tela de solicitação de material deve ser o **Número do WhatsApp**.
+     - Se o número **já estiver cadastrado**, exiba o nome e os dados já existentes, permitindo avançar para o endereço.
 
-   - Ao digitar o WhatsApp, o sistema deve verificar automaticamente na base de dados:
+     - Se o número **não estiver cadastrado**, exiba um aviso amigável informando que o responsável precisa estar cadastrado primeiro, bloqueando o envio até que o cadastro prévio seja feito (ou solicitando o nome e dados básicos na mesma hora).
 
-     - Se o número **já estiver cadastrado**, exiba o Nome Completo e o Endereço correspondentes, perguntando: *"As informações estão corretas?"*. Se o usuário confirmar, avance direto para a página de pedidos.
+2. **Endereço Completo e CEP:**
 
-     - Se o número **não estiver cadastrado**, redirecione o usuário para a etapa de cadastro de apoiador para preencher os dados antes de prosseguir.
+   - Logo após a validação do responsável via WhatsApp, exiba os campos de **CEP** (com busca automática via ViaCEP), **Endereço**, **Número**, **Bairro/Zona** e **Ponto de Referência**.
 
-3. **Seleção de Itens e Quantidade:**
+3. **Validação do Administrator:**
 
-   - Na página de pedidos, exiba a lista de **todos os itens disponíveis** no estoque.
-
-   - Cada item deve ter um campo de **quantidade** para que o apoiador selecione quanto deseja solicitar.
-
-4. **Opção de Retirada ou Entrega:**
-
-   - Após confirmar o pedido de materiais, exiba a opção para o usuário escolher entre: **"Retirar no Comitê"** ou **"Receber no Endereço (Entregador)"**.
-
-   - **Se escolher via Entregador:**
-
-     - O sistema deve perguntar se deseja enviar para o **endereço já cadastrado** ou para um **novo endereço**.
-
-     - Caso não haja endereço cadastrado, o fluxo deve encaminhar obrigatoriamente para o preenchimento dos dados.
-
-5. **Resumo, Confirmação e Acompanhamento de Status:**
-
-   - Ao finalizar, exiba uma tela com o **Resumo do Pedido** completo.
-
-   - Implemente um indicador visual de status na interface do apoiador para que, **quando o pedido estiver pronto**, o sistema informe claramente na tela (ex: *"Seu pedido está pronto para retirada/envio!"*).
+   - Mantenha o fluxo onde o comitê popular cadastrado fica com status pendente até que o administrador aprove no painel interno.x'
       </div>
 
       <PageHeader
