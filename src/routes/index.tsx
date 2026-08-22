@@ -163,7 +163,7 @@ function Dashboard() {
   }, []);
 
   return (
-    <div className="mx-auto w-full md:max-w-screen-xl relative como acessa o leitor de BU?">
+    <div className="mx-auto w-full md:max-w-screen-xl relative -+">
       <div className="sr-only">
         Atualize a tela de configuração inicial de "Cadastrar Campanha" na página Início para buscar e autocompletar os dados oficiais via integração ou estrutura de dados do TSE:
 
