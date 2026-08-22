@@ -88,7 +88,33 @@ function Dashboard() {
   return (
     <div className="mx-auto w-full md:max-w-screen-xl relative">
       <div className="sr-only">
-        {"segue mais materias Bóton \n\nSantão \n\nRevista dobrada \n\nAdesivo pára-choque \n\nSantinho"}
+        {`Transforme o sistema em uma ferramenta de Inteligência Eleitoral com os seguintes módulos:
+
+1. **Gestão de Potencial Eleitoral (Cidades e Lideranças):**
+
+   - **Cadastro de Cidades:** Adicione campos de "Meta de Votos Esperados" e "Meta de Votos Conquistados". Permita que cada cidade liste suas lideranças vinculadas.
+
+   - **Cadastro de Lideranças:** Vincule cada liderança a uma cidade e adicione campos de "Meta de Votos Pessoais" (que deve ser uma sub-meta da cidade).
+
+   - **Cálculo de Desempenho:** O sistema deve calcular automaticamente a % de atingimento da meta (votos conquistados vs. esperados) tanto para a cidade quanto para a liderança.
+
+2. **Módulo de Visualização Geográfica (Mapa de Calor do Ceará):**
+
+   - Crie uma tela chamada "Painel Estratégico".
+
+   - **Mapa de Calor:** Integre um componente de mapa (como Leaflet ou um gráfico de mapa do Ceará) que destaque as cidades em tons de cores baseados na "Expectativa de Votos" ou "Atingimento da Meta".
+
+   - **Interatividade:** Ao clicar em uma cidade no mapa, abra um *popover* com o resumo: [Nome da Cidade], [Meta Total], [Total Enviado de Material], [Votos Conquistados] e [Lista das principais Lideranças].
+
+3. **Inteligência de Distribuição de Material:**
+
+   - O sistema deve cruzar o dado de "Material Enviado para a Cidade" with a "Meta de Votos".
+
+   - Crie uma métrica de "Eficiência de Distribuição": se o material enviado for muito alto e os votos conquistados muito baixos, destacar a cidade em vermelho no mapa (alerta de desperdício ou falha na estratégia).
+
+4. **Regras de Negócio de Dados:**
+
+   - Quando uma liderança for editada, o sistema deve atualizar o total de votos esperados da cidade pai automaticamente.`}
       </div>
 
       <PageHeader
