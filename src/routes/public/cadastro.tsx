@@ -50,7 +50,12 @@ function PublicCadastro() {
   const [apoiadorForm, setApoiadorForm] = useState({
     nome: "",
     telefone: "",
-    endereco_completo: "",
+    cep: "",
+    uf: "",
+    cidade: "",
+    endereco: "",
+    numero: "",
+    complemento: "",
     meta_votos: "0",
   });
   
@@ -114,23 +119,51 @@ function PublicCadastro() {
     e.preventDefault();
     setCarregando(true);
     try {
+      const enderecoCompleto = `${apoiadorForm.endereco}, ${apoiadorForm.numero} ${apoiadorForm.complemento ? `- ${apoiadorForm.complemento}` : ""} - ${apoiadorForm.cidade}/${apoiadorForm.uf} (CEP: ${apoiadorForm.cep})`;
+      
       await addPessoa({
         nome: apoiadorForm.nome,
         telefone: apoiadorForm.telefone,
-        endereco: apoiadorForm.endereco_completo,
+        endereco: enderecoCompleto,
         meta_votos: Number(apoiadorForm.meta_votos),
-        municipio: "Ceará", // Simplificado para campo geral
+        municipio: apoiadorForm.cidade || "Ceará",
         tipo: "apoiador",
         funcao: "Apoiador Voluntário",
-        comite_id: db.comites[0]?.id || "c1",
+        comite_id: db.comites.find(c => c.municipio === apoiadorForm.cidade)?.id || db.comites[0]?.id || "c1",
         status: "ativo",
-        zona: "", // Padrão
+        zona: "",
       });
       setEnviado(true);
     } catch (error) {
       toast.error("Erro ao processar.");
     } finally {
       setCarregando(false);
+    }
+  };
+
+  const handleApoiadorCepLookup = async (cep: string) => {
+    const cleanCep = cep.replace(/\D/g, "");
+    setApoiadorForm(prev => ({ ...prev, cep }));
+    
+    if (cleanCep.length === 8) {
+      setCepLoading(true);
+      try {
+        const res = await fetch(`https://viacep.com.br/ws/${cleanCep}/json/`);
+        const data = await res.json();
+        if (!data.erro) {
+          setApoiadorForm(prev => ({
+            ...prev,
+            endereco: data.logradouro || prev.endereco,
+            cidade: data.localidade || prev.cidade,
+            uf: data.uf || prev.uf,
+          }));
+          toast.success("Endereço localizado!");
+        }
+      } catch (e) {
+        toast.error("Erro ao buscar CEP");
+      } finally {
+        setCepLoading(false);
+      }
     }
   };
 
@@ -250,18 +283,82 @@ function PublicCadastro() {
                     required
                   />
                 </div>
-                <div className="space-y-1.5">
-                  <Label className="text-[10px] font-bold uppercase text-muted-foreground">Endereço Completo</Label>
-                  <Input 
-                    value={apoiadorForm.endereco_completo}
-                    onChange={e => setApoiadorForm({...apoiadorForm, endereco_completo: e.target.value})}
-                    placeholder="Rua, Número, Bairro, Cidade"
-                    className="h-12 border-2"
-                    required
-                  />
+                <div className="grid grid-cols-1 gap-4">
+                  <div className="space-y-1.5">
+                    <Label className="text-[10px] font-bold uppercase text-muted-foreground">CEP</Label>
+                    <div className="relative">
+                      <Input 
+                        value={apoiadorForm.cep}
+                        onChange={e => handleApoiadorCepLookup(e.target.value)}
+                        placeholder="00000-000"
+                        maxLength={9}
+                        className="h-12 border-2"
+                        required
+                      />
+                      {cepLoading && <Loader2 className="absolute right-3 top-1/2 size-4 -translate-y-1/2 animate-spin text-primary" />}
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-4 gap-3">
+                    <div className="space-y-1.5">
+                      <Label className="text-[10px] font-bold uppercase text-muted-foreground">UF</Label>
+                      <Input 
+                        value={apoiadorForm.uf}
+                        onChange={e => setApoiadorForm({...apoiadorForm, uf: e.target.value.toUpperCase()})}
+                        placeholder="CE"
+                        maxLength={2}
+                        className="h-12 border-2"
+                        required
+                      />
+                    </div>
+                    <div className="col-span-3 space-y-1.5">
+                      <Label className="text-[10px] font-bold uppercase text-muted-foreground">Cidade</Label>
+                      <Input 
+                        value={apoiadorForm.cidade}
+                        onChange={e => setApoiadorForm({...apoiadorForm, cidade: e.target.value})}
+                        placeholder="Sua cidade"
+                        className="h-12 border-2"
+                        required
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <Label className="text-[10px] font-bold uppercase text-muted-foreground">Endereço (Logradouro)</Label>
+                    <Input 
+                      value={apoiadorForm.endereco}
+                      onChange={e => setApoiadorForm({...apoiadorForm, endereco: e.target.value})}
+                      placeholder="Rua, Av..."
+                      className="h-12 border-2"
+                      required
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-3 gap-3">
+                    <div className="space-y-1.5">
+                      <Label className="text-[10px] font-bold uppercase text-muted-foreground">Número</Label>
+                      <Input 
+                        value={apoiadorForm.numero}
+                        onChange={e => setApoiadorForm({...apoiadorForm, numero: e.target.value})}
+                        placeholder="123"
+                        className="h-12 border-2"
+                        required
+                      />
+                    </div>
+                    <div className="col-span-2 space-y-1.5">
+                      <Label className="text-[10px] font-bold uppercase text-muted-foreground">Complemento</Label>
+                      <Input 
+                        value={apoiadorForm.complemento}
+                        onChange={e => setApoiadorForm({...apoiadorForm, complemento: e.target.value})}
+                        placeholder="Apto, Sala, Casa..."
+                        className="h-12 border-2"
+                      />
+                    </div>
+                  </div>
                 </div>
+
                 <div className="space-y-1.5">
-                  <Label className="text-[10px] font-bold uppercase text-muted-foreground">Quantidade de Votos (Compromisso)</Label>
+                  <Label className="text-[10px] font-bold uppercase text-muted-foreground">Quantidade de Votos (Expectativa)</Label>
                   <Input 
                     type="number"
                     value={apoiadorForm.meta_votos}

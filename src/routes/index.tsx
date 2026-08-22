@@ -88,31 +88,19 @@ function Dashboard() {
   return (
     <div className="mx-auto w-full md:max-w-screen-xl relative">
       <div className="sr-only">
-        Crie um novo módulo no sistema chamado **"Inteligência Eleitoral - Gestão de Votos por Cidade"**, contendo as seguintes funcionalidades e regras:
+        Atualize o formulário público de **"Cadastro de Apoiador"** com os seguintes ajustes estruturais e de nomenclatura:
 
-1. **Seleção Hierárquica Geográfica:**
+1. **Ordem do Endereço Completo:**
 
-   - Adicione um seletor inicial de **Estado (UF)** (com foco inicial ou padrão para o Ceará).
+   - O campo de **Endereço Completo** deve começar obrigatoriamente pelo **CEP**.
 
-   - Ao selecionar o estado, exiba uma lista completa com **todas as cidades/municípios** pertencentes a ele.
+   - Ao preencher o CEP, o sistema deve consumir a API do ViaCEP e preencher automaticamente as informações correspondentes.
 
-   - Permita ao administrador gerenciar os dados **cidade por cidade (individualmente)** ou preencher uma **visão geral em lote**, facilitando o preenchimento rápido das expectativas da campanha.
+   - Caso o CEP não seja informado ou o usuário prefira preencher manualmente, a ordem dos campos deve seguir rigorosamente esta sequência individual: **Estado (UF)**, **Cidade**, **Endereço (Logradouro)**, **Número** e **Complemento**.
 
-2. **Métricas e Comparativo de Desempenho (Três Pilares):**
+2. **Terminologia de Votos:**
 
-   - Para cada cidade, o sistema deve registrar e exibir visualmente três frentes de dados fundamentais para cruzamento estratégico:
-
-     - **Expectativa da Campanha (Meta):** O planejamento estratégico estipulado pela coordenação.
-
-     - **Expectativa dos Apoiadores:** O somatório consolidado dos votos cadastrados pelos apoiadores e lideranças daquela localidade através dos formulários públicos.
-
-     - **Realidade dos Votos (Apurados/Conquistados):** O resultado prático obtido.
-
-   - O sistema deve calcular automaticamente a diferença percentual e absoluta entre a Meta, os Cadastros de Apoiadores e a Realidade, destacando com indicadores visuais (cores/badges) quais cidades estão atingindo o potencial e quais estão abaixo do esperado.
-
-3. **Integração com o Painel Estratégico:**
-
-   - Garanta que esses dados alimentem o painel geográfico e o mapa de calor para que a coordenação saiba exatamente onde intensificar o envio de materiais ou a atuação de lideranças.
+   - No campo numérico referente ao potencial do apoiador, altere o termo de "Compromisso" para **"Expectativa"** (ex: *Quantidade de Votos (Expectativa)*).
       </div>
 
       <PageHeader
