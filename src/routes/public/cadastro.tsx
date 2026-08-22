@@ -712,6 +712,30 @@ function PublicCadastro() {
                         />
                       </div>
                     </div>
+                    
+                    <div className="grid grid-cols-4 gap-3">
+                      <div className="col-span-3 space-y-1.5">
+                        <Label className="text-[10px] font-bold uppercase text-muted-foreground">Cidade</Label>
+                        <Input 
+                          value={comiteForm.municipio}
+                          onChange={e => setComiteForm({...comiteForm, municipio: e.target.value})}
+                          placeholder="Sua cidade"
+                          className="h-12 border-2"
+                          required
+                        />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label className="text-[10px] font-bold uppercase text-muted-foreground">UF</Label>
+                        <Input 
+                          value={comiteForm.uf}
+                          onChange={e => setComiteForm({...comiteForm, uf: e.target.value.toUpperCase()})}
+                          placeholder="CE"
+                          maxLength={2}
+                          className="h-12 border-2"
+                          required
+                        />
+                      </div>
+                    </div>
 
                     <div className="space-y-1.5">
                       <Label className="text-[10px] font-bold uppercase text-muted-foreground">Ponto de Referência</Label>
