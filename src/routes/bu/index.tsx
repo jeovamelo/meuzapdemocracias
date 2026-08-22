@@ -41,7 +41,44 @@ export const Route = createFileRoute("/bu/")({
 });
 
 function ApuracaoParalela() {
-  const { db } = useStore();
+  const { db, addBoletim } = useStore();
+  const [tab, setTab] = useState<"dashboard" | "boletins" | "scanner">("dashboard");
+  const [scanning, setScanning] = useState(false);
+  const [buData, setBuData] = useState<any>(null);
+  const [carregando, setCarregando] = useState(false);
+
+  const simulatedScan = async () => {
+    setScanning(true);
+    await new Promise(r => setTimeout(r, 2000));
+    
+    const mockBU = {
+      pleito: "Eleições Gerais 2026",
+      secao: Math.floor(Math.random() * 900 + 100).toString(),
+      zona: "001",
+      municipio: "FORTALEZA",
+      uf: db.config.uf || "CE",
+      total_votos: 250,
+      votos_candidato: 175,
+      assinatura_digital: "v3_TSE_" + Math.random().toString(36).substring(7)
+    };
+
+    setBuData(mockBU);
+    setScanning(false);
+  };
+
+  const handleBuSubmit = async () => {
+    if (!buData) return;
+    setCarregando(true);
+    try {
+      await addBoletim(buData);
+      setBuData(null);
+      setTab("boletins");
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setCarregando(false);
+    }
+  };
   const [tab, setTab] = useState<"dashboard" | "boletins">("dashboard");
 
   const totalSecoesLidas = db.boletins.length;
