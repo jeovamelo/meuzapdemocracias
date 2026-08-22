@@ -73,6 +73,7 @@ function PessoasPage() {
     db.pessoas.filter(
       (p) =>
         p.tipo === tipo &&
+        p.uf === db.config.uf &&
         `${p.nome} ${p.funcao} ${p.zona} ${p.municipio}`.toLowerCase().includes(busca.toLowerCase()),
     );
 
@@ -235,6 +236,14 @@ function PessoasPage() {
                       value={form.municipio}
                       onChange={(e) => setForm({ ...form, municipio: e.target.value })}
                       placeholder="Cidade"
+                    />
+                  </Campo>
+                  <Campo label="UF">
+                    <Input
+                      value={form.uf}
+                      onChange={(e) => setForm({ ...form, uf: e.target.value.toUpperCase() })}
+                      placeholder="UF"
+                      maxLength={2}
                     />
                   </Campo>
                 </div>
