@@ -37,6 +37,7 @@ type Ctx = {
   updateSolicitacao: (id: string, s: Partial<SolicitacaoMaterial>) => Promise<void>;
   updateCidadeMeta: (id: string, cm: Partial<CidadeMeta>) => Promise<void>;
   updateConfig: (config: Partial<Database["config"]>) => Promise<void>;
+  addBoletim: (b: Omit<BoletimUrna, "id" | "data_leitura">) => Promise<void>;
   resetarDados: () => Promise<void>;
 };
 
