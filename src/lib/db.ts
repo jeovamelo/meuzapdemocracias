@@ -532,7 +532,20 @@ export function seed(): Database {
     { id: "cm6", municipio: "Maranguape", uf: "CE", meta_campanha: 25000, realidade_votos: 0 },
   ];
 
-  return { comites, pessoas, materiais, kits, saidas, solicitacoes, cidade_metas };
+  const config: ConfigCampanha = {
+    id: "main-config",
+    candidato_nome: "Missias Dias",
+    candidato_urna: "Missias Dias 13123",
+    numero: "13123",
+    cargo: "Deputado Estadual",
+    partido_coligacao: "PT / Federação Brasil da Esperança",
+    uf: "CE",
+    meta_eleicao: 80000,
+    meta_expectativa: 100000,
+    configurada: true,
+  };
+
+  return { comites, pessoas, materiais, kits, saidas, solicitacoes, cidade_metas, config };
 }
 
 export function loadDb(): Database {
@@ -541,7 +554,7 @@ export function loadDb(): Database {
     const raw = window.localStorage.getItem(STORAGE_KEY);
     if (!raw) return seed();
     const parsed = JSON.parse(raw) as Database;
-    if (!parsed.comites || !parsed.materiais || !parsed.cidade_metas) return seed();
+    if (!parsed.comites || !parsed.materiais || !parsed.cidade_metas || !parsed.config) return seed();
     return parsed;
   } catch {
     return seed();
