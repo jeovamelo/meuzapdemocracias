@@ -88,19 +88,31 @@ function Dashboard() {
   return (
     <div className="mx-auto w-full md:max-w-screen-xl relative -+">
       <div className="sr-only">
-        Atualize o formulário público de **"Cadastro de Apoiador"** com os seguintes ajustes estruturais e de nomenclatura:
+        Crie um novo módulo independente no sistema chamado **"Leitor Universal de Boletim de Urna (BU)"**, projetado para uso genérico, rápido e sem exigência de login (acesso público via link direto), com as seguintes especificações técnicas e de negócio:
 
-1. **Ordem do Endereço Completo:**
+1. **Acesso Público e Leitor de QR Code Universal:**
 
-   - O campo de **Endereço Completo** deve começar obrigatoriamente pelo **CEP**.
+   - A rota do leitor deve ser totalmente aberta (sem tela de login/autenticação), permitindo que qualquer fiscal ou apoiador abra no celular e escaneie imediatamente.
 
-   - Ao preencher o CEP, o sistema deve consumir a API do ViaCEP e preencher automaticamente as informações correspondentes.
+   - Integre uma biblioteca de leitura de câmera focada em **QR Code** (ex: `jsQR` ou `html5-qrcode`).
 
-   - Caso o CEP não seja informado ou o usuário prefira preencher manualmente, a ordem dos campos deve seguir rigorosamente esta sequência individual: **Estado (UF)**, **Cidade**, **Endereço (Logradouro)**, **Número** e **Complemento**.
+   - O QR Code impresso no rodapé do Boletim de Urna oficial da Justiça Eleitoral contém todos os votos de todos os candidatos daquela seção.
 
-2. **Terminologia de Votos:**
+2. **Processamento e Descodificação Genérica do BU:**
 
-   - No campo numérico referente ao potencial do apoiador, altere o termo de "Compromisso" para **"Expectativa"** (ex: *Quantidade de Votos (Expectativa)*).
+   - Ao capturar a imagem do QR Code do BU, o sistema deve decodificar a string oficial gerada pela urna eletrônica (seguindo o padrão de dados públicos do TSE).
+
+   - Como o BU é universal e contém o resultado de **todos os partidos e candidatos** daquela seção, o sistema deve processar o payload de forma inteligente:
+
+     - Extrair automaticamente o identificador da Zona, Seção e Município.
+
+     - Varrer a lista de votos e cruzar os números/registros com a base de dados de **todos os candidatos** cadastrados no sistema (não apenas o seu).
+
+3. **Alimentação Automática e Relatório de Seção:**
+
+   - Após a leitura bem-sucedida, exiba instantaneamente na tela um resumo com os votos computados para o seu candidato e uma visão geral dos demais dados da seção (eleitorado, comparecimento).
+
+   - Salve a apuração daquela seção no banco de dados para alimentar o painel de apuração em tempo real, comparando os votos reais das urnas com a expectativa mapeada da campanha.
       </div>
 
       <PageHeader
