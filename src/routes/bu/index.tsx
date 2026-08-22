@@ -14,7 +14,8 @@ import {
   FileText,
   TrendingUp,
   ChevronRight,
-  AlertCircle
+  AlertCircle,
+  Camera
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -79,7 +80,6 @@ function ApuracaoParalela() {
       setCarregando(false);
     }
   };
-  
 
   const totalSecoesLidas = db.boletins.length;
   const totalSecoesEstimado = db.config.total_secoes || 500;
@@ -89,7 +89,6 @@ function ApuracaoParalela() {
   const metaExpectativa = db.config.meta_expectativa || 100000;
   const progressoVotos = (votosCandidato / metaExpectativa) * 100;
 
-  // Dados para o gráfico por município
   const dadosGrafico = db.cidade_metas
     .filter(c => c.uf === db.config.uf)
     .map(c => {
@@ -127,10 +126,6 @@ function ApuracaoParalela() {
             </button>
             <button 
               onClick={() => setTab("scanner")}
-              className={`px-4 py-1.5 text-[10px] font-black uppercase rounded-lg transition-all ${tab === "scanner" ? "bg-background text-primary shadow-sm" : "text-muted-foreground"}`}
-            >
-              Scanner
-            </button>
               className={`px-4 py-1.5 text-[10px] font-black uppercase rounded-lg transition-all ${tab === "scanner" ? "bg-background text-primary shadow-sm" : "text-muted-foreground"}`}
             >
               Scanner
@@ -221,7 +216,6 @@ function ApuracaoParalela() {
         </div>
       ) : tab === "dashboard" ? (
         <div className="space-y-6 animate-in fade-in duration-500">
-          {/* Top KPIs */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <Card className="border-2 border-primary/20 bg-primary/5">
               <CardHeader className="pb-2">
@@ -265,7 +259,6 @@ function ApuracaoParalela() {
             </Card>
           </div>
 
-          {/* Gráfico Comparativo */}
           <Card className="border-2">
             <CardHeader>
               <CardTitle className="text-sm font-black uppercase tracking-widest flex items-center gap-2">
