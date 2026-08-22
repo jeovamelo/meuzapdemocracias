@@ -15,6 +15,7 @@ import { Route as MateriaisRouteImport } from './routes/materiais'
 import { Route as PessoasRouteImport } from './routes/pessoas'
 import { Route as PotencialRouteImport } from './routes/potencial'
 import { Route as SaidasRouteImport } from './routes/saidas'
+import { Route as BuIndexRouteImport } from './routes/bu/index'
 import { Route as PublicCadastroRouteImport } from './routes/public/cadastro'
 import { Route as SaidasIndexRouteImport } from './routes/saidas.index'
 import { Route as SaidasNovaRouteImport } from './routes/saidas.nova'
@@ -49,6 +50,11 @@ const SaidasRoute = SaidasRouteImport.update({
   path: '/saidas',
   getParentRoute: () => rootRouteImport,
 } as any)
+const BuIndexRoute = BuIndexRouteImport.update({
+  id: '/bu/',
+  path: '/bu/',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const PublicCadastroRoute = PublicCadastroRouteImport.update({
   id: '/public/cadastro',
   path: '/public/cadastro',
@@ -74,6 +80,7 @@ export interface FileRoutesByFullPath {
   '/saidas': typeof SaidasRouteWithChildren
   '/public/cadastro': typeof PublicCadastroRoute
   '/saidas/nova': typeof SaidasNovaRoute
+  '/bu/': typeof BuIndexRoute
   '/saidas/': typeof SaidasIndexRoute
 }
 export interface FileRoutesByTo {
@@ -84,6 +91,7 @@ export interface FileRoutesByTo {
   '/potencial': typeof PotencialRoute
   '/public/cadastro': typeof PublicCadastroRoute
   '/saidas/nova': typeof SaidasNovaRoute
+  '/bu': typeof BuIndexRoute
   '/saidas': typeof SaidasIndexRoute
 }
 export interface FileRoutesById {
@@ -96,6 +104,7 @@ export interface FileRoutesById {
   '/saidas': typeof SaidasRouteWithChildren
   '/public/cadastro': typeof PublicCadastroRoute
   '/saidas/nova': typeof SaidasNovaRoute
+  '/bu/': typeof BuIndexRoute
   '/saidas/': typeof SaidasIndexRoute
 }
 export interface FileRouteTypes {
@@ -109,6 +118,7 @@ export interface FileRouteTypes {
     | '/saidas'
     | '/public/cadastro'
     | '/saidas/nova'
+    | '/bu/'
     | '/saidas/'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -119,6 +129,7 @@ export interface FileRouteTypes {
     | '/potencial'
     | '/public/cadastro'
     | '/saidas/nova'
+    | '/bu'
     | '/saidas'
   id:
     | '__root__'
@@ -130,6 +141,7 @@ export interface FileRouteTypes {
     | '/saidas'
     | '/public/cadastro'
     | '/saidas/nova'
+    | '/bu/'
     | '/saidas/'
   fileRoutesById: FileRoutesById
 }
@@ -141,6 +153,7 @@ export interface RootRouteChildren {
   PotencialRoute: typeof PotencialRoute
   SaidasRoute: typeof SaidasRouteWithChildren
   PublicCadastroRoute: typeof PublicCadastroRoute
+  BuIndexRoute: typeof BuIndexRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -185,6 +198,13 @@ declare module '@tanstack/react-router' {
       path: '/saidas'
       fullPath: '/saidas'
       preLoaderRoute: typeof SaidasRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/bu/': {
+      id: '/bu/'
+      path: '/bu'
+      fullPath: '/bu/'
+      preLoaderRoute: typeof BuIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/public/cadastro': {
@@ -232,6 +252,7 @@ const rootRouteChildren: RootRouteChildren = {
   PotencialRoute: PotencialRoute,
   SaidasRoute: SaidasRouteWithChildren,
   PublicCadastroRoute: PublicCadastroRoute,
+  BuIndexRoute: BuIndexRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
