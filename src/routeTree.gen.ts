@@ -19,6 +19,7 @@ import { Route as PcRouteImport } from './routes/pc'
 import { Route as PessoasRouteImport } from './routes/pessoas'
 import { Route as PotencialRouteImport } from './routes/potencial'
 import { Route as SaidasRouteImport } from './routes/saidas'
+import { Route as WhatsappRouteImport } from './routes/whatsapp'
 import { Route as BuIndexRouteImport } from './routes/bu/index'
 import { Route as PublicCadastroRouteImport } from './routes/public/cadastro'
 import { Route as SaidasIndexRouteImport } from './routes/saidas.index'
@@ -74,6 +75,11 @@ const SaidasRoute = SaidasRouteImport.update({
   path: '/saidas',
   getParentRoute: () => rootRouteImport,
 } as any)
+const WhatsappRoute = WhatsappRouteImport.update({
+  id: '/whatsapp',
+  path: '/whatsapp',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const BuIndexRoute = BuIndexRouteImport.update({
   id: '/bu/',
   path: '/bu/',
@@ -106,6 +112,7 @@ export interface FileRoutesByFullPath {
   '/pessoas': typeof PessoasRoute
   '/potencial': typeof PotencialRoute
   '/saidas': typeof SaidasRouteWithChildren
+  '/whatsapp': typeof WhatsappRoute
   '/public/cadastro': typeof PublicCadastroRoute
   '/saidas/nova': typeof SaidasNovaRoute
   '/bu/': typeof BuIndexRoute
@@ -121,6 +128,7 @@ export interface FileRoutesByTo {
   '/pc': typeof PcRoute
   '/pessoas': typeof PessoasRoute
   '/potencial': typeof PotencialRoute
+  '/whatsapp': typeof WhatsappRoute
   '/public/cadastro': typeof PublicCadastroRoute
   '/saidas/nova': typeof SaidasNovaRoute
   '/bu': typeof BuIndexRoute
@@ -138,6 +146,7 @@ export interface FileRoutesById {
   '/pessoas': typeof PessoasRoute
   '/potencial': typeof PotencialRoute
   '/saidas': typeof SaidasRouteWithChildren
+  '/whatsapp': typeof WhatsappRoute
   '/public/cadastro': typeof PublicCadastroRoute
   '/saidas/nova': typeof SaidasNovaRoute
   '/bu/': typeof BuIndexRoute
@@ -156,6 +165,7 @@ export interface FileRouteTypes {
     | '/pessoas'
     | '/potencial'
     | '/saidas'
+    | '/whatsapp'
     | '/public/cadastro'
     | '/saidas/nova'
     | '/bu/'
@@ -171,6 +181,7 @@ export interface FileRouteTypes {
     | '/pc'
     | '/pessoas'
     | '/potencial'
+    | '/whatsapp'
     | '/public/cadastro'
     | '/saidas/nova'
     | '/bu'
@@ -187,6 +198,7 @@ export interface FileRouteTypes {
     | '/pessoas'
     | '/potencial'
     | '/saidas'
+    | '/whatsapp'
     | '/public/cadastro'
     | '/saidas/nova'
     | '/bu/'
@@ -204,6 +216,7 @@ export interface RootRouteChildren {
   PessoasRoute: typeof PessoasRoute
   PotencialRoute: typeof PotencialRoute
   SaidasRoute: typeof SaidasRouteWithChildren
+  WhatsappRoute: typeof WhatsappRoute
   PublicCadastroRoute: typeof PublicCadastroRoute
   BuIndexRoute: typeof BuIndexRoute
 }
@@ -280,6 +293,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SaidasRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/whatsapp': {
+      id: '/whatsapp'
+      path: '/whatsapp'
+      fullPath: '/whatsapp'
+      preLoaderRoute: typeof WhatsappRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/bu/': {
       id: '/bu/'
       path: '/bu'
@@ -335,6 +355,7 @@ const rootRouteChildren: RootRouteChildren = {
   PessoasRoute: PessoasRoute,
   PotencialRoute: PotencialRoute,
   SaidasRoute: SaidasRouteWithChildren,
+  WhatsappRoute: WhatsappRoute,
   PublicCadastroRoute: PublicCadastroRoute,
   BuIndexRoute: BuIndexRoute,
 }

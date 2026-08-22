@@ -53,7 +53,7 @@ function PcPage() {
       return;
     }
     try {
-      const res = await fetch('http://localhost:3001/send-message', {
+      const res = await fetch('https://api.democracias.org/whatsapp/send-message', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -100,7 +100,7 @@ function PcPage() {
             </div>
           </div>
           <div className="grid md:grid-cols-2 gap-4">
-            <a href="http://localhost:8000" target="_blank" rel="noreferrer" className="group flex items-center justify-between p-4 rounded-xl border border-border bg-background hover:border-primary/50 transition-colors">
+            <a href="https://api.democracias.org" target="_blank" rel="noreferrer" className="group flex items-center justify-between p-4 rounded-xl border border-border bg-background hover:border-primary/50 transition-colors">
               <div className="flex items-center gap-3">
                 <div className="bg-[#3ECF8E]/10 p-2 rounded-lg"><Database className="h-5 w-5 text-[#3ECF8E]" /></div>
                 <div>
@@ -111,7 +111,7 @@ function PcPage() {
               <ExternalLink className="h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors" />
             </a>
             
-            <a href="http://localhost:3001" target="_blank" rel="noreferrer" className="group flex items-center justify-between p-4 rounded-xl border border-border bg-background hover:border-primary/50 transition-colors">
+            <a href="https://api.democracias.org/whatsapp" target="_blank" rel="noreferrer" className="group flex items-center justify-between p-4 rounded-xl border border-border bg-background hover:border-primary/50 transition-colors">
               <div className="flex items-center gap-3">
                 <div className="bg-blue-500/10 p-2 rounded-lg"><Server className="h-5 w-5 text-blue-500" /></div>
                 <div>
@@ -171,8 +171,8 @@ function PcPage() {
               <div>
                 <p className="font-semibold mb-1">Redirect URLs (Copie para o painel do Google)</p>
                 <ul className="list-disc pl-4 space-y-1 font-mono text-xs text-blue-700/80">
-                  <li>http://localhost:5173/onboarding</li>
-                  <li>https://democracias.com/onboarding</li>
+                  <li>https://democracias.org/onboarding</li>
+                  <li>https://democracias.org/onboarding</li>
                 </ul>
               </div>
             </div>

@@ -1,6 +1,7 @@
 import express from 'express';
+import path from 'node:path';
 import cors from 'cors';
-import { connectToWhatsApp, isConnected, waSocket } from './whatsapp';
+import { connectToWhatsApp, isConnected, waSocket, currentQr } from './whatsapp';
 import { searchTseCandidate } from './tse';
 
 const app = express();
@@ -17,33 +18,28 @@ app.get('/status', (req, res) => {
   res.json({
     online: isConnected,
     message: isConnected ? 'WhatsApp conectado' : 'Aguardando conexão / QR Code',
+    qr: currentQr,
   });
 });
 
-// Endpoint de Consulta ao TSE (DivulgaCandContas)
-app.get('/tse/candidato', async (req, res) => {
-  const { uf, numero, ano } = req.query;
+// Fotos oficiais importadas localmente a partir dos pacotes do TSE
+app.get('/foto/:ano/:uf/:id', (req, res) => {
+  const file = path.join('/opt/democracias/importados/fotos2026', `F${String(req.params.uf).toUpperCase()}${String(req.params.id).replace(/^\D+/, '')}_div.jpg`);
+  return res.sendFile(file, err => { if (err && !res.headersSent) res.status(404).json({ error: 'Foto não encontrada.' }); });
+});
 
-  if (!uf || !numero) {
-    return res.status(400).json({ error: 'UF e Número são obrigatórios.' });
-  }
-
+// Consulta local no Supabase, importado a partir dos dados oficiais do TSE
+app.get('/tse/:uf/:numero', async (req, res) => {
+  const { uf, numero } = req.params;
+  const cargo = String(req.query.cargo || '');
+  if (!uf || !numero || !cargo) return res.status(400).json({ error: 'UF, cargo e número são obrigatórios.' });
   try {
-    const candidate = await searchTseCandidate(String(uf), String(numero), ano ? String(ano) : '2024');
-
-    if (!candidate) {
-      // Se não encontrou em 2024, tenta em 2022 (Eleições Gerais)
-      const fallbackCandidate = await searchTseCandidate(String(uf), String(numero), '2022');
-      if (fallbackCandidate) {
-        return res.json({ success: true, candidate: fallbackCandidate });
-      }
-      return res.status(404).json({ success: false, message: 'Candidato não localizado na base do TSE.' });
-    }
-
-    res.json({ success: true, candidate });
+    const candidate = await searchTseCandidate(uf, numero, '2026', cargo);
+    if (!candidate) return res.status(404).json({ error: 'Candidato não encontrado na base do Supabase.' });
+    return res.json(candidate);
   } catch (error) {
-    console.error('Erro na rota do TSE:', error);
-    res.status(500).json({ success: false, error: 'Erro interno ao consultar o TSE.' });
+    console.error('Erro na busca local:', error);
+    return res.status(502).json({ error: 'Falha ao consultar a base local do Supabase.' });
   }
 });
 
