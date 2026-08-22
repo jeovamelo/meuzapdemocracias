@@ -47,6 +47,7 @@ export type Pessoa = {
   zona: string;
   status: "ativo" | "inativo";
   meta_votos?: number;
+  meta_votos_conquistados?: number;
 };
 
 export type SolicitacaoMaterial = {
