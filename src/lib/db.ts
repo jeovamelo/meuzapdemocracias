@@ -118,6 +118,17 @@ export type Saida = {
   criado_em: string;
 };
 
+export type MovimentacaoEstoque = {
+  id: string;
+  material_id: string;
+  quantidade_anterior: number;
+  quantidade_nova: number;
+  diferenca: number;
+  tipo: "saida" | "entrada" | "ajuste_inventario";
+  observacao?: string;
+  criado_em: string;
+};
+
 export type CidadeMeta = {
   id: string;
   municipio: string;
