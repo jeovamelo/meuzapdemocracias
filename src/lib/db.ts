@@ -115,6 +115,14 @@ export type Saida = {
   criado_em: string;
 };
 
+export type CidadeMeta = {
+  id: string;
+  municipio: string;
+  uf: string;
+  meta_campanha: number;
+  realidade_votos: number;
+};
+
 export type Database = {
   comites: Comite[];
   pessoas: Pessoa[];
@@ -122,6 +130,7 @@ export type Database = {
   kits: Kit[];
   saidas: Saida[];
   solicitacoes: SolicitacaoMaterial[];
+  cidade_metas: CidadeMeta[];
 };
 
 export const CATEGORIAS: CategoriaMaterial[] = [
