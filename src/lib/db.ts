@@ -509,7 +509,16 @@ export function seed(): Database {
 
   const solicitacoes: SolicitacaoMaterial[] = [];
 
-  return { comites, pessoas, materiais, kits, saidas, solicitacoes };
+  const cidade_metas: CidadeMeta[] = [
+    { id: "cm1", municipio: "Fortaleza", uf: "CE", meta_campanha: 100000, realidade_votos: 0 },
+    { id: "cm2", municipio: "Caucaia", uf: "CE", meta_campanha: 45000, realidade_votos: 0 },
+    { id: "cm3", municipio: "Maracanaú", uf: "CE", meta_campanha: 35000, realidade_votos: 0 },
+    { id: "cm4", municipio: "Juazeiro do Norte", uf: "CE", meta_campanha: 60000, realidade_votos: 0 },
+    { id: "cm5", municipio: "Sobral", uf: "CE", meta_campanha: 40000, realidade_votos: 0 },
+    { id: "cm6", municipio: "Maranguape", uf: "CE", meta_campanha: 25000, realidade_votos: 0 },
+  ];
+
+  return { comites, pessoas, materiais, kits, saidas, solicitacoes, cidade_metas };
 }
 
 export function loadDb(): Database {
@@ -518,7 +527,7 @@ export function loadDb(): Database {
     const raw = window.localStorage.getItem(STORAGE_KEY);
     if (!raw) return seed();
     const parsed = JSON.parse(raw) as Database;
-    if (!parsed.comites || !parsed.materiais || !parsed.solicitacoes) return seed();
+    if (!parsed.comites || !parsed.materiais || !parsed.cidade_metas) return seed();
     return parsed;
   } catch {
     return seed();
