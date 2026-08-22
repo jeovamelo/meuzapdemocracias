@@ -56,7 +56,7 @@ function LeitorBU() {
   };
 
   return (
-    <div className="mx-auto w-full max-w-screen-xl px-5 py-6">
+    <div className="mx-auto w-full max-w-screen-xl px-5 py-6 mb-24 md:mb-0">
       <PageHeader 
         eyebrow="Auditoria em Campo"
         title="Leitor de BU"
