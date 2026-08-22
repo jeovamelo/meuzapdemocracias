@@ -409,6 +409,13 @@ function Dashboard() {
           <Plus className="size-6 md:size-5" strokeWidth={3} />
           <span className="hidden md:inline font-bold">Nova Saída</span>
         </Link>
+        <Link
+          to="/bu"
+          className="flex h-14 w-14 items-center justify-center rounded-full bg-accent text-accent-foreground shadow-2xl transition-transform active:scale-[0.98] md:h-16 md:w-auto md:rounded-xl md:px-6 md:gap-3"
+        >
+          <QrCode className="size-6 md:size-5" />
+          <span className="hidden md:inline font-bold">Leitor BU</span>
+        </Link>
         
         <Link
           to="/public/cadastro"
