@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState } from "react";
+import { useState, useRef } from "react";
 import {
   Archive,
   Edit,
@@ -12,6 +12,9 @@ import {
   Plus,
   Search,
   Shirt,
+  Camera,
+  X,
+  Image as ImageIcon
 } from "lucide-react";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/PageHeader";
@@ -63,8 +66,14 @@ export const Route = createFileRoute("/materiais")({
   component: MateriaisPage,
 });
 
-const iconeCategoria = (c: CategoriaMaterial) =>
-  c === "Papelaria" ? FileText : c === "Grande Formato" ? Flag : Shirt;
+const iconeCategoria = (c: CategoriaMaterial) => {
+  if (c.includes("Adesivo")) return FileText;
+  if (c.includes("Bandeira")) return Flag;
+  if (c.includes("Santinho")) return FileText;
+  if (c.includes("Banner")) return Flag;
+  if (c.includes("Vestuário")) return Shirt;
+  return Package;
+};
 
 function MateriaisPage() {
   const { db } = useStore();
@@ -114,7 +123,29 @@ function Estoque() {
     categoria: CategoriaMaterial;
     estoque: string;
     estoque_minimo: string;
-  }>({ nome: "", categoria: "Papelaria", estoque: "", estoque_minimo: "" });
+    descricao: string;
+    foto: string;
+  }>({
+    nome: "",
+    categoria: "Folder / Santinho / Material Gráfico",
+    estoque: "",
+    estoque_minimo: "",
+    descricao: "",
+    foto: "",
+  });
+
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleFotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setForm(f => ({ ...f, foto: reader.result as string }));
+      };
+      reader.readAsDataURL(file);
+    }
+  };
 
   const ativos = db.materiais.filter((m) => !m.arquivado);
   const filtrados = ativos.filter((m) =>
@@ -132,10 +163,19 @@ function Estoque() {
       categoria: form.categoria,
       estoque: Number(form.estoque) || 0,
       estoque_minimo: Number(form.estoque_minimo) || 0,
+      descricao: form.descricao,
+      foto: form.foto,
     });
     setSalvando(false);
     setOpen(false);
-    setForm({ nome: "", categoria: "Papelaria", estoque: "", estoque_minimo: "" });
+    setForm({
+      nome: "",
+      categoria: "Folder / Santinho / Material Gráfico",
+      estoque: "",
+      estoque_minimo: "",
+      descricao: "",
+      foto: "",
+    });
     toast.success("Material cadastrado.");
   }
 
@@ -171,39 +211,91 @@ function Estoque() {
             Novo Material
             <Plus className="size-4" strokeWidth={3} />
           </DialogTrigger>
-          <DialogContent className="max-w-[400px] rounded-2xl">
+          <DialogContent className="max-h-[90vh] max-w-[500px] overflow-y-auto rounded-2xl">
             <DialogHeader>
               <DialogTitle>Novo Material</DialogTitle>
               <DialogDescription>Item de estoque da campanha.</DialogDescription>
             </DialogHeader>
-            <div className="space-y-3">
-              <Campo label="Nome do item">
-                <Input
-                  value={form.nome}
-                  onChange={(e) => setForm({ ...form, nome: e.target.value })}
-                  placeholder="Santinho, Bandeira 1x0,7m..."
+            <div className="space-y-4">
+              {/* Área de Foto */}
+              <div className="relative flex flex-col items-center justify-center rounded-xl border-2 border-dashed border-border bg-muted/30 p-4 transition-colors hover:bg-muted/50">
+                {form.foto ? (
+                  <div className="group relative h-32 w-full overflow-hidden rounded-lg">
+                    <img src={form.foto} alt="Preview" className="h-full w-full object-contain" />
+                    <button
+                      onClick={() => setForm(f => ({ ...f, foto: "" }))}
+                      className="absolute right-2 top-2 rounded-full bg-critical p-1 text-white opacity-0 transition-opacity group-hover:opacity-100"
+                    >
+                      <X className="size-4" />
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => fileInputRef.current?.click()}
+                    className="flex flex-col items-center gap-2 py-4"
+                  >
+                    <div className="flex size-12 items-center justify-center rounded-full bg-surface shadow-sm">
+                      <Camera className="size-6 text-muted-foreground" />
+                    </div>
+                    <span className="text-[10px] font-bold uppercase text-muted-foreground">
+                      Adicionar Foto
+                    </span>
+                  </button>
+                )}
+                <input
+                  type="file"
+                  ref={fileInputRef}
+                  className="hidden"
+                  accept="image/*"
+                  capture="environment"
+                  onChange={handleFotoChange}
                 />
-              </Campo>
-              <Campo label="Categoria">
-                <Select
-                  value={form.categoria}
-                  onValueChange={(v) =>
-                    setForm({ ...form, categoria: v as CategoriaMaterial })
-                  }
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {CATEGORIAS.map((c) => (
-                      <SelectItem key={c} value={c}>
-                        {c}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </Campo>
-              <div className="grid grid-cols-2 gap-3">
+              </div>
+
+              <div className="grid gap-4 md:grid-cols-2">
+                <div className="md:col-span-2">
+                  <Campo label="Nome do item">
+                    <Input
+                      value={form.nome}
+                      onChange={(e) => setForm({ ...form, nome: e.target.value })}
+                      placeholder="Ex: Santinho 13123..."
+                    />
+                  </Campo>
+                </div>
+
+                <div className="md:col-span-2">
+                  <Campo label="Categoria">
+                    <Select
+                      value={form.categoria}
+                      onValueChange={(v) =>
+                        setForm({ ...form, categoria: v as CategoriaMaterial })
+                      }
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {CATEGORIAS.map((c) => (
+                          <SelectItem key={c} value={c}>
+                            {c}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </Campo>
+                </div>
+
+                <div className="md:col-span-2">
+                  <Campo label="Descrição / Especificações">
+                    <textarea
+                      value={form.descricao}
+                      onChange={(e) => setForm({ ...form, descricao: e.target.value })}
+                      placeholder="Tamanho, cor, versão da arte, etc."
+                      className="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                    />
+                  </Campo>
+                </div>
+
                 <Campo label="Estoque atual">
                   <Input
                     inputMode="numeric"
@@ -212,6 +304,7 @@ function Estoque() {
                     placeholder="0"
                   />
                 </Campo>
+
                 <Campo label="Estoque mínimo">
                   <Input
                     inputMode="numeric"
@@ -296,9 +389,13 @@ function Estoque() {
               className="flex items-center gap-3 rounded-xl border border-border bg-surface p-3"
             >
               <div
-                className={`flex size-11 shrink-0 items-center justify-center rounded ${critico ? "bg-critical/10 text-critical" : "bg-foreground/5"}`}
+                className={`flex size-11 shrink-0 items-center justify-center overflow-hidden rounded border border-border/50 ${critico ? "bg-critical/10 text-critical" : "bg-foreground/5"}`}
               >
-                <Icon className="size-5" />
+                {m.foto ? (
+                  <img src={m.foto} alt="" className="h-full w-full object-cover" />
+                ) : (
+                  <Icon className="size-5" />
+                )}
               </div>
               <div className="min-w-0 flex-1">
                 <p className="truncate text-sm font-bold leading-tight">{m.nome}</p>

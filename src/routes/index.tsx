@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { Plus, UserPlus, AlertTriangle, FileText, Flag, Shirt, Send, BarChart3, PieChart as PieChartIcon, Map } from "lucide-react";
+import { Plus, UserPlus, AlertTriangle, FileText, Flag, Shirt, Send, BarChart3, PieChart as PieChartIcon, Map, Package } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
 import { useStore } from "@/lib/store";
 import { formatNumero, isCritico, isHoje, pad2, type Material } from "@/lib/db";
