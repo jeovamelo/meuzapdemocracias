@@ -85,6 +85,29 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       commit((p) => ({ ...p, comites: p.comites.filter((c) => c.id !== id) })),
     addPessoa: (pessoa) =>
       commit((p) => ({ ...p, pessoas: [{ ...pessoa, id: uid(), status: pessoa.status || "ativo" }, ...p.pessoas] })),
+    updatePessoa: (id, pessoa) =>
+      commit((p) => {
+        const nextPessoas = p.pessoas.map((x) => (x.id === id ? { ...x, ...pessoa } : x));
+        
+        // Regra de Negócio: Atualizar meta do comitê se a meta da liderança mudar
+        if (pessoa.meta_votos !== undefined) {
+          const pEditada = p.pessoas.find(x => x.id === id);
+          if (pEditada) {
+            const comiteId = pEditada.comite_id;
+            const novasMetas = nextPessoas
+              .filter(x => x.comite_id === comiteId)
+              .reduce((sum, x) => sum + (x.meta_votos || 0), 0);
+            
+            return {
+              ...p,
+              pessoas: nextPessoas,
+              comites: p.comites.map(c => c.id === comiteId ? { ...c, meta_votos: novasMetas } : c)
+            };
+          }
+        }
+        
+        return { ...p, pessoas: nextPessoas };
+      }),
     removePessoa: (id) =>
       commit((p) => ({ ...p, pessoas: p.pessoas.filter((x) => x.id !== id) })),
     addMaterial: (m) =>
