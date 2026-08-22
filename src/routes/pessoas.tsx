@@ -63,6 +63,7 @@ function PessoasPage() {
     complemento: "",
     bairro: "",
     municipio: "Fortaleza",
+    uf: db.config.uf || "CE",
     telefone: "",
     zona: "",
     meta_votos: 0,
