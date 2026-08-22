@@ -1,5 +1,5 @@
 import { Link } from "@tanstack/react-router";
-import { Home, MapPin, Users, Package, ArrowRightLeft, Target } from "lucide-react";
+import { Home, MapPin, Users, Package, ArrowRightLeft, Target, QrCode } from "lucide-react";
  
  const tabs = [
    { to: "/", label: "Início", icon: Home, exact: true },
