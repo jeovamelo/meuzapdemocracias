@@ -9,8 +9,11 @@ import {
   MapPin, 
   Loader2, 
   Camera,
-  Search
+  Search,
+  QrCode,
+  ShieldCheck
 } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 import { useStore } from "@/lib/store";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
