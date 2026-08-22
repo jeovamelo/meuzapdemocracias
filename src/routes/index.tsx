@@ -418,6 +418,142 @@ function Dashboard() {
           <span className="hidden md:inline font-bold">Link Apoiador</span>
         </Link>
       </div>
+      
+      <Dialog open={showConfig} onOpenChange={setShowConfig}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="text-2xl font-black uppercase tracking-tight flex items-center gap-2">
+              <ShieldCheck className="size-6 text-primary" />
+              Configurar Campanha 2026
+            </DialogTitle>
+            <DialogDescription>
+              Vincule seu número oficial para buscar dados no TSE e definir metas estratégicas.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-8 py-4">
+            <section className="space-y-4">
+              <div className="flex items-center gap-2">
+                <div className="size-6 rounded-full bg-primary/10 flex items-center justify-center text-[10px] font-bold text-primary">01</div>
+                <h3 className="font-bold uppercase text-xs tracking-wider">Dados Oficiais (Busca TSE)</h3>
+              </div>
+              
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <Label className="text-[10px] font-bold uppercase text-muted-foreground">Estado (UF)</Label>
+                  <Select 
+                    value={configForm.uf} 
+                    onValueChange={(v) => setConfigForm({...configForm, uf: v})}
+                  >
+                    <SelectTrigger className="h-12 border-2">
+                      <SelectValue placeholder="UF" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="CE">Ceará</SelectItem>
+                      <SelectItem value="PE">Pernambuco</SelectItem>
+                      <SelectItem value="BA">Bahia</SelectItem>
+                      <SelectItem value="RN">Rio Grande do Norte</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-[10px] font-bold uppercase text-muted-foreground">Número do Candidato</Label>
+                  <div className="flex gap-2">
+                    <Input 
+                      value={configForm.numero}
+                      onChange={e => setConfigForm({...configForm, numero: e.target.value})}
+                      placeholder="Ex: 13123"
+                      className="h-12 border-2"
+                    />
+                    <Button 
+                      type="button" 
+                      variant="secondary" 
+                      className="h-12 px-4 gap-2"
+                      onClick={buscarNoTse}
+                      disabled={loadingTse}
+                    >
+                      {loadingTse ? <Loader2 className="size-4 animate-spin" /> : <Search className="size-4" />}
+                      Buscar
+                    </Button>
+                  </div>
+                </div>
+              </div>
+
+              {configForm.candidato_nome && (
+                <div className="rounded-2xl border-2 border-primary/20 bg-primary/5 p-4 space-y-3 animate-in fade-in slide-in-from-top-2">
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <p className="text-[10px] font-bold uppercase text-primary mb-1">Candidato Localizado</p>
+                      <p className="text-lg font-black leading-tight uppercase">{configForm.candidato_urna}</p>
+                      <p className="text-xs font-medium text-muted-foreground">{configForm.candidato_nome}</p>
+                    </div>
+                    <Badge className="font-mono text-lg px-3 py-1">{configForm.numero}</Badge>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4 pt-2 border-t border-primary/10">
+                    <div>
+                      <p className="text-[9px] font-bold uppercase text-muted-foreground">Cargo</p>
+                      <p className="text-xs font-bold">{configForm.cargo}</p>
+                    </div>
+                    <div>
+                      <p className="text-[9px] font-bold uppercase text-muted-foreground">Partido / Coligação</p>
+                      <p className="text-xs font-bold truncate">{configForm.partido_coligacao}</p>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </section>
+
+            <section className="space-y-4">
+              <div className="flex items-center gap-2">
+                <div className="size-6 rounded-full bg-accent/10 flex items-center justify-center text-[10px] font-bold text-accent">02</div>
+                <h3 className="font-bold uppercase text-xs tracking-wider">Planejamento Estratégico</h3>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-[10px] font-bold uppercase text-muted-foreground">Meta para Eleição</Label>
+                    <Info className="size-3 text-muted-foreground" />
+                  </div>
+                  <Input 
+                    type="number"
+                    value={configForm.meta_eleicao}
+                    onChange={e => setConfigForm({...configForm, meta_eleicao: Number(e.target.value)})}
+                    placeholder="Qtd Votos"
+                    className="h-12 border-2 font-mono font-bold"
+                  />
+                  <p className="text-[9px] text-muted-foreground leading-tight italic">Mínimo necessário para ser eleito (Quociente)</p>
+                </div>
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-[10px] font-bold uppercase text-muted-foreground">Expectativa Total</Label>
+                    <TrendingUp className="size-3 text-muted-foreground" />
+                  </div>
+                  <Input 
+                    type="number"
+                    value={configForm.meta_expectativa}
+                    onChange={e => setConfigForm({...configForm, meta_expectativa: Number(e.target.value)})}
+                    placeholder="Qtd Votos"
+                    className="h-12 border-2 font-mono font-bold"
+                  />
+                  <p className="text-[9px] text-muted-foreground leading-tight italic">Meta agressiva de votos esperados</p>
+                </div>
+              </div>
+            </section>
+          </div>
+
+          <DialogFooter className="pt-4 border-t border-border">
+            <Button 
+              className="h-14 w-full text-lg font-black uppercase gap-2"
+              onClick={salvarConfiguracao}
+              disabled={!configForm.candidato_nome}
+            >
+              Finalizar Cadastro da Campanha
+              <ShieldCheck className="size-5" />
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
