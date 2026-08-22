@@ -250,10 +250,11 @@ function PublicCadastro() {
 
       <div className="mx-auto -mt-8 max-w-lg px-4">
         <Tabs value={abaAtiva} onValueChange={setAbaAtiva} className="w-full">
-          <TabsList className="grid w-full grid-cols-3 rounded-2xl bg-surface h-16 p-2 shadow-xl border border-border">
+          <TabsList className="grid w-full grid-cols-4 rounded-2xl bg-surface h-16 p-2 shadow-xl border border-border">
             <TabsTrigger value="apoiador" className="rounded-xl text-[10px] font-black uppercase">Apoiador</TabsTrigger>
             <TabsTrigger value="material" className="rounded-xl text-[10px] font-black uppercase">Material</TabsTrigger>
             <TabsTrigger value="comite" className="rounded-xl text-[10px] font-black uppercase">Comitê</TabsTrigger>
+            <TabsTrigger value="bu" className="rounded-xl text-[10px] font-black uppercase">Scanner BU</TabsTrigger>
           </TabsList>
 
           <div className="mt-6 rounded-3xl border border-border bg-background p-6 shadow-sm">
