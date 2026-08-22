@@ -1,600 +1,84 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
-import { Plus, UserPlus, AlertTriangle, FileText, Flag, Shirt, Send, BarChart3, PieChart as PieChartIcon, Map, Package, Search, ShieldCheck, Target, TrendingUp, Info, Loader2, QrCode } from "lucide-react";
-import { PageHeader } from "@/components/PageHeader";
-import { useStore } from "@/lib/store";
-import { formatNumero, isCritico, isHoje, pad2, type Material } from "@/lib/db";
-import { Skeleton } from "@/components/ui/skeleton";
-import { useState, useEffect } from "react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { 
-  Dialog, 
-  DialogContent, 
-  DialogHeader, 
-  DialogTitle, 
-  DialogDescription,
-  DialogFooter
-} from "@/components/ui/dialog";
-import { 
-  Select, 
-  SelectContent, 
-  SelectItem, 
-  SelectTrigger, 
-  SelectValue 
-} from "@/components/ui/select";
-import { toast } from "sonner";
-import { Badge } from "@/components/ui/badge";
-import { Progress } from "@/components/ui/progress";
-import {
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-  PieChart,
-  Pie,
-  Cell,
-} from "recharts";
-import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
+import { createFileRoute, Link } from '@tanstack/react-router';
+import { Button } from '@/components/ui/button';
+import { Target, Map, BarChart3, ArrowRight } from 'lucide-react';
 
-export const Route = createFileRoute("/")({
-  head: () => ({
-    meta: [
-      { title: "Painel Central — Gestão Ceará" },
-      {
-        name: "description",
-        content:
-          "Gestão Centralizada de Estoque e Logística de Campanha Eleitoral no Estado do Ceará.",
-      },
-      { property: "og:title", content: "Painel Central — Gestão Ceará" },
-      {
-        property: "og:description",
-        content:
-          "Dashboard administrativo para controle estadual de logística de campanha.",
-      },
-    ],
-  }),
-  component: Dashboard,
+export const Route = createFileRoute('/')({
+  component: LandingPage,
 });
 
-const iconePorCategoria = (m: Material) => {
-  if (m.categoria.includes("Adesivo")) return FileText;
-  if (m.categoria.includes("Bandeira")) return Flag;
-  if (m.categoria.includes("Santinho") || m.categoria === "Santão" || m.categoria === "Revista dobrada") return FileText;
-  if (m.categoria.includes("Banner")) return Flag;
-  if (m.categoria.includes("Vestuário") || m.categoria === "Bóton") return Shirt;
-  return Package;
-};
-
-const COLORS = ["var(--primary)", "var(--accent)", "#10b981", "#8b5cf6", "#f43f5e"];
-
-function Dashboard() {
-  const { db, ready, updateConfig } = useStore();
-  const [showConfig, setShowConfig] = useState(false);
-  const [loadingTse, setLoadingTse] = useState(false);
-  const [configForm, setConfigForm] = useState({
-    uf: db.config.uf || "CE",
-    numero: db.config.numero || "",
-    candidato_nome: db.config.candidato_nome || "",
-    candidato_urna: db.config.candidato_urna || "",
-    cargo: db.config.cargo || "",
-    partido_coligacao: db.config.partido_coligacao || "",
-    meta_eleicao: db.config.meta_eleicao || 0,
-    meta_expectativa: db.config.meta_expectativa || 0,
-    total_secoes: db.config.total_secoes || 500,
-  });
-
-  useEffect(() => {
-    if (ready && !db.config.configurada) {
-      setShowConfig(true);
-    }
-  }, [ready, db.config.configurada]);
-
-  const buscarNoTse = async () => {
-    if (!configForm.uf || !configForm.numero) {
-      toast.error("Preencha UF e Número do Candidato");
-      return;
-    }
-
-    setLoadingTse(true);
-    // Simulação de busca no TSE
-    await new Promise((r) => setTimeout(r, 1500));
-    
-    // Mock de dados baseados em números conhecidos ou genéricos
-    const mockData = {
-      candidato_nome: "MISSIAS DIAS DE SOUZA",
-      candidato_urna: "MISSIAS DIAS",
-      cargo: "Deputado Estadual",
-      partido_coligacao: "PT / Federação Brasil da Esperança (PT/PC do B/PV)",
-    };
-
-    setConfigForm(prev => ({ ...prev, ...mockData }));
-    setLoadingTse(false);
-    toast.success("Dados localizados na base do TSE!");
-  };
-
-  const salvarConfiguracao = async () => {
-    await updateConfig({
-      ...configForm,
-      configurada: true
-    });
-    setShowConfig(false);
-    toast.success("Campanha configurada com sucesso!");
-  };
-
-  const comitesAtivos = db.comites.filter((c) => c.ativo).length;
-  const apoiadores = db.pessoas.length;
-  const criticos = db.materiais.filter(isCritico);
-  const kitsHoje = db.saidas
-    .filter((s) => isHoje(s.criado_em))
-    .reduce((acc, s) => acc + s.kits.reduce((a, k) => a + k.quantidade, 0), 0);
-
-  // Filtragem por UF da Campanha
-  const ufCampanha = db.config.uf || "CE";
-
-  // Dados para Gráfico por Município (filtrados pela UF da campanha)
-  const dadosPorMunicipio = db.comites
-    .filter(c => c.uf === ufCampanha || !c.uf) // Mostra os da UF ou os sem UF (migração)
-    .reduce((acc: any[], comite) => {
-      const totalSaidas = db.saidas
-        .filter((s) => s.comite_id === comite.id)
-        .reduce((t, s) => t + s.itens.reduce((sum, i) => sum + i.quantidade, 0), 0);
-      
-      const index = acc.findIndex(d => d.name === comite.municipio);
-      if (index > -1) {
-        acc[index].total += totalSaidas;
-      } else {
-        acc.push({ name: comite.municipio, total: totalSaidas });
-      }
-      return acc;
-    }, []).sort((a, b) => b.total - a.total);
-
-  // Dados para Gráfico por Categoria
-  const dadosPorCategoria = db.materiais.reduce((acc: any[], m) => {
-    const index = acc.findIndex(d => d.name === m.categoria);
-    if (index > -1) {
-      acc[index].value += m.estoque;
-    } else {
-      acc.push({ name: m.categoria, value: m.estoque });
-    }
-    return acc;
-  }, []);
-
+function LandingPage() {
   return (
-    <div className="mx-auto w-full md:max-w-screen-xl relative -+">
-      <div className="sr-only">
-        Atualize as listagens de **Responsáveis** e **Apoiadores** com o recurso de edição direta:
-
-1. **Botão de Edição (Lápis):**
-
-   - Adicione um **ícone de lápis (botão de editar)** em cada card ou linha nas abas de Responsáveis e Apoiadores, posicionado ao lado dos botões de ação atuais.
-
-   - Ao clicar no lápis, abra o modal correspondente de cadastro/edição preenchido com todos os dados existentes da pessoa selecionada, permitindo atualizar nome, WhatsApp, endereço, função ou votos de forma rápida e salvar as alterações.
-      </div>
-
-      <PageHeader
-        eyebrow="Painel Administrativo"
-        title={`Gestão ${db.config.uf || "Estadual"}`}
-        right={
-          <div className="flex items-center gap-2">
-            <span className="hidden font-mono text-xs text-muted-foreground md:inline">{db.config.uf || "BR"}-LOG V2.0</span>
-            <div className="flex size-10 items-center justify-center rounded-full border border-border bg-surface font-mono text-xs font-bold">
-              HQ
-            </div>
+    <div className="min-h-screen bg-slate-50 flex flex-col">
+      <header className="bg-white border-b px-6 py-4 flex items-center justify-between sticky top-0 z-10">
+        <div className="flex items-center gap-2">
+          <div className="bg-primary p-2 rounded-lg text-primary-foreground">
+            <Target className="h-6 w-6" />
           </div>
-        }
-      />
-
-      <div className="grid grid-cols-2 gap-3 px-5 py-6 md:grid-cols-4 md:gap-6">
-        <Kpi label="Comitês Ativos" value={pad2(comitesAtivos)} />
-        <Kpi label="Apoiadores" value={String(apoiadores)} />
-        <Kpi
-          label="Itens Críticos"
-          value={pad2(criticos.length)}
-          tone="critical"
-        />
-        <Kpi label="Kits Hoje" value={pad2(kitsHoje)} tone="primary" />
-      </div>
-
-      <div className="grid gap-6 px-5 md:grid-cols-2 lg:grid-cols-3">
-        {/* Gráfico de Distribuição por Município */}
-        <div className="rounded-2xl border border-border bg-surface p-6 md:col-span-2">
-          <div className="mb-6 flex items-center justify-between">
-            <h2 className="flex items-center gap-2 text-sm font-extrabold uppercase tracking-wider">
-              <BarChart3 className="size-4 text-primary" />
-              Distribuição por Município
-            </h2>
-          </div>
-          <div className="h-[300px] w-full">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={dadosPorMunicipio} layout="vertical">
-                <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="rgba(0,0,0,0.05)" />
-                <XAxis type="number" hide />
-                <YAxis 
-                  dataKey="name" 
-                  type="category" 
-                  width={100} 
-                  tick={{ fontSize: 10, fontWeight: 700 }}
-                  axisLine={false}
-                  tickLine={false}
-                />
-                <Tooltip 
-                  cursor={{ fill: 'rgba(0,0,0,0.02)' }}
-                  content={({ active, payload }) => {
-                    if (active && payload && payload.length) {
-                      return (
-                        <div className="rounded-lg border border-border bg-background p-3 shadow-xl">
-                          <p className="text-[10px] font-bold uppercase text-muted-foreground">{payload?.[0]?.payload?.name || ""}</p>
-                          <p className="font-mono text-sm font-bold">{formatNumero((payload?.[0]?.value || 0) as number)} itens</p>
-                        </div>
-                      );
-                    }
-                    return null;
-                  }}
-                />
-                <Bar dataKey="total" fill="var(--primary)" radius={[0, 4, 4, 0]} barSize={24} />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
+          <span className="font-bold text-xl tracking-tight text-slate-900">Democracias</span>
         </div>
-
-        {/* Gráfico de Categoria (Estoque Total) */}
-        <div className="rounded-2xl border border-border bg-surface p-6">
-          <h2 className="mb-6 flex items-center gap-2 text-sm font-extrabold uppercase tracking-wider">
-            <PieChartIcon className="size-4 text-accent" />
-            Composição do Estoque
-          </h2>
-          <div className="h-[300px] w-full">
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie
-                  data={dadosPorCategoria}
-                  innerRadius={60}
-                  outerRadius={80}
-                  paddingAngle={5}
-                  dataKey="value"
-                >
-                  {dadosPorCategoria.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length] || "#ccc"} />
-                  ))}
-                </Pie>
-                <Tooltip 
-                  content={({ active, payload }) => {
-                    if (active && payload && payload.length) {
-                      return (
-                        <div className="rounded-lg border border-border bg-background p-3 shadow-xl">
-                          <p className="text-[10px] font-bold uppercase text-muted-foreground">{payload?.[0]?.name || ""}</p>
-                          <p className="font-mono text-sm font-bold">{formatNumero((payload?.[0]?.value || 0) as number)} unid.</p>
-                        </div>
-                      );
-                    }
-                    return null;
-                  }}
-                />
-              </PieChart>
-            </ResponsiveContainer>
-            <div className="mt-4 grid grid-cols-2 gap-2">
-              {dadosPorCategoria.map((d, i) => (
-                <div key={d.name} className="flex items-center gap-2">
-                  <div className="size-2 rounded-full" style={{ backgroundColor: COLORS[i % COLORS.length] }} />
-                  <span className="text-[10px] font-bold uppercase text-muted-foreground truncate">{d.name}</span>
-                </div>
-              ))}
-            </div>
-          </div>
+        <div>
+          <Link to="/auth">
+            <Button>
+              Acessar
+              <ArrowRight className="ml-2 h-4 w-4" />
+            </Button>
+          </Link>
         </div>
-      </div>
+      </header>
 
-      <div className="grid gap-6 px-5 py-6 md:grid-cols-2">
-        <section className="animate-slide-up">
-          <div className="mb-4 flex items-center justify-between">
-            <h2 className="text-sm font-extrabold uppercase tracking-wider">
-              Últimas Movimentações
-            </h2>
-            <Link to="/saidas" className="font-mono text-xs text-muted-foreground">
-              VER TUDO
+      <main className="flex-1">
+        <section className="py-20 px-6 max-w-5xl mx-auto text-center">
+          <h1 className="text-5xl md:text-6xl font-extrabold text-slate-900 tracking-tight mb-6">
+            Inteligência e Gestão para a sua <span className="text-primary">Campanha Eleitoral</span>
+          </h1>
+          <p className="text-xl text-slate-600 mb-10 max-w-3xl mx-auto leading-relaxed">
+            Plataforma completa para coordenar sua equipe, controlar distribuição de materiais, 
+            e monitorar sua intenção de voto com precisão. Em tempo real e do seu celular.
+          </p>
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
+            <Link to="/auth">
+              <Button size="lg" className="w-full sm:w-auto text-lg h-14 px-8">
+                Cadastrar Campanha
+              </Button>
+            </Link>
+            <Link to="/auth">
+              <Button size="lg" variant="outline" className="w-full sm:w-auto text-lg h-14 px-8">
+                Já tenho uma conta
+              </Button>
             </Link>
           </div>
-
-          <div className="overflow-hidden rounded-2xl border border-border bg-surface">
-            {!ready ? (
-              <div className="space-y-3 p-6">
-                <Skeleton className="h-12 w-full" />
-                <Skeleton className="h-12 w-full" />
-              </div>
-            ) : db.historico_estoque.length === 0 ? (
-              <p className="p-6 text-sm text-muted-foreground">
-                Nenhuma movimentação registrada ainda.
-              </p>
-            ) : (
-              db.historico_estoque.slice(0, 5).map((m) => {
-                const material = db.materiais.find((mat) => mat.id === m.material_id);
-                const Icon = material ? iconePorCategoria(material) : Package;
-                return (
-                  <div
-                    key={m.id}
-                    className="flex items-center justify-between border-b border-border/60 p-4 last:border-0 hover:bg-muted/5 transition-colors"
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className={`flex size-8 items-center justify-center rounded ${
-                        m.tipo === 'ajuste_inventario' ? 'bg-accent/10 text-accent' :
-                        m.diferenca > 0 ? 'bg-green-100 text-green-600' : 'bg-critical/10 text-critical'
-                      }`}>
-                        <Icon className="size-4" />
-                      </div>
-                      <div>
-                        <p className="font-bold text-xs leading-tight">{material?.nome ?? "—"}</p>
-                        <p className="text-[10px] text-muted-foreground uppercase">{m.tipo.replace('_', ' ')}</p>
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <p className={`font-mono text-sm font-bold ${
-                        m.diferenca > 0 ? 'text-green-600' : 'text-critical'
-                      }`}>
-                        {m.diferenca > 0 ? "+" : ""}{m.diferenca}
-                      </p>
-                      <p className="text-[10px] uppercase text-muted-foreground">
-                        Saldo: {m.quantidade_nova}
-                      </p>
-                    </div>
-                  </div>
-                );
-              })
-            )}
-          </div>
         </section>
 
-        <section>
-          <h2 className="mb-4 flex items-center gap-2 text-sm font-extrabold uppercase tracking-wider">
-            <AlertTriangle className="size-4 text-critical" />
-            Alertas de Estoque
-          </h2>
-          <div className="space-y-2">
-            {criticos.length === 0 && (
-              <p className="rounded-xl border border-border bg-surface p-4 text-sm text-muted-foreground">
-                Todo o estoque está acima do mínimo.
-              </p>
-            )}
-            {criticos.map((m) => {
-              const Icon = iconePorCategoria(m);
-              return (
-                <div
-                  key={m.id}
-                  className="flex items-center gap-4 rounded-xl border border-border bg-surface p-3"
-                >
-                  <div className="flex size-12 shrink-0 items-center justify-center rounded bg-critical/10">
-                    <Icon className="size-5 text-critical" />
-                  </div>
-                  <div className="flex-1">
-                    <p className="text-sm font-bold leading-tight">{m.nome}</p>
-                    <p className="text-xs text-muted-foreground">{m.categoria}</p>
-                  </div>
-                  <div className="text-right">
-                    <p className="font-mono text-lg font-bold text-critical">
-                      {formatNumero(m.estoque)}
-                    </p>
-                    <p className="text-[9px] uppercase text-muted-foreground">
-                      Mín: {formatNumero(m.estoque_minimo)}
-                    </p>
-                  </div>
-                </div>
-              );
-            })}
+        <section className="bg-white py-20 border-t">
+          <div className="max-w-5xl mx-auto px-6 grid md:grid-cols-3 gap-10">
+            <div className="flex flex-col items-center text-center p-6">
+              <div className="h-14 w-14 rounded-full bg-primary/10 flex items-center justify-center mb-6">
+                <Map className="h-7 w-7 text-primary" />
+              </div>
+              <h3 className="text-xl font-bold mb-3">Gestão de Comitês</h3>
+              <p className="text-slate-600">Coordene todas as suas bases de apoio e cabos eleitorais espalhados pelo estado.</p>
+            </div>
+            <div className="flex flex-col items-center text-center p-6">
+              <div className="h-14 w-14 rounded-full bg-primary/10 flex items-center justify-center mb-6">
+                <Target className="h-7 w-7 text-primary" />
+              </div>
+              <h3 className="text-xl font-bold mb-3">Controle de Estoque</h3>
+              <p className="text-slate-600">Nunca fique sem material. Controle exato de quem pegou o que, quando e onde.</p>
+            </div>
+            <div className="flex flex-col items-center text-center p-6">
+              <div className="h-14 w-14 rounded-full bg-primary/10 flex items-center justify-center mb-6">
+                <BarChart3 className="h-7 w-7 text-primary" />
+              </div>
+              <h3 className="text-xl font-bold mb-3">Apuração Paralela</h3>
+              <p className="text-slate-600">Acompanhamento e consolidação de resultados em tempo real no dia da eleição.</p>
+            </div>
           </div>
         </section>
-      </div>
+      </main>
 
-      <div className="fixed bottom-24 right-6 flex flex-col gap-3 md:bottom-8 md:right-8">
-        <Link
-          to="/saidas/nova"
-          className="flex h-14 w-14 items-center justify-center rounded-full bg-foreground text-background shadow-2xl transition-transform active:scale-95 md:h-16 md:w-auto md:rounded-xl md:px-6 md:gap-3"
-        >
-          <Plus className="size-6 md:size-5" strokeWidth={3} />
-          <span className="hidden md:inline font-bold">Nova Saída</span>
-        </Link>
-        <Link
-          to="/bu"
-          className="flex h-14 w-14 items-center justify-center rounded-full bg-accent text-accent-foreground shadow-2xl transition-transform active:scale-[0.98] md:h-16 md:w-auto md:rounded-xl md:px-6 md:gap-3"
-        >
-          <QrCode className="size-6 md:size-5" />
-          <span className="hidden md:inline font-bold">Leitor BU</span>
-        </Link>
-        
-        <Link
-          to="/public/cadastro"
-          className="flex h-14 w-14 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-2xl transition-transform active:scale-[0.98] md:h-16 md:w-auto md:rounded-xl md:px-6 md:gap-3"
-        >
-          <Send className="size-6 md:size-5" />
-          <span className="hidden md:inline font-bold">Link Apoiador</span>
-        </Link>
-      </div>
-      
-      <Dialog open={showConfig} onOpenChange={setShowConfig}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="text-2xl font-black uppercase tracking-tight flex items-center gap-2">
-              <ShieldCheck className="size-6 text-primary" />
-              Configurar Campanha 2026
-            </DialogTitle>
-            <DialogDescription>
-              Vincule seu número oficial para buscar dados no TSE e definir metas estratégicas.
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="space-y-8 py-4">
-            <section className="space-y-4">
-              <div className="flex items-center gap-2">
-                <div className="size-6 rounded-full bg-primary/10 flex items-center justify-center text-[10px] font-bold text-primary">01</div>
-                <h3 className="font-bold uppercase text-xs tracking-wider">Dados Oficiais (Busca TSE)</h3>
-              </div>
-              
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-1.5">
-                  <Label className="text-[10px] font-bold uppercase text-muted-foreground">Estado (UF)</Label>
-                  <Select 
-                    value={configForm.uf} 
-                    onValueChange={(v) => setConfigForm({...configForm, uf: v})}
-                  >
-                    <SelectTrigger className="h-12 border-2">
-                      <SelectValue placeholder="UF" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="CE">Ceará</SelectItem>
-                      <SelectItem value="PE">Pernambuco</SelectItem>
-                      <SelectItem value="BA">Bahia</SelectItem>
-                      <SelectItem value="RN">Rio Grande do Norte</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-1.5">
-                  <Label className="text-[10px] font-bold uppercase text-muted-foreground">Número do Candidato</Label>
-                  <div className="flex gap-2">
-                    <Input 
-                      value={configForm.numero}
-                      onChange={e => setConfigForm({...configForm, numero: e.target.value})}
-                      placeholder="Ex: 13123"
-                      className="h-12 border-2"
-                    />
-                    <Button 
-                      type="button" 
-                      variant="secondary" 
-                      className="h-12 px-4 gap-2"
-                      onClick={buscarNoTse}
-                      disabled={loadingTse}
-                    >
-                      {loadingTse ? <Loader2 className="size-4 animate-spin" /> : <Search className="size-4" />}
-                      Buscar
-                    </Button>
-                  </div>
-                </div>
-              </div>
-
-              {configForm.candidato_nome && (
-                <div className="rounded-2xl border-2 border-primary/20 bg-primary/5 p-4 space-y-3 animate-in fade-in slide-in-from-top-2">
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <p className="text-[10px] font-bold uppercase text-primary mb-1">Candidato Localizado</p>
-                      <p className="text-lg font-black leading-tight uppercase">{configForm.candidato_urna}</p>
-                      <p className="text-xs font-medium text-muted-foreground">{configForm.candidato_nome}</p>
-                    </div>
-                    <Badge className="font-mono text-lg px-3 py-1">{configForm.numero}</Badge>
-                  </div>
-                  <div className="grid grid-cols-2 gap-4 pt-2 border-t border-primary/10">
-                    <div>
-                      <p className="text-[9px] font-bold uppercase text-muted-foreground">Cargo</p>
-                      <p className="text-xs font-bold">{configForm.cargo}</p>
-                    </div>
-                    <div>
-                      <p className="text-[9px] font-bold uppercase text-muted-foreground">Partido / Coligação</p>
-                      <p className="text-xs font-bold truncate">{configForm.partido_coligacao}</p>
-                    </div>
-                  </div>
-                </div>
-              )}
-            </section>
-
-            <section className="space-y-4">
-              <div className="flex items-center gap-2">
-                <div className="size-6 rounded-full bg-accent/10 flex items-center justify-center text-[10px] font-bold text-accent">02</div>
-                <h3 className="font-bold uppercase text-xs tracking-wider">Planejamento Estratégico</h3>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-1.5">
-                  <div className="flex items-center justify-between">
-                    <Label className="text-[10px] font-bold uppercase text-muted-foreground">Meta para Eleição</Label>
-                    <Info className="size-3 text-muted-foreground" />
-                  </div>
-                  <Input 
-                    type="number"
-                    value={configForm.meta_eleicao}
-                    onChange={e => setConfigForm({...configForm, meta_eleicao: Number(e.target.value)})}
-                    placeholder="Qtd Votos"
-                    className="h-12 border-2 font-mono font-bold"
-                  />
-                  <p className="text-[9px] text-muted-foreground leading-tight italic">Mínimo necessário para ser eleito (Quociente)</p>
-                </div>
-                <div className="space-y-1.5">
-                  <div className="flex items-center justify-between">
-                    <Label className="text-[10px] font-bold uppercase text-muted-foreground">Expectativa Total</Label>
-                    <TrendingUp className="size-3 text-muted-foreground" />
-                  </div>
-                  <Input 
-                    type="number"
-                    value={configForm.meta_expectativa}
-                    onChange={e => setConfigForm({...configForm, meta_expectativa: Number(e.target.value)})}
-                    placeholder="Qtd Votos"
-                    className="h-12 border-2 font-mono font-bold"
-                  />
-                  <p className="text-[9px] text-muted-foreground leading-tight italic">Meta agressiva de votos esperados</p>
-                </div>
-                <div className="space-y-1.5">
-                  <div className="flex items-center justify-between">
-                    <Label className="text-[10px] font-bold uppercase text-muted-foreground">Total de Seções</Label>
-                    <Map className="size-3 text-muted-foreground" />
-                  </div>
-                  <Input 
-                    type="number"
-                    value={configForm.total_secoes}
-                    onChange={e => setConfigForm({...configForm, total_secoes: Number(e.target.value)})}
-                    placeholder="Qtd Seções"
-                    className="h-12 border-2 font-mono font-bold"
-                  />
-                  <p className="text-[9px] text-muted-foreground leading-tight italic">Total de urnas na região de atuação</p>
-                </div>
-              </div>
-            </section>
-          </div>
-
-          <DialogFooter className="pt-4 border-t border-border">
-            <Button 
-              className="h-14 w-full text-lg font-black uppercase gap-2"
-              onClick={salvarConfiguracao}
-              disabled={!configForm.candidato_nome}
-            >
-              Finalizar Cadastro da Campanha
-              <ShieldCheck className="size-5" />
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <footer className="bg-slate-900 text-slate-400 py-8 text-center">
+        <p>© 2026 democracias.com. Todos os direitos reservados.</p>
+      </footer>
     </div>
   );
 }
-
-function Kpi({
-  label,
-  value,
-  tone = "neutral",
-}: {
-  label: string;
-  value: string;
-  tone?: "neutral" | "primary" | "critical";
-}) {
-  const box =
-    tone === "critical"
-      ? "bg-critical/5 border-critical/20"
-      : tone === "primary"
-        ? "bg-primary/5 border-primary/20"
-        : "bg-surface border-border";
-  const text =
-    tone === "critical" ? "text-critical" : tone === "primary" ? "text-primary" : "";
-  const labelColor =
-    tone === "critical"
-      ? "text-critical"
-      : tone === "primary"
-        ? "text-primary"
-        : "text-muted-foreground";
-
-  return (
-    <div className={`rounded-2xl border p-4 md:p-6 ${box}`}>
-      <span className={`text-[10px] md:text-[11px] font-semibold uppercase ${labelColor}`}>{label}</span>
-      <div className={`mt-1 font-mono text-3xl md:text-5xl font-bold ${text}`}>{value}</div>
-    </div>
-  );
-}
-
-{/* agoara crie o banco de dados com que tenhamos sistema real */}

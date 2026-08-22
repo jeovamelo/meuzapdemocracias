@@ -10,8 +10,12 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AuthRouteImport } from './routes/auth'
 import { Route as ComitesRouteImport } from './routes/comites'
+import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as MateriaisRouteImport } from './routes/materiais'
+import { Route as OnboardingRouteImport } from './routes/onboarding'
+import { Route as PcRouteImport } from './routes/pc'
 import { Route as PessoasRouteImport } from './routes/pessoas'
 import { Route as PotencialRouteImport } from './routes/potencial'
 import { Route as SaidasRouteImport } from './routes/saidas'
@@ -25,14 +29,34 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AuthRoute = AuthRouteImport.update({
+  id: '/auth',
+  path: '/auth',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ComitesRoute = ComitesRouteImport.update({
   id: '/comites',
   path: '/comites',
   getParentRoute: () => rootRouteImport,
 } as any)
+const DashboardRoute = DashboardRouteImport.update({
+  id: '/dashboard',
+  path: '/dashboard',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const MateriaisRoute = MateriaisRouteImport.update({
   id: '/materiais',
   path: '/materiais',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const OnboardingRoute = OnboardingRouteImport.update({
+  id: '/onboarding',
+  path: '/onboarding',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PcRoute = PcRouteImport.update({
+  id: '/pc',
+  path: '/pc',
   getParentRoute: () => rootRouteImport,
 } as any)
 const PessoasRoute = PessoasRouteImport.update({
@@ -73,8 +97,12 @@ const SaidasNovaRoute = SaidasNovaRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/auth': typeof AuthRoute
   '/comites': typeof ComitesRoute
+  '/dashboard': typeof DashboardRoute
   '/materiais': typeof MateriaisRoute
+  '/onboarding': typeof OnboardingRoute
+  '/pc': typeof PcRoute
   '/pessoas': typeof PessoasRoute
   '/potencial': typeof PotencialRoute
   '/saidas': typeof SaidasRouteWithChildren
@@ -85,8 +113,12 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/auth': typeof AuthRoute
   '/comites': typeof ComitesRoute
+  '/dashboard': typeof DashboardRoute
   '/materiais': typeof MateriaisRoute
+  '/onboarding': typeof OnboardingRoute
+  '/pc': typeof PcRoute
   '/pessoas': typeof PessoasRoute
   '/potencial': typeof PotencialRoute
   '/public/cadastro': typeof PublicCadastroRoute
@@ -97,8 +129,12 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/auth': typeof AuthRoute
   '/comites': typeof ComitesRoute
+  '/dashboard': typeof DashboardRoute
   '/materiais': typeof MateriaisRoute
+  '/onboarding': typeof OnboardingRoute
+  '/pc': typeof PcRoute
   '/pessoas': typeof PessoasRoute
   '/potencial': typeof PotencialRoute
   '/saidas': typeof SaidasRouteWithChildren
@@ -111,8 +147,12 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/auth'
     | '/comites'
+    | '/dashboard'
     | '/materiais'
+    | '/onboarding'
+    | '/pc'
     | '/pessoas'
     | '/potencial'
     | '/saidas'
@@ -123,8 +163,12 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/auth'
     | '/comites'
+    | '/dashboard'
     | '/materiais'
+    | '/onboarding'
+    | '/pc'
     | '/pessoas'
     | '/potencial'
     | '/public/cadastro'
@@ -134,8 +178,12 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/'
+    | '/auth'
     | '/comites'
+    | '/dashboard'
     | '/materiais'
+    | '/onboarding'
+    | '/pc'
     | '/pessoas'
     | '/potencial'
     | '/saidas'
@@ -147,8 +195,12 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AuthRoute: typeof AuthRoute
   ComitesRoute: typeof ComitesRoute
+  DashboardRoute: typeof DashboardRoute
   MateriaisRoute: typeof MateriaisRoute
+  OnboardingRoute: typeof OnboardingRoute
+  PcRoute: typeof PcRoute
   PessoasRoute: typeof PessoasRoute
   PotencialRoute: typeof PotencialRoute
   SaidasRoute: typeof SaidasRouteWithChildren
@@ -165,6 +217,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/auth': {
+      id: '/auth'
+      path: '/auth'
+      fullPath: '/auth'
+      preLoaderRoute: typeof AuthRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/comites': {
       id: '/comites'
       path: '/comites'
@@ -172,11 +231,32 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ComitesRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/dashboard': {
+      id: '/dashboard'
+      path: '/dashboard'
+      fullPath: '/dashboard'
+      preLoaderRoute: typeof DashboardRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/materiais': {
       id: '/materiais'
       path: '/materiais'
       fullPath: '/materiais'
       preLoaderRoute: typeof MateriaisRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/onboarding': {
+      id: '/onboarding'
+      path: '/onboarding'
+      fullPath: '/onboarding'
+      preLoaderRoute: typeof OnboardingRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/pc': {
+      id: '/pc'
+      path: '/pc'
+      fullPath: '/pc'
+      preLoaderRoute: typeof PcRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/pessoas': {
@@ -246,8 +326,12 @@ const SaidasRouteWithChildren =
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AuthRoute: AuthRoute,
   ComitesRoute: ComitesRoute,
+  DashboardRoute: DashboardRoute,
   MateriaisRoute: MateriaisRoute,
+  OnboardingRoute: OnboardingRoute,
+  PcRoute: PcRoute,
   PessoasRoute: PessoasRoute,
   PotencialRoute: PotencialRoute,
   SaidasRoute: SaidasRouteWithChildren,

@@ -14,6 +14,7 @@ import { reportLovableError } from "../lib/lovable-error-reporting";
 import { StoreProvider } from "@/lib/store";
 import { BottomNav } from "@/components/BottomNav";
 import { Toaster } from "@/components/ui/sonner";
+import { useCampaignScope } from "@/hooks/useCampaignScope";
 
 
 function NotFoundComponent() {
@@ -84,7 +85,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
         name: "viewport",
         content: "width=device-width, initial-scale=1, viewport-fit=cover",
       },
-      { title: "Logística de Campanha — Estoque e Distribuição" },
+      { title: "Democracias — Gestão e Inteligência Eleitoral" },
       {
         name: "description",
         content:
@@ -130,6 +131,21 @@ function RootShell({ children }: { children: ReactNode }) {
 
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
+  const router = useRouter();
+  const location = router.state.location.pathname;
+  const { campaign } = useCampaignScope();
+
+  useEffect(() => {
+    // Redireciona para /onboarding se tentar acessar rotas protegidas sem campanha
+    const publicRoutes = ['/', '/auth', '/onboarding'];
+    const isPublic = publicRoutes.includes(location);
+
+    if (!isPublic && !campaign) {
+      router.navigate({ to: '/onboarding' });
+    }
+  }, [campaign, location, router]);
+
+  const showBottomNav = !['/', '/auth', '/onboarding'].includes(location);
 
   return (
     <QueryClientProvider client={queryClient}>
@@ -140,7 +156,7 @@ function RootComponent() {
           <main className="mx-auto flex-1 pb-32 w-full">
             <Outlet />
           </main>
-          <BottomNav />
+          {showBottomNav && <BottomNav />}
         </div>
         <Toaster position="top-center" />
       </StoreProvider>
