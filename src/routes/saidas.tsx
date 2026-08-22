@@ -29,9 +29,16 @@ function SaidasPage() {
     const enviado = db.saidas
       .filter(s => s.comite_id === comiteId || s.pessoa_id === pessoaId)
       .reduce((acc, s) => acc + s.itens.reduce((sum, i) => sum + i.quantidade, 0), 0);
+    
+    // Incluir solicitações pendentes no cálculo de "já enviado" ou "provisionado"
+    const solicitacoes = db.solicitacoes
+      .filter(s => s.comite_id === comiteId || (pessoaId && s.nome === pessoa?.nome))
+      .reduce((acc, s) => acc + s.itens.reduce((sum, i) => sum + i.quantidade, 0), 0);
+
+    const total = enviado + solicitacoes;
 
     if (meta === 0) return { label: "Sem Meta", color: "bg-slate-100 text-slate-600" };
-    if (enviado >= meta) return { label: "Suficiente", color: "bg-green-100 text-green-700" };
+    if (total >= meta) return { label: "Suficiente", color: "bg-green-100 text-green-700" };
     return { label: "Déficit", color: "bg-amber-100 text-amber-700" };
   };
 
