@@ -180,7 +180,7 @@ function PotencialEleitoral() {
           
           <div className="absolute bottom-4 right-4 rounded-lg bg-background/80 p-2 text-[9px] font-bold backdrop-blur-sm">
             <div className="flex items-center gap-2">
-              <div className="size-2 rounded-full bg-green-500" /> <span>Meta > 50%</span>
+              <div className="size-2 rounded-full bg-green-500" /> <span>Meta {" > "} 50%</span>
             </div>
             <div className="flex items-center gap-2">
               <div className="size-2 rounded-full bg-primary" /> <span>Em progresso</span>

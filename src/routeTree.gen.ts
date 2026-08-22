@@ -13,6 +13,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as ComitesRouteImport } from './routes/comites'
 import { Route as MateriaisRouteImport } from './routes/materiais'
 import { Route as PessoasRouteImport } from './routes/pessoas'
+import { Route as PotencialRouteImport } from './routes/potencial'
 import { Route as SaidasRouteImport } from './routes/saidas'
 import { Route as PublicCadastroRouteImport } from './routes/public/cadastro'
 import { Route as SaidasIndexRouteImport } from './routes/saidas.index'
@@ -36,6 +37,11 @@ const MateriaisRoute = MateriaisRouteImport.update({
 const PessoasRoute = PessoasRouteImport.update({
   id: '/pessoas',
   path: '/pessoas',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PotencialRoute = PotencialRouteImport.update({
+  id: '/potencial',
+  path: '/potencial',
   getParentRoute: () => rootRouteImport,
 } as any)
 const SaidasRoute = SaidasRouteImport.update({
@@ -64,6 +70,7 @@ export interface FileRoutesByFullPath {
   '/comites': typeof ComitesRoute
   '/materiais': typeof MateriaisRoute
   '/pessoas': typeof PessoasRoute
+  '/potencial': typeof PotencialRoute
   '/saidas': typeof SaidasRouteWithChildren
   '/public/cadastro': typeof PublicCadastroRoute
   '/saidas/nova': typeof SaidasNovaRoute
@@ -74,6 +81,7 @@ export interface FileRoutesByTo {
   '/comites': typeof ComitesRoute
   '/materiais': typeof MateriaisRoute
   '/pessoas': typeof PessoasRoute
+  '/potencial': typeof PotencialRoute
   '/public/cadastro': typeof PublicCadastroRoute
   '/saidas/nova': typeof SaidasNovaRoute
   '/saidas': typeof SaidasIndexRoute
@@ -84,6 +92,7 @@ export interface FileRoutesById {
   '/comites': typeof ComitesRoute
   '/materiais': typeof MateriaisRoute
   '/pessoas': typeof PessoasRoute
+  '/potencial': typeof PotencialRoute
   '/saidas': typeof SaidasRouteWithChildren
   '/public/cadastro': typeof PublicCadastroRoute
   '/saidas/nova': typeof SaidasNovaRoute
@@ -96,6 +105,7 @@ export interface FileRouteTypes {
     | '/comites'
     | '/materiais'
     | '/pessoas'
+    | '/potencial'
     | '/saidas'
     | '/public/cadastro'
     | '/saidas/nova'
@@ -106,6 +116,7 @@ export interface FileRouteTypes {
     | '/comites'
     | '/materiais'
     | '/pessoas'
+    | '/potencial'
     | '/public/cadastro'
     | '/saidas/nova'
     | '/saidas'
@@ -115,6 +126,7 @@ export interface FileRouteTypes {
     | '/comites'
     | '/materiais'
     | '/pessoas'
+    | '/potencial'
     | '/saidas'
     | '/public/cadastro'
     | '/saidas/nova'
@@ -126,6 +138,7 @@ export interface RootRouteChildren {
   ComitesRoute: typeof ComitesRoute
   MateriaisRoute: typeof MateriaisRoute
   PessoasRoute: typeof PessoasRoute
+  PotencialRoute: typeof PotencialRoute
   SaidasRoute: typeof SaidasRouteWithChildren
   PublicCadastroRoute: typeof PublicCadastroRoute
 }
@@ -158,6 +171,13 @@ declare module '@tanstack/react-router' {
       path: '/pessoas'
       fullPath: '/pessoas'
       preLoaderRoute: typeof PessoasRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/potencial': {
+      id: '/potencial'
+      path: '/potencial'
+      fullPath: '/potencial'
+      preLoaderRoute: typeof PotencialRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/saidas': {
@@ -209,6 +229,7 @@ const rootRouteChildren: RootRouteChildren = {
   ComitesRoute: ComitesRoute,
   MateriaisRoute: MateriaisRoute,
   PessoasRoute: PessoasRoute,
+  PotencialRoute: PotencialRoute,
   SaidasRoute: SaidasRouteWithChildren,
   PublicCadastroRoute: PublicCadastroRoute,
 }
