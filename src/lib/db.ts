@@ -177,6 +177,7 @@ export type Database = {
   cidade_metas: CidadeMeta[];
   config: ConfigCampanha;
   boletins: BoletimUrna[];
+  historico_estoque: MovimentacaoEstoque[];
 };
 
 export const CATEGORIAS: CategoriaMaterial[] = [
