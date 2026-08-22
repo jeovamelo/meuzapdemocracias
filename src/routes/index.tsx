@@ -166,27 +166,23 @@ function Dashboard() {
   return (
     <div className="mx-auto w-full md:max-w-screen-xl relative -+">
       <div className="sr-only">
-        Implemente um modelo de arquitetura **Multi-Campanha com Isolamento Rígido, Gestão de Acesso por WhatsApp e Autorização de Administrador**, com as seguintes especificações de negócio:
+        Implemente um sistema de **Autenticação via Número do WhatsApp e Senha** para o acesso restrito da plataforma, substituindo ou complementando os métodos tradicionais de login:
 
-1. **Estrutura Multi-Campanha (1 Campanha = 1 Candidato):**
+1. **Tela de Login Personalizada:**
 
-   - O banco de dados e a arquitetura do sistema devem ser isolados por campanhas. Cada campanha possui exatamente **um candidato** principal e seus respectivos dados (cidades, estoques, apoiadores, lideranças e apuração).
+   - Crie uma tela de login limpa e focada em dispositivos móveis que solicite apenas dois campos: **Número do WhatsApp** e **Senha**.
 
-   - O sistema deve associar rigorosamente todos os registros operacionais à campanha ativa do usuário logado.
+   - Adicione uma máscara no campo de WhatsApp (`(00) 00000-0000` ou formato padrão) para padronizar o login.
 
-2. **Restrição de Cadastro por WhatsApp (Exclusividade de Campanha):**
+2. **Regras de Autenticação e Vínculo:**
 
-   - Cada **número de WhatsApp** cadastrado no sistema só pode estar vinculado a **uma única campanha**. 
+   - O sistema deve buscar na base de dados de usuários/equipe o registro correspondente àquele número de WhatsApp e validar a senha cadastrada.
 
-   - Caso um número tente se registrar ou atuar em outra campanha, o sistema deve barrá-lo ou mantenedor restrito ao escopo onde foi originalmente autorizado.
+   - Garanta que colaboradores, líderes ou administradores possam definir ou recuperar sua senha de forma simples.
 
-3. **Fluxo de Acesso Restrito e Autorização Obrigatória pelo Admin:**
+3. **Segurança e Sessão:**
 
-   - Para ter acesso restrito ao painel de gestão da campanha, o usuário deve se cadastrar/fazer login utilizando seu **Número de WhatsApp e Senha**.
-
-   - **Regra de Aprovação:** Nenhum usuário ganha acesso imediato ao painel restrito. Todo novo cadastro via WhatsApp entra com o status de `pendente_autorizacao`.
-
-   - O **Administrador da Campanha** deve possuir uma tela de gerenciamento de equipe onde visualiza os acessos pendentes e pode clicar em **"Autorizar"** ou **"Bloquear"**. Somente após a autorização explícita do Admin o usuário poderá visualizar os dados internos daquela campanha específica.
+   - Após a validação correta do WhatsApp e da senha, o sistema deve autenticar o usuário e redirecioná-lo para o painel restrito, respeitando as permissões do seu perfil (Administrador, Coordenador, etc.).
       </div>
 
       <PageHeader
