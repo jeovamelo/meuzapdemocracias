@@ -84,6 +84,7 @@ function Dashboard() {
     partido_coligacao: db.config.partido_coligacao || "",
     meta_eleicao: db.config.meta_eleicao || 0,
     meta_expectativa: db.config.meta_expectativa || 0,
+    total_secoes: db.config.total_secoes || 500,
   });
 
   useEffect(() => {
