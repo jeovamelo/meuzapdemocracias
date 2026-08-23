@@ -127,6 +127,9 @@ function OnboardingPage() {
   const [whatsappValidado, setWhatsappValidado] = useState(false);
   const [enviandoLinkWhatsapp, setEnviandoLinkWhatsapp] = useState(false);
   const [linkEnviado, setLinkEnviado] = useState(false);
+  const [adminSenha, setAdminSenha] = useState('');
+  const [whatsappCode, setWhatsappCode] = useState('');
+  const [enteredCode, setEnteredCode] = useState('');
 
   const [fotoValidacaoPreview, setFotoValidacaoPreview] = useState<string>('');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -166,21 +169,41 @@ function OnboardingPage() {
   };
 
   const handleEnviarLinkWhatsapp = async () => {
-    if (!adminTelefone || adminTelefone.replace(/\D/g, '').length < 10) {
-      toast.error('Informe um WhatsApp válido com DDD para envio do link.');
+    const digits = adminTelefone.replace(/\D/g, '');
+    if (digits.length < 10) {
+      toast.error('Informe um WhatsApp válido com DDD.');
       return;
     }
+    const number = digits.startsWith('55') ? digits : `55${digits}`;
+    const code = String(Math.floor(1000 + Math.random() * 9000));
     setEnviandoLinkWhatsapp(true);
     try {
-      // Simulação de envio com fallback real na Evolution API
-      await new Promise(r => setTimeout(r, 1200));
+      const response = await fetch('https://api.democracias.org/evolution/send/text', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', apikey: 'democracias_master_token_2026' },
+        body: JSON.stringify({ number, text: `Código Democracias: ${code}. Válido por 125 segundos.` }),
+      });
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      setAdminTelefone(number);
+      setWhatsappCode(code);
+      setEnteredCode('');
       setLinkEnviado(true);
-      toast.success(`Link de validação enviado para o WhatsApp ${adminTelefone}!`);
-    } catch (e) {
-      toast.error('Erro ao enviar link de validação por WhatsApp.');
+      toast.success('Código de 4 dígitos enviado pelo WhatsApp.');
+    } catch (error) {
+      console.error('Erro ao enviar código WhatsApp:', error);
+      toast.error('Não foi possível enviar o código pelo WhatsApp Geral.');
     } finally {
       setEnviandoLinkWhatsapp(false);
     }
+  };
+
+  const handleConfirmarCodigo = () => {
+    if (enteredCode.length !== 4 || enteredCode !== whatsappCode) {
+      toast.error('Código inválido. Confira os 4 dígitos recebidos.');
+      return;
+    }
+    setWhatsappValidado(true);
+    toast.success(`WhatsApp ${adminTelefone} validado com sucesso.`);
   };
 
   const formatCpf = (val: string) => {
@@ -384,6 +407,11 @@ function OnboardingPage() {
   // 3. Submeter Cadastro de Campanha com Validação de Foto do Administrador
   const handleFinalizarCadastro = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (authMethod === 'whatsapp' && adminSenha.length < 8) {
+      toast.error('Crie uma senha com pelo menos 8 caracteres para acessar via WhatsApp.');
+      return;
+    }
 
     if (!adminNome.trim() || !adminCpf.trim()) {
       toast.error('Preencha o Nome Completo e o CPF do Administrador da Campanha.');
@@ -1000,24 +1028,27 @@ function OnboardingPage() {
                 <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4 space-y-3">
                   <div className="flex items-center justify-between">
                     <div>
-                      <span className="text-xs font-bold uppercase tracking-wider text-emerald-800">Validação de Acesso</span>
-                      <p className="text-xs text-emerald-700">Enviaremos um link de confirmação para o número informado.</p>
+                      <span className="text-xs font-bold uppercase tracking-wider text-emerald-800">Validação por código</span>
+                      <p className="text-xs text-emerald-700">Enviaremos 4 dígitos para o WhatsApp informado.</p>
                     </div>
-                    {linkEnviado ? (
-                      <span className="text-xs font-bold text-emerald-700 bg-emerald-100 px-3 py-1 rounded-full flex items-center gap-1">
-                        <CheckCircle2 className="h-3.5 w-3.5" /> Link Enviado
-                      </span>
+                    {whatsappValidado ? (
+                      <span className="text-xs font-bold text-emerald-700 bg-emerald-100 px-3 py-1 rounded-full"><CheckCircle2 className="inline h-3.5 w-3.5 mr-1" />WhatsApp validado</span>
                     ) : (
-                      <Button 
-                        type="button" 
-                        size="sm" 
-                        onClick={handleEnviarLinkWhatsapp}
-                        disabled={enviandoLinkWhatsapp}
-                        className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold"
-                      >
-                        {enviandoLinkWhatsapp ? <Loader2 className="h-4 w-4 animate-spin" /> : "Enviar Link de Validação"}
+                      <Button type="button" size="sm" onClick={handleEnviarLinkWhatsapp} disabled={enviandoLinkWhatsapp} className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold">
+                        {enviandoLinkWhatsapp ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Enviar código'}
                       </Button>
                     )}
+                  </div>
+                  {linkEnviado && !whatsappValidado && (
+                    <div className="flex gap-2 items-end">
+                      <div className="flex-1"><Label htmlFor="whatsappCode">Código de 4 dígitos</Label><Input id="whatsappCode" inputMode="numeric" maxLength={4} value={enteredCode} onChange={e => setEnteredCode(e.target.value.replace(/\D/g, ''))} placeholder="0000" /></div>
+                      <Button type="button" onClick={handleConfirmarCodigo}>Confirmar</Button>
+                    </div>
+                  )}
+                  <div className="space-y-2 pt-2">
+                    <Label htmlFor="admin-password">Senha de acesso</Label>
+                    <Input id="admin-password" type="password" minLength={8} value={adminSenha} onChange={e => setAdminSenha(e.target.value)} placeholder="Mínimo de 8 caracteres" autoComplete="new-password" required />
+                    <p className="text-xs text-emerald-700">Use esta senha junto com o número do WhatsApp para entrar.</p>
                   </div>
                 </div>
               )}

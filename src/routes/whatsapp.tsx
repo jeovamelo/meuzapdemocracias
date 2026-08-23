@@ -23,16 +23,23 @@ function WhatsAppSetupPage() {
   });
   const [loadingInstance, setLoadingInstance] = useState(false);
   const [activeInstanceName, setActiveInstanceName] = useState<string>('');
+  const [generationError, setGenerationError] = useState('');
 
   // 1. Inicializar ou substituir instância única para a campanha na Evolution API
   const inicializarInstanciaCampanha = async () => {
     if (!campaign?.id) return;
     setLoadingInstance(true);
+    setGenerationError('');
+    setStatus({ online: false, message: 'Gerando instância única para a campanha...', qr: null });
     try {
       const res = await EvolutionWhatsAppService.createOrReplaceCampaignInstance(
         campaign.id,
         campaignName || campaign.nomeUrna || 'Campanha'
       );
+      if (!res.success) {
+        setGenerationError(res.error || 'Não foi possível criar a instância.');
+        return;
+      }
       if (res.success) {
         setActiveInstanceName(res.instanceName);
         if (res.qrCode) {
@@ -45,6 +52,7 @@ function WhatsAppSetupPage() {
       }
     } catch (e) {
       console.warn("Erro ao iniciar instância Evolution:", e);
+      setGenerationError('Falha de comunicação com a Evolution Go.');
     } finally {
       setLoadingInstance(false);
     }
@@ -140,6 +148,14 @@ function WhatsAppSetupPage() {
               </p>
               <Button type="button" variant="outline" size="sm" onClick={inicializarInstanciaCampanha}>
                 <RefreshCw className="mr-1.5 h-3.5 w-3.5" /> Atualizar QR Code
+              </Button>
+            </div>
+          ) : generationError ? (
+            <div className="py-8 bg-rose-50 rounded-xl border border-rose-200">
+              <AlertCircle className="mx-auto h-10 w-10 text-rose-600" />
+              <p className="mt-3 text-sm text-rose-800">{generationError}</p>
+              <Button type="button" variant="outline" className="mt-4" onClick={inicializarInstanciaCampanha}>
+                <RefreshCw className="mr-2 h-4 w-4" /> Tentar novamente
               </Button>
             </div>
           ) : (
