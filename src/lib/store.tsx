@@ -148,21 +148,40 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
-    fetchAll();
+    void fetchAll();
 
-    // Inscrições para Realtime
-    const channels = [
-      supabase.channel('public:comites').on('postgres_changes', { event: '*', schema: 'public', table: 'comites' }, fetchAll),
-      supabase.channel('public:pessoas').on('postgres_changes', { event: '*', schema: 'public', table: 'pessoas' }, fetchAll),
-      supabase.channel('public:materiais').on('postgres_changes', { event: '*', schema: 'public', table: 'materiais' }, fetchAll),
-      supabase.channel('public:saidas').on('postgres_changes', { event: '*', schema: 'public', table: 'saidas' }, fetchAll),
-      supabase.channel('public:solicitacoes').on('postgres_changes', { event: '*', schema: 'public', table: 'solicitacoes' }, fetchAll),
-      supabase.channel('public:boletins_urna').on('postgres_changes', { event: '*', schema: 'public', table: 'boletins_urna' }, fetchAll),
-      supabase.channel('public:historico_estoque').on('postgres_changes', { event: '*', schema: 'public', table: 'historico_estoque' }, fetchAll),
-    ].map(c => c.subscribe());
+    // One multiplexed channel replaces several independently managed
+    // subscriptions. Changes arriving together trigger a single reload.
+    let refreshTimer: ReturnType<typeof setTimeout> | undefined;
+    const scheduleRefresh = () => {
+      if (refreshTimer) clearTimeout(refreshTimer);
+      refreshTimer = setTimeout(() => void fetchAll(), 250);
+    };
+
+    const realtimeTables = [
+      'comites',
+      'pessoas',
+      'materiais',
+      'saidas',
+      'solicitacoes',
+      'boletins_urna',
+      'historico_estoque',
+    ] as const;
+
+    const channel = realtimeTables
+      .reduce(
+        (currentChannel, table) => currentChannel.on(
+          'postgres_changes',
+          { event: '*', schema: 'public', table },
+          scheduleRefresh,
+        ),
+        supabase.channel('democracias-store'),
+      )
+      .subscribe();
 
     return () => {
-      channels.forEach(c => supabase.removeChannel(c));
+      if (refreshTimer) clearTimeout(refreshTimer);
+      void supabase.removeChannel(channel);
     };
   }, [fetchAll]);
 

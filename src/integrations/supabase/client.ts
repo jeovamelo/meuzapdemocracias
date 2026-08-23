@@ -101,18 +101,35 @@ function createSupabaseClient() {
       persistSession: true,
       autoRefreshToken: true,
       detectSessionInUrl: true,
-    }
+    },
+    // A single Realtime connection multiplexes all channels opened by the app.
+    // Keeping the event rate modest also prevents reconnect bursts from
+    // overwhelming the API after the browser returns from the background.
+    realtime: {
+      params: { eventsPerSecond: 2 },
+    },
   });
 }
 
-let _supabase: ReturnType<typeof createSupabaseClient> | undefined;
+type SupabaseClient = ReturnType<typeof createSupabaseClient>;
+
+declare global {
+  // Persists through Vite HMR and guarantees one browser client per tab.
+  // This module must remain the only place that calls createClient.
+  // eslint-disable-next-line no-var
+  var __democraciasSupabaseClient: SupabaseClient | undefined;
+}
+
+function getSupabaseClient(): SupabaseClient {
+  // A server render must never share auth state between requests. In the
+  // browser, reuse the same client for the whole tab, including hot reloads.
+  if (typeof window === 'undefined') return createSupabaseClient();
+
+  globalThis.__democraciasSupabaseClient ??= createSupabaseClient();
+  return globalThis.__democraciasSupabaseClient;
+}
 
 // Import the supabase client like this:
 // import { supabase } from "@/integrations/supabase/client";
-export const supabase = new Proxy({} as ReturnType<typeof createSupabaseClient>, {
-  get(_, prop, receiver) {
-    if (!_supabase) _supabase = createSupabaseClient();
-    return Reflect.get(_supabase, prop, receiver);
-  },
-});
+export const supabase = getSupabaseClient();
 
