@@ -46,6 +46,7 @@ import {
 import { EstadoCidadeSelect } from "@/components/EstadoCidadeSelect";
 import { useCampaignScope } from "@/hooks/useCampaignScope";
 import { Badge } from "@/components/ui/badge";
+import { buscarCep, formatarCep } from "@/lib/cep";
 
 export const Route = createFileRoute("/pessoas")({
   head: () => ({
@@ -90,6 +91,7 @@ function PessoasPage() {
   const [busca, setBusca] = useState("");
   const [open, setOpen] = useState(false);
   const [salvando, setSalvando] = useState(false);
+  const [buscandoCep, setBuscandoCep] = useState(false);
   const [editandoId, setEditandoId] = useState<string | null>(null);
 
   const initialForm = {
@@ -111,6 +113,29 @@ function PessoasPage() {
   };
 
   const [form, setForm] = useState(initialForm);
+
+  const handleCepChange = async (novoCep: string) => {
+    const formatado = formatarCep(novoCep);
+    setForm((prev) => ({ ...prev, cep: formatado }));
+
+    const clean = novoCep.replace(/\D/g, "");
+    if (clean.length === 8) {
+      setBuscandoCep(true);
+      const resultado = await buscarCep(clean);
+      setBuscandoCep(false);
+
+      if (resultado) {
+        setForm((prev) => ({
+          ...prev,
+          endereco: resultado.logradouro || prev.endereco,
+          bairro: resultado.bairro || prev.bairro,
+          municipio: resultado.localidade || prev.municipio,
+          uf: resultado.uf || prev.uf,
+        }));
+        toast.success(`Endereço localizado: ${resultado.logradouro || "Logradouro"}, ${resultado.bairro || "Bairro"} - ${resultado.localidade}/${resultado.uf}`);
+      }
+    }
+  };
 
   useEffect(() => {
     if (!open) {
@@ -316,13 +341,19 @@ function PessoasPage() {
                 
                 <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                   <Campo label="CEP">
-                    <Input
-                      value={form.cep}
-                      maxLength={9}
-                      onChange={(e) => setForm({ ...form, cep: e.target.value })}
-                      placeholder="60000-000"
-                      className="bg-background"
-                    />
+                    <div className="relative">
+                      <Input
+                        value={form.cep}
+                        maxLength={9}
+                        onChange={(e) => handleCepChange(e.target.value)}
+                        onBlur={(e) => handleCepChange(e.target.value)}
+                        placeholder="60000-000"
+                        className="bg-background pr-8"
+                      />
+                      {buscandoCep && (
+                        <Loader2 className="absolute right-2.5 top-1/2 -translate-y-1/2 size-4 animate-spin text-primary" />
+                      )}
+                    </div>
                   </Campo>
                   <Campo label="Bairro">
                     <Input

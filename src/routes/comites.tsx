@@ -18,6 +18,7 @@ import {
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { EstadoCidadeSelect } from "@/components/EstadoCidadeSelect";
 import { useCampaignScope } from "@/hooks/useCampaignScope";
+import { buscarCep, formatarCep } from "@/lib/cep";
 
 export const Route = createFileRoute("/comites")({
   head: () => ({
@@ -74,28 +75,24 @@ function ComitesPage() {
   }, [open, campaign]);
 
   const handleCepChange = async (cep: string) => {
-    const cleanCep = cep.replace(/\D/g, "");
-    setForm((prev) => ({ ...prev, cep }));
+    const formatado = formatarCep(cep);
+    setForm((prev) => ({ ...prev, cep: formatado }));
 
+    const cleanCep = cep.replace(/\D/g, "");
     if (cleanCep.length === 8) {
       setCepLoading(true);
-      try {
-        const response = await fetch(`https://viacep.com.br/ws/${cleanCep}/json/`);
-        const data = await response.json();
-        if (!data.erro) {
-          setForm((prev) => ({
-            ...prev,
-            endereco: data.logradouro || prev.endereco,
-            bairro: data.bairro || prev.bairro,
-            municipio: data.localidade || prev.municipio,
-            uf: data.uf || prev.uf,
-          }));
-          toast.success("Endereço preenchido via CEP.");
-        }
-      } catch (error) {
-        console.error("Erro ao buscar CEP:", error);
-      } finally {
-        setCepLoading(false);
+      const data = await buscarCep(cleanCep);
+      setCepLoading(false);
+
+      if (data) {
+        setForm((prev) => ({
+          ...prev,
+          endereco: data.logradouro || prev.endereco,
+          bairro: data.bairro || prev.bairro,
+          municipio: data.localidade || prev.municipio,
+          uf: data.uf || prev.uf,
+        }));
+        toast.success(`Endereço localizado: ${data.logradouro || "Logradouro"}, ${data.bairro || "Bairro"} - ${data.localidade}/${data.uf}`);
       }
     }
   };
