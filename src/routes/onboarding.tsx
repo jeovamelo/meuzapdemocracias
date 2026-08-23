@@ -22,7 +22,8 @@ import {
   AlertTriangle, 
   Users, 
   ArrowRight,
-  RefreshCw
+  RefreshCw,
+  MessageCircle
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useCampaignScope } from '@/hooks/useCampaignScope';
