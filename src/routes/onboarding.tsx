@@ -128,9 +128,93 @@ function OnboardingPage() {
   const [googleCarregando, setGoogleCarregando] = useState(false);
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => {
-      if (data.session) setGoogleAutenticado(true);
+    // 1. Ouvir alterações de sessão do Supabase (para capturar retorno do Google OAuth)
+    const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (session?.user) {
+        setGoogleAutenticado(true);
+        if (session.user.email) {
+          localStorage.setItem('democracias_admin_google_email', session.user.email);
+        }
+        // Restaurar rascunho preenchido antes do redirecionamento
+        const draftRaw = sessionStorage.getItem('democracias_onboarding_draft');
+        if (draftRaw) {
+          try {
+            const draft = JSON.parse(draftRaw);
+            if (draft.etapa) setEtapa(draft.etapa);
+            if (draft.uf) setUf(draft.uf);
+            if (draft.cargoSelecionado) setCargoSelecionado(draft.cargoSelecionado);
+            if (draft.numero) setNumero(draft.numero);
+            if (draft.candidateData) setCandidateData(draft.candidateData);
+            if (draft.adminNome) setAdminNome(draft.adminNome);
+            else if (session.user.user_metadata?.full_name) {
+              setAdminNome(session.user.user_metadata.full_name);
+            }
+            if (draft.adminCpf) setAdminCpf(draft.adminCpf);
+            if (draft.adminTelefone) setAdminTelefone(draft.adminTelefone);
+            if (draft.adminPapel) setAdminPapel(draft.adminPapel);
+            if (draft.adminPapelPersonalizado) setAdminPapelPersonalizado(draft.adminPapelPersonalizado);
+            if (draft.adminCep) setAdminCep(draft.adminCep);
+            if (draft.adminLogradouro) setAdminLogradouro(draft.adminLogradouro);
+            if (draft.adminNumeroEnd) setAdminNumeroEnd(draft.adminNumeroEnd);
+            if (draft.adminComplemento) setAdminComplemento(draft.adminComplemento);
+            if (draft.adminBairro) setAdminBairro(draft.adminBairro);
+            if (draft.adminCidade) setAdminCidade(draft.adminCidade);
+            if (draft.adminEstado) setAdminEstado(draft.adminEstado);
+            if (draft.adminTituloEleitor) setAdminTituloEleitor(draft.adminTituloEleitor);
+            if (draft.adminZona) setAdminZona(draft.adminZona);
+            if (draft.adminSecao) setAdminSecao(draft.adminSecao);
+            if (draft.fotoValidacaoPreview) setFotoValidacaoPreview(draft.fotoValidacaoPreview);
+          } catch (e) {
+            console.error('Erro ao restaurar rascunho de onboarding:', e);
+          }
+        }
+      }
     });
+
+    supabase.auth.getSession().then(({ data }) => {
+      if (data.session?.user) {
+        setGoogleAutenticado(true);
+        if (data.session.user.email) {
+          localStorage.setItem('democracias_admin_google_email', data.session.user.email);
+        }
+        const draftRaw = sessionStorage.getItem('democracias_onboarding_draft');
+        if (draftRaw) {
+          try {
+            const draft = JSON.parse(draftRaw);
+            if (draft.etapa) setEtapa(draft.etapa);
+            if (draft.uf) setUf(draft.uf);
+            if (draft.cargoSelecionado) setCargoSelecionado(draft.cargoSelecionado);
+            if (draft.numero) setNumero(draft.numero);
+            if (draft.candidateData) setCandidateData(draft.candidateData);
+            if (draft.adminNome) setAdminNome(draft.adminNome);
+            else if (data.session.user.user_metadata?.full_name) {
+              setAdminNome(data.session.user.user_metadata.full_name);
+            }
+            if (draft.adminCpf) setAdminCpf(draft.adminCpf);
+            if (draft.adminTelefone) setAdminTelefone(draft.adminTelefone);
+            if (draft.adminPapel) setAdminPapel(draft.adminPapel);
+            if (draft.adminPapelPersonalizado) setAdminPapelPersonalizado(draft.adminPapelPersonalizado);
+            if (draft.adminCep) setAdminCep(draft.adminCep);
+            if (draft.adminLogradouro) setAdminLogradouro(draft.adminLogradouro);
+            if (draft.adminNumeroEnd) setAdminNumeroEnd(draft.adminNumeroEnd);
+            if (draft.adminComplemento) setAdminComplemento(draft.adminComplemento);
+            if (draft.adminBairro) setAdminBairro(draft.adminBairro);
+            if (draft.adminCidade) setAdminCidade(draft.adminCidade);
+            if (draft.adminEstado) setAdminEstado(draft.adminEstado);
+            if (draft.adminTituloEleitor) setAdminTituloEleitor(draft.adminTituloEleitor);
+            if (draft.adminZona) setAdminZona(draft.adminZona);
+            if (draft.adminSecao) setAdminSecao(draft.adminSecao);
+            if (draft.fotoValidacaoPreview) setFotoValidacaoPreview(draft.fotoValidacaoPreview);
+          } catch (e) {
+            console.error('Erro ao restaurar rascunho de onboarding:', e);
+          }
+        }
+      }
+    });
+
+    return () => {
+      authListener?.subscription?.unsubscribe();
+    };
   }, []);
   const [whatsappValidado, setWhatsappValidado] = useState(false);
   const [enviandoLinkWhatsapp, setEnviandoLinkWhatsapp] = useState(false);
@@ -498,19 +582,43 @@ function OnboardingPage() {
   const iniciarGoogleOAuth = async () => {
     setGoogleCarregando(true);
     try {
+      // Salvar estado atual do formulário para não perder nada durante o redirecionamento
+      const draft = {
+        etapa: 3,
+        uf,
+        cargoSelecionado,
+        numero,
+        candidateData,
+        adminNome,
+        adminCpf,
+        adminTelefone,
+        adminPapel,
+        adminPapelPersonalizado,
+        adminCep,
+        adminLogradouro,
+        adminNumeroEnd,
+        adminComplemento,
+        adminBairro,
+        adminCidade,
+        adminEstado,
+        adminTituloEleitor,
+        adminZona,
+        adminSecao,
+        fotoValidacaoPreview,
+      };
+      sessionStorage.setItem('democracias_onboarding_draft', JSON.stringify(draft));
+
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
           redirectTo: `${window.location.origin}/onboarding`,
-          // A navegação é feita explicitamente com a URL retornada pelo Supabase.
-          // Isso evita que o roteador local intercepte o clique e caia em /#.
-          skipBrowserRedirect: true,
+          skipBrowserRedirect: false,
         },
       });
-      if (error || !data?.url) throw error || new Error('URL de autenticação indisponível');
-      // Navegação direta evita que o callback do OAuth seja interceptado pela
-      // rota inicial e garante a abertura da tela oficial do Google.
-      window.location.assign(data.url);
+      if (error) throw error;
+      if (data?.url) {
+        window.location.assign(data.url);
+      }
     } catch (error) {
       console.error(error);
       setGoogleCarregando(false);
@@ -1021,7 +1129,12 @@ function OnboardingPage() {
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div 
-                  onClick={() => setAuthMethod('google')}
+                  onClick={() => {
+                    setAuthMethod('google');
+                    if (!googleAutenticado) {
+                      iniciarGoogleOAuth();
+                    }
+                  }}
                   className={`p-4 rounded-xl border-2 cursor-pointer transition-all ${
                     authMethod === 'google' 
                       ? 'border-primary bg-primary/5 shadow-sm' 
@@ -1166,8 +1279,8 @@ function OnboardingPage() {
               <Button type="button" variant="outline" onClick={() => setEtapa(2)} className="w-1/3">
                 Voltar
               </Button>
-              <Button type="submit" disabled={isSubmitting} className="w-2/3 h-12 text-md bg-primary hover:bg-primary/90">
-                {isSubmitting ? (
+              <Button type="submit" disabled={isSubmitting || googleCarregando} className="w-2/3 h-12 text-md bg-primary hover:bg-primary/90">
+                {isSubmitting || googleCarregando ? (
                   <Loader2 className="mr-2 h-5 w-5 animate-spin" />
                 ) : (
                   <ShieldCheck className="mr-2 h-5 w-5" />
