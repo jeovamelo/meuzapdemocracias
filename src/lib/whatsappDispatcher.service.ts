@@ -13,7 +13,7 @@ export interface DispatchMessageJob {
 export class WhatsAppDispatcherService {
   private static isRunning: boolean = false;
   private static isEmergencyPaused: boolean = false;
-  private static defaultUrl = 'https://api.democracias.org';
+  private static defaultUrl = 'https://api.democracias.org/evolution';
   private static defaultApiKey = 'democracias_global_evolution_key_2026';
 
   // 1. Random Human Delay (8 a 15 segundos entre mensagens)

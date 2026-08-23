@@ -26,8 +26,8 @@ export function getHumanDelayMs(minSec = 8, maxSec = 15): number {
  * Serviço de Integração com a Evolution API e Controle Anti-Bloqueio
  */
 export class EvolutionWhatsAppService {
-  private static defaultUrl = 'https://api.democracias.org';
-  private static defaultApiKey = 'democracias_global_evolution_key';
+  private static defaultUrl = 'https://api.democracias.org/evolution';
+  private static defaultApiKey = 'democracias_global_evolution_key_2026';
 
   /**
    * 1. Regra de Instância Única por Campanha:
