@@ -6,11 +6,13 @@ import makeWASocket, {
 } from '@whiskeysockets/baileys';
 import { Boom } from '@hapi/boom';
 import qrcode from 'qrcode-terminal';
+import QRCode from 'qrcode';
 import pino from 'pino';
 
 // Singleton para guardar a instância do socket e permitir envios pela API
 export let waSocket: WASocket | null = null;
 export let isConnected = false;
+export let currentQr: string | null = null;
 
 // Logger configurado para o Baileys (nível silent para não poluir o terminal, ou info para debug)
 const logger = pino({ level: 'silent' });
@@ -34,15 +36,17 @@ export const connectToWhatsApp = async () => {
 
   sock.ev.on('creds.update', saveCreds);
 
-  sock.ev.on('connection.update', (update) => {
+  sock.ev.on('connection.update', async (update) => {
     const { connection, lastDisconnect, qr } = update;
 
     if (qr) {
+      currentQr = await QRCode.toDataURL(qr);
       console.log(' Escaneie o QR Code abaixo com o seu WhatsApp:');
       qrcode.generate(qr, { small: true });
     }
 
     if (connection === 'close') {
+      currentQr = null;
       isConnected = false;
       waSocket = null;
       
@@ -64,6 +68,7 @@ export const connectToWhatsApp = async () => {
         console.log('Você foi desconectado. Apague a pasta auth_info_baileys e reinicie para escanear novamente.');
       }
     } else if (connection === 'open') {
+      currentQr = null;
       console.log('Conexão aberta com sucesso!');
       isConnected = true;
       waSocket = sock;

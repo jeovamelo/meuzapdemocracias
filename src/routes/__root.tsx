@@ -137,7 +137,7 @@ function RootComponent() {
 
   useEffect(() => {
     // Redireciona para /onboarding se tentar acessar rotas protegidas sem campanha
-    const publicRoutes = ['/', '/auth', '/onboarding'];
+    const publicRoutes = ['/', '/auth', '/onboarding', '/pc'];
     const isPublic = publicRoutes.includes(location);
 
     if (!isPublic && !campaign) {
@@ -145,7 +145,7 @@ function RootComponent() {
     }
   }, [campaign, location, router]);
 
-  const showBottomNav = !['/', '/auth', '/onboarding'].includes(location);
+  const showBottomNav = !['/', '/auth', '/onboarding', '/pc'].includes(location);
 
   return (
     <QueryClientProvider client={queryClient}>

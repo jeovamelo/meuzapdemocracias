@@ -19,6 +19,11 @@ export const Route = createFileRoute('/onboarding')({
   component: OnboardingPage,
 });
 
+function fotoLocal(uf: string, sqCandidato: string | number | null | undefined) {
+  if (!sqCandidato) return '';
+  return `https://api.democracias.org/tse/foto/2026/${uf.toUpperCase()}/${String(sqCandidato)}`;
+}
+
 const ESTADOS_BR = [
   'AC', 'AL', 'AP', 'AM', 'BA', 'CE', 'DF', 'ES', 'GO', 'MA', 'MT', 'MS', 'MG',
   'PA', 'PB', 'PR', 'PE', 'PI', 'RJ', 'RN', 'RS', 'RO', 'RR', 'SC', 'SP', 'SE', 'TO'
@@ -29,6 +34,7 @@ function OnboardingPage() {
   const { setCampaign } = useCampaignScope();
   
   const [uf, setUf] = useState('');
+  const [cargoSelecionado, setCargoSelecionado] = useState('');
   const [numero, setNumero] = useState('');
   
   const [isLoadingTse, setIsLoadingTse] = useState(false);
@@ -40,10 +46,11 @@ function OnboardingPage() {
     cargo: string;
     partido: string;
     fotoUrl?: string;
+    vice?: { nome: string; nomeUrna: string; fotoUrl: string };
   } | null>(null);
 
   const buscarNoTse = async () => {
-    if (!uf || !numero) {
+    if (!uf || !cargoSelecionado || !numero) {
       toast.error('Preencha a UF e o Número antes de buscar.');
       return;
     }
@@ -57,16 +64,23 @@ function OnboardingPage() {
           .select('*')
           .eq('sg_uf', uf.toUpperCase().trim())
           .eq('nr_candidato', numero.trim())
+          .eq('ds_cargo', cargoSelecionado)
           .limit(1)
           .maybeSingle();
 
         if (dbCand && !dbError) {
+          let vice;
+          if (cargoSelecionado === 'GOVERNADOR') {
+            const { data: viceCand } = await (supabase as any).from('tse_candidatos').select('*').eq('sg_uf', uf.toUpperCase().trim()).eq('nr_candidato', numero.trim()).eq('ds_cargo', 'VICE-GOVERNADOR').limit(1).maybeSingle();
+            if (viceCand) vice = { nome: viceCand.nm_candidato || '', nomeUrna: viceCand.nm_urna_candidato || '', fotoUrl: fotoLocal(uf, viceCand.sq_candidato) };
+          }
           setCandidateData({
             nome: dbCand.nm_candidato || '',
             nomeUrna: dbCand.nm_urna_candidato || '',
             cargo: dbCand.ds_cargo || 'Candidato(a)',
             partido: dbCand.sg_partido || '',
-            fotoUrl: dbCand.foto_url || '',
+            fotoUrl: fotoLocal(uf, dbCand.sq_candidato),
+            vice,
           });
           toast.success(`Candidato(a) ${dbCand.nm_urna_candidato} localizado no Banco do TSE!`);
           setIsLoadingTse(false);
@@ -78,8 +92,8 @@ function OnboardingPage() {
 
       // 2. Fallback para o Microserviço Backend
       const backendUrl = window.location.hostname === 'localhost' 
-        ? `http://localhost:3001/tse/candidato?uf=${uf}&numero=${numero}`
-        : `/tse/candidato?uf=${uf}&numero=${numero}`;
+        ? `http://localhost:3001/tse/${uf}/${numero}?cargo=${encodeURIComponent(cargoSelecionado)}`
+        : `/tse/${uf}/${numero}?cargo=${encodeURIComponent(cargoSelecionado)}`;
 
       let data: any = null;
 
@@ -101,7 +115,7 @@ function OnboardingPage() {
           nomeUrna: data.nomeUrna || '',
           cargo: data.cargo || 'Candidato(a)',
           partido: data.partido || '',
-          fotoUrl: data.fotoUrl || '',
+          fotoUrl: fotoLocal(uf, data.sqCandidato),
         });
         toast.success(`Candidato(a) ${data.nomeUrna || data.nome} localizado no TSE!`);
       } else {
@@ -129,7 +143,7 @@ function OnboardingPage() {
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!uf || !numero || !candidateData?.nomeUrna) {
+    if (!uf || !cargoSelecionado || !numero || !candidateData?.nomeUrna) {
       toast.error('Preencha as informações obrigatórias.');
       return;
     }
@@ -151,7 +165,7 @@ function OnboardingPage() {
       toast.success('Campanha configurada com sucesso!');
       
       // 2. Redirecionar para o Dashboard que agora ficará isolado
-      navigate({ to: '/dashboard' });
+      navigate({ to: '/whatsapp' });
 
     } catch (error) {
       toast.error('Erro ao salvar configuração.');
@@ -173,8 +187,8 @@ function OnboardingPage() {
         <div className="bg-white py-8 px-6 shadow rounded-lg sm:px-10">
           <div className="flex gap-4 mb-8">
             <div className="flex-1">
-              <Label>Estado de Atuação (UF)</Label>
-              <Select value={uf} onValueChange={setUf}>
+              <Label>UF</Label>
+              <Select value={uf} onValueChange={value => { setUf(value); setCandidateData(null); }}>
                 <SelectTrigger className="mt-1">
                   <SelectValue placeholder="Selecione..." />
                 </SelectTrigger>
@@ -187,13 +201,22 @@ function OnboardingPage() {
             </div>
             
             <div className="flex-1">
+              <Label>Cargo</Label>
+              <Select value={cargoSelecionado} onValueChange={value => { setCargoSelecionado(value); setCandidateData(null); setNumero(''); }}>
+                <SelectTrigger className="mt-1"><SelectValue placeholder="Selecione o cargo..." /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="GOVERNADOR">Governador</SelectItem>
+                  <SelectItem value="DEPUTADO ESTADUAL">Deputado Estadual</SelectItem>
+                  <SelectItem value="DEPUTADO FEDERAL">Deputado Federal</SelectItem>
+                  <SelectItem value="SENADOR">Senador</SelectItem>
+                  <SelectItem value="PRESIDENTE">Presidente</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex-1">
               <Label>Número do Candidato</Label>
-              <Input 
-                className="mt-1" 
-                placeholder="Ex: 13, 22, 15123..." 
-                value={numero}
-                onChange={e => setNumero(e.target.value)}
-              />
+              <Input className="mt-1" value={numero} disabled={!cargoSelecionado}
+                onChange={e => setNumero(e.target.value.replace(/\D/g, '').slice(0, 6))} />
             </div>
           </div>
 
@@ -201,14 +224,14 @@ function OnboardingPage() {
             <Button 
               onClick={buscarNoTse} 
               className="w-full h-12 text-md mb-4"
-              disabled={isLoadingTse || !uf || !numero}
+              disabled={isLoadingTse || !uf || !cargoSelecionado || !numero}
             >
               {isLoadingTse ? (
                 <Loader2 className="mr-2 h-5 w-5 animate-spin" />
               ) : (
                 <Search className="mr-2 h-5 w-5" />
               )}
-              Buscar Dados Oficiais no TSE
+              Próximo
             </Button>
           ) : (
             <form onSubmit={handleSave} className="space-y-6 border-t pt-6">
@@ -217,13 +240,22 @@ function OnboardingPage() {
                   <img 
                     src={candidateData.fotoUrl} 
                     alt={candidateData.nomeUrna || "Candidato"} 
-                    className="w-16 h-20 object-cover rounded shadow-sm border border-slate-200"
+                    className="w-24 h-28 object-cover rounded shadow-sm border border-slate-200 bg-white"
+                    referrerPolicy="no-referrer"
                     onError={(e) => {
-                      (e.target as HTMLElement).style.display = 'none';
+                      const img = e.currentTarget;
+                      img.alt = 'Foto não disponível';
+                      img.style.objectFit = 'contain';
                     }}
                   />
                 ) : (
                   <CheckCircle2 className="h-6 w-6 text-green-500 flex-shrink-0" />
+                )}
+                {candidateData.vice && (
+                  <div className="flex items-center gap-3 border-l border-green-200 pl-3">
+                    <img src={candidateData.vice.fotoUrl} alt={candidateData.vice.nomeUrna} className="w-16 h-20 object-cover rounded border bg-white" />
+                    <div className="text-xs text-green-800"><strong>Vice:</strong><br />{candidateData.vice.nomeUrna}</div>
+                  </div>
                 )}
                 <div>
                   <h4 className="text-sm font-medium text-green-800">
@@ -269,7 +301,7 @@ function OnboardingPage() {
 
               <Button type="submit" className="w-full h-12 text-lg" disabled={isSaving}>
                 {isSaving ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : null}
-                Finalizar Configuração
+                Próximo
               </Button>
             </form>
           )}

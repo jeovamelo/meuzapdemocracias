@@ -1,8 +1,6 @@
-/**
- * Serviço de Integração com a API Oficial DivulgaCandContas do TSE
- */
+import { readFileSync } from 'node:fs';
 
-interface CandidateResult {
+export interface CandidateResult {
   id?: number;
   nome: string;
   nomeUrna: string;
@@ -10,101 +8,44 @@ interface CandidateResult {
   partido: string;
   numero: string;
   fotoUrl?: string;
+  sqCandidato?: string;
   uf: string;
   municipio?: string;
 }
 
-export async function searchTseCandidate(uf: string, numero: string, ano = '2024'): Promise<CandidateResult | null> {
+function envValue(name: string) {
+  const env = readFileSync('/opt/democracias/.env', 'utf8');
+  return env.match(new RegExp(`^${name}="?([^"\\n]+)"?`, 'm'))?.[1];
+}
+
+export async function searchTseCandidate(uf: string, numero: string, ano = '2026', cargo = ''): Promise<CandidateResult | null> {
   const cleanUf = uf.toUpperCase().trim();
-  const cleanNumero = numero.trim();
-
-  // Mapeamento de eleições oficiais do TSE
-  // 2024: Municipais (Eleição Ordinária: 2045202024)
-  // 2022: Gerais (Eleição Ordinária: 2040602022)
-  const eleicaoId = ano === '2022' ? '2040602022' : '2045202024';
-
-  try {
-    const headers = {
-      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-      'Accept': 'application/json, text/plain, */*',
-      'Accept-Language': 'pt-BR,pt;q=0.9',
-    };
-
-    // Para eleições gerais (Presidente, Gov, Senador, Deputados)
-    if (ano === '2022') {
-      const cargosGerais = [1, 3, 5, 6, 7]; // 1: Presidente (BR), 3: Gov, 5: Sen, 6: Dep Fed, 7: Dep Est
-      for (const cargoId of cargosGerais) {
-        const targetUf = cargoId === 1 ? 'BR' : cleanUf;
-        const url = `https://divulgacandcontas.tse.jus.br/divulga/rest/v1/candidatura/listar/2022/${targetUf}/${eleicaoId}/${cargoId}/candidatos`;
-        
-        const res = await fetch(url, { headers });
-        if (res.ok) {
-          const data: any = await res.json();
-          const cand = data.candidatos?.find((c: any) => String(c.numero) === cleanNumero);
-          if (cand) {
-            // Buscar detalhes completos
-            const detailUrl = `https://divulgacandcontas.tse.jus.br/divulga/rest/v1/candidatura/buscar/2022/${targetUf}/${eleicaoId}/candidato/${cand.id}`;
-            const detailRes = await fetch(detailUrl, { headers });
-            const detailData: any = detailRes.ok ? await detailRes.json() : cand;
-
-            return {
-              id: cand.id,
-              nome: detailData.nomeCompleto || cand.nomeCompleto || '',
-              nomeUrna: detailData.nomeUrna || cand.nomeUrna || '',
-              cargo: detailData.cargo?.nome || cand.cargo?.nome || 'Candidato(a)',
-              partido: detailData.partido?.sigla || cand.partido?.sigla || '',
-              numero: cleanNumero,
-              uf: cleanUf,
-              fotoUrl: detailData.fotoUrl || `https://divulgacandcontas.tse.jus.br/divulga/rest/v1/candidatura/buscar/foto/2022/${cand.id}`
-            };
-          }
-        }
-      }
-    }
-
-    // Para eleições municipais (2024): primeiro buscar municípios da UF ou tentar por código de capital/município
-    // Se for 2024, tentamos listar os municípios do estado
-    const munUrl = `https://divulgacandcontas.tse.jus.br/divulga/rest/v1/eleicao/buscar/2024/${eleicaoId}/municipios`;
-    const munRes = await fetch(munUrl, { headers });
-    
-    if (munRes.ok) {
-      const munData: any = await munRes.json();
-      const municipiosDoEstado = munData.municipios?.filter((m: any) => m.uf === cleanUf) || [];
-
-      // Buscar nos primeiros municípios mais populosos/relevantes ou pelo código
-      // Para otimizar a velocidade da busca:
-      for (const mun of municipiosDoEstado.slice(0, 15)) {
-        for (const cargoId of [11, 13]) { // 11: Prefeito, 13: Vereador
-          const listUrl = `https://divulgacandcontas.tse.jus.br/divulga/rest/v1/candidatura/listar/2024/${mun.codigo}/${eleicaoId}/${cargoId}/candidatos`;
-          const listRes = await fetch(listUrl, { headers });
-          if (listRes.ok) {
-            const listData: any = await listRes.json();
-            const cand = listData.candidatos?.find((c: any) => String(c.numero) === cleanNumero);
-            if (cand) {
-              const detailUrl = `https://divulgacandcontas.tse.jus.br/divulga/rest/v1/candidatura/buscar/2024/${mun.codigo}/${eleicaoId}/candidato/${cand.id}`;
-              const detailRes = await fetch(detailUrl, { headers });
-              const detailData: any = detailRes.ok ? await detailRes.json() : cand;
-
-              return {
-                id: cand.id,
-                nome: detailData.nomeCompleto || cand.nomeCompleto || '',
-                nomeUrna: detailData.nomeUrna || cand.nomeUrna || '',
-                cargo: detailData.cargo?.nome || cand.cargo?.nome || 'Candidato(a)',
-                partido: detailData.partido?.sigla || cand.partido?.sigla || '',
-                numero: cleanNumero,
-                uf: cleanUf,
-                municipio: mun.nome,
-                fotoUrl: detailData.fotoUrl || `https://divulgacandcontas.tse.jus.br/divulga/rest/v1/candidatura/buscar/foto/2024/${cand.id}`
-              };
-            }
-          }
-        }
-      }
-    }
-
-    return null;
-  } catch (error) {
-    console.error('Erro na consulta ao TSE:', error);
-    return null;
-  }
+  const cleanNumero = numero.replace(/\\D/g, '');
+  const url = envValue('VITE_SUPABASE_URL') || 'https://api.democracias.org';
+  const key = envValue('VITE_SUPABASE_PUBLISHABLE_KEY');
+  if (!key) throw new Error('Chave pública do Supabase não configurada.');
+  const params = new URLSearchParams({
+    sg_uf: `eq.${cleanUf}`,
+    nr_candidato: `eq.${cleanNumero}`,
+    select: 'id,ano_eleicao,sg_uf,ds_cargo,sq_candidato,nr_candidato,nm_candidato,nm_urna_candidato,sg_partido,foto_url',
+  });
+  if (cargo) params.set('ds_cargo', `ilike.*${cargo}*`);
+  const response = await fetch(`${url}/rest/v1/tse_candidatos?${params}`, {
+    headers: { apikey: key, Authorization: `Bearer ${key}` },
+  });
+  if (!response.ok) throw new Error(`Supabase retornou ${response.status}.`);
+  const rows = await response.json() as any[];
+  const row = rows[0];
+  if (!row) return null;
+  return {
+    id: row.id,
+    nome: row.nm_candidato,
+    nomeUrna: row.nm_urna_candidato,
+    cargo: row.ds_cargo || 'Candidato',
+    partido: row.sg_partido || '',
+    numero: row.nr_candidato,
+    uf: row.sg_uf,
+    fotoUrl: row.sq_candidato ? `/tse/foto/2026/${row.sg_uf}/${row.sq_candidato}` : row.foto_url,
+    sqCandidato: row.sq_candidato,
+  };
 }

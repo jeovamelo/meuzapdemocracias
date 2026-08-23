@@ -29,17 +29,11 @@ function AuthPage() {
     setIsLoading(true);
     
     try {
-      // 1. Integrar com Supabase Auth aqui no futuro.
-      // const { data, error } = await supabase.auth.signUp({ ... })
-
-      // 2. Integração com o Microserviço WhatsApp
-      // Autenticação com o microserviço Node.js ou Supabase Auth
-      // Apenas Login: o cadastro é feito via Dashboard pelo Admin.
+      const email = `${phone.replace(/\D/g, '')}@whatsapp.democracias.org`;
+      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      if (error) throw error;
       toast.success('Login efetuado com sucesso!');
-
-      setTimeout(() => {
-        navigate({ to: '/onboarding' });
-      }, 1000);
+      navigate({ to: '/onboarding' });
 
     } catch (err) {
       console.error(err);
