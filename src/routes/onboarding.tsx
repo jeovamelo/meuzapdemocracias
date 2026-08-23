@@ -397,14 +397,14 @@ function OnboardingPage() {
           <h2 className="text-3xl font-extrabold text-slate-900">
             {etapa === 1 && "Validação de Responsabilidade"}
             {etapa === 2 && "Registro e Unicidade da Campanha"}
-            {etapa === 3 && "Validação de Identidade do Administrador"}
+            {etapa === 3 && "Cadastro da Conta do Administrador"}
             {etapa === 4 && "Campanha Submetida"}
           </h2>
           <p className="mt-2 text-slate-600 text-sm">
             {etapa === 1 && "Verificação de perfil de acesso para coordenação e administração."}
             {etapa === 2 && "Identifique o pleito, cargo e número eleitoral da campanha."}
-            {etapa === 3 && "Envio obrigatório de foto para comprovação e auditoria do Administrador Geral."}
-            {etapa === 4 && "Seu pedido de cadastro foi registrado e está em análise."}
+            {etapa === 3 && "Identificação, foto e credenciais para acesso do administrador da campanha."}
+            {etapa === 4 && "Seu pedido de cadastro foi registrado e está pronto para conectar o WhatsApp da Campanha."}
           </p>
         </div>
 
@@ -672,7 +672,7 @@ function OnboardingPage() {
                     onClick={() => setEtapa(3)} 
                     className="flex-1 h-12 text-md bg-primary hover:bg-primary/90 font-bold"
                   >
-                    Avançar para Validação do Admin
+                    Avançar para Cadastro de Usuário
                     <ArrowRight className="ml-2 h-4 w-4" />
                   </Button>
                 </div>
@@ -863,14 +863,14 @@ function OnboardingPage() {
             </div>
 
             <div className="pt-2 flex flex-col sm:flex-row gap-3 justify-center">
-              <Button onClick={() => navigate({ to: '/dashboard' })} className="h-12 px-8 text-md bg-primary hover:bg-primary/90">
+              <Button onClick={() => navigate({ to: '/whatsapp' })} className="h-12 px-8 text-md bg-emerald-600 hover:bg-emerald-700 text-white font-bold flex items-center gap-2">
+                <MessageCircle className="h-5 w-5" />
+                Configurar WhatsApp da Campanha
+                <ArrowRight className="h-4 w-4" />
+              </Button>
+              <Button onClick={() => navigate({ to: '/dashboard' })} variant="outline" className="h-12 px-8 text-md">
                 Acessar Painel da Campanha
               </Button>
-              <Link to="/">
-                <Button variant="outline" className="h-12 px-8 text-md">
-                  Voltar ao Início
-                </Button>
-              </Link>
             </div>
           </div>
         )}
