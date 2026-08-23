@@ -2,6 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { ArrowRightLeft, Plus } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
 import { useStore } from "@/lib/store";
+import { useCampaignScope } from "@/hooks/useCampaignScope";
 import { formatData, formatHora, formatNumero, isHoje } from "@/lib/db";
 
 export const Route = createFileRoute("/saidas/")({
@@ -25,6 +26,11 @@ export const Route = createFileRoute("/saidas/")({
 
 function SaidasPage() {
   const { db } = useStore();
+  const { campaign } = useCampaignScope();
+
+  const saidasFiltradas = db.saidas.filter(
+    (s) => !campaign?.id || !s.campaign_id || s.campaign_id === campaign.id
+  );
 
   return (
     <>
@@ -33,7 +39,7 @@ function SaidasPage() {
         title="Saídas"
         right={
           <span className="font-mono text-xs text-muted-foreground">
-            {db.saidas.length} REGISTROS
+            {saidasFiltradas.length} REGISTROS
           </span>
         }
       />
@@ -51,12 +57,12 @@ function SaidasPage() {
       </div>
 
       <div className="space-y-2 px-5 pb-10">
-        {db.saidas.length === 0 && (
+        {saidasFiltradas.length === 0 && (
           <p className="rounded-xl border border-border bg-surface p-4 text-sm text-muted-foreground">
             Nenhuma saída registrada.
           </p>
         )}
-        {db.saidas.map((s) => {
+        {saidasFiltradas.map((s) => {
           const pessoa = db.pessoas.find((p) => p.id === s.pessoa_id);
           const comite = db.comites.find((c) => c.id === s.comite_id);
           return (

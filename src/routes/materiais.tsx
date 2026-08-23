@@ -19,6 +19,7 @@ import {
 import { toast } from "sonner";
 import { PageHeader } from "@/components/PageHeader";
 import { useStore } from "@/lib/store";
+import { useCampaignScope } from "@/hooks/useCampaignScope";
 import {
   CATEGORIAS,
   formatNumero,
@@ -78,7 +79,10 @@ const iconeCategoria = (c: CategoriaMaterial) => {
 
 function MateriaisPage() {
   const { db } = useStore();
-  const materiaisAtivos = db.materiais.filter((m) => !m.arquivado);
+  const { campaign } = useCampaignScope();
+  const materiaisAtivos = db.materiais.filter(
+    (m) => !m.arquivado && (!campaign?.id || !m.campaign_id || m.campaign_id === campaign.id)
+  );
   
   return (
     <>
@@ -119,6 +123,7 @@ function MateriaisPage() {
 
 function Estoque() {
   const { db, addMaterial, ajustarEstoque, archiveMaterial } = useStore();
+  const { campaign } = useCampaignScope();
   const [busca, setBusca] = useState("");
   const [open, setOpen] = useState(false);
   const [openEntrada, setOpenEntrada] = useState(false);
@@ -156,7 +161,9 @@ function Estoque() {
     }
   };
 
-  const ativos = db.materiais.filter((m) => !m.arquivado);
+  const ativos = db.materiais.filter(
+    (m) => !m.arquivado && (!campaign?.id || !m.campaign_id || m.campaign_id === campaign.id)
+  );
   const filtrados = ativos.filter((m) =>
     `${m.nome} ${m.categoria}`.toLowerCase().includes(busca.toLowerCase()),
   );
@@ -174,6 +181,7 @@ function Estoque() {
       estoque_minimo: Number(form.estoque_minimo) || 0,
       descricao: form.descricao,
       foto: form.foto,
+      campaign_id: campaign?.id || undefined,
     });
     setSalvando(false);
     setOpen(false);
@@ -547,6 +555,7 @@ function Estoque() {
 
 function Kits() {
   const { db, addKit, updateKit, archiveKit } = useStore();
+  const { campaign } = useCampaignScope();
   const [open, setOpen] = useState(false);
   const [salvando, setSalvando] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -555,8 +564,12 @@ function Kits() {
   const [descricao, setDescricao] = useState("");
   const [itens, setItens] = useState<KitItem[]>([]);
 
-  const kitsAtivos = db.kits.filter((k) => !k.arquivado);
-  const materiaisAtivos = db.materiais.filter((m) => !m.arquivado);
+  const kitsAtivos = db.kits.filter(
+    (k) => !k.arquivado && (!campaign?.id || !k.campaign_id || k.campaign_id === campaign.id)
+  );
+  const materiaisAtivos = db.materiais.filter(
+    (m) => !m.arquivado && (!campaign?.id || !m.campaign_id || m.campaign_id === campaign.id)
+  );
 
   function setQtd(material_id: string, quantidade: number) {
     setItens((prev) => {
@@ -580,10 +593,10 @@ function Kits() {
     }
     setSalvando(true);
     if (editingId) {
-      await updateKit(editingId, { nome, descricao, itens });
+      await updateKit(editingId, { nome, descricao, itens, campaign_id: campaign?.id || undefined });
       toast.success("Kit atualizado.");
     } else {
-      await addKit({ nome, descricao, itens });
+      await addKit({ nome, descricao, itens, campaign_id: campaign?.id || undefined });
       toast.success("Kit criado.");
     }
     setSalvando(false);
@@ -718,10 +731,18 @@ function Kits() {
 
 function Historico() {
   const { db } = useStore();
+  const { campaign } = useCampaignScope();
   
-  const historico = [...(db.historico_estoque || [])].sort((a, b) => 
-    new Date(b.criado_em).getTime() - new Date(a.criado_em).getTime()
-  );
+  const materiaisMap = new Map(db.materiais.map((m) => [m.id, m]));
+
+  const historico = [...(db.historico_estoque || [])]
+    .filter((h) => {
+      if (!campaign?.id) return true;
+      if (h.campaign_id) return h.campaign_id === campaign.id;
+      const mat = materiaisMap.get(h.material_id);
+      return !mat?.campaign_id || mat.campaign_id === campaign.id;
+    })
+    .sort((a, b) => new Date(b.criado_em).getTime() - new Date(a.criado_em).getTime());
 
   return (
     <div className="space-y-3">

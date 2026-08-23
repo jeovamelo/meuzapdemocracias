@@ -89,6 +89,7 @@ export type Pessoa = {
 
 export type SolicitacaoMaterial = {
   id: string;
+  campaign_id?: string;
   nome: string;
   comite_id: string;
   lideranca_id?: string;
@@ -117,6 +118,7 @@ export type CategoriaMaterial =
 
 export type Material = {
   id: string;
+  campaign_id?: string;
   nome: string;
   categoria: CategoriaMaterial;
   estoque: number;
@@ -132,6 +134,7 @@ export type KitItem = { material_id: string; quantidade: number };
 
 export type Kit = {
   id: string;
+  campaign_id?: string;
   nome: string;
   descricao: string;
   itens: KitItem[];
@@ -147,6 +150,7 @@ export type SaidaItem = {
 
 export type Saida = {
   id: string;
+  campaign_id?: string;
   comite_id: string;
   pessoa_id: string;
   kits: { kit_id: string; quantidade: number }[];
@@ -156,6 +160,7 @@ export type Saida = {
 
 export type MovimentacaoEstoque = {
   id: string;
+  campaign_id?: string;
   material_id: string;
   quantidade_anterior: number;
   quantidade_nova: number;
@@ -167,6 +172,7 @@ export type MovimentacaoEstoque = {
 
 export type CidadeMeta = {
   id: string;
+  campaign_id?: string;
   municipio: string;
   uf: string;
   meta_campanha: number;

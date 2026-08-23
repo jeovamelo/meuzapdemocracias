@@ -6,6 +6,7 @@ import { useStore } from "@/lib/store";
 import { formatNumero, type SaidaItem } from "@/lib/db";
 import { Input } from "@/components/ui/input";
 import { EstadoCidadeSelect } from "@/components/EstadoCidadeSelect";
+import { useCampaignScope } from "@/hooks/useCampaignScope";
 
 export const Route = createFileRoute("/saidas/nova")({
   head: () => ({
@@ -30,12 +31,13 @@ const PASSOS = ["Origem", "Recebedor", "Material", "Confirmar"];
 
 function NovaSaida() {
   const { db, registrarSaida } = useStore();
+  const { campaign } = useCampaignScope();
   const navigate = useNavigate();
   const [passo, setPasso] = useState(0);
   const [comiteId, setComiteId] = useState("");
   const [pessoaId, setPessoaId] = useState("");
   const [busca, setBusca] = useState("");
-  const [filtroUf, setFiltroUf] = useState(db.config.uf || "CE");
+  const [filtroUf, setFiltroUf] = useState(campaign?.uf || db.config.uf || "CE");
   const [filtroCidade, setFiltroCidade] = useState("");
   const [kits, setKits] = useState<Record<string, number>>({});
   const [avulsos, setAvulsos] = useState<Record<string, number>>({});
@@ -77,6 +79,7 @@ function NovaSaida() {
     await registrarSaida({
       comite_id: comiteId,
       pessoa_id: pessoaId,
+      campaign_id: campaign?.id || undefined,
       kits: Object.entries(kits)
         .filter(([, q]) => q > 0)
         .map(([kit_id, quantidade]) => ({ kit_id, quantidade })),
