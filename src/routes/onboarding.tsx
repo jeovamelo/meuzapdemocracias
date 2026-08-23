@@ -1,5 +1,5 @@
 import { createFileRoute, useNavigate, Link } from '@tanstack/react-router';
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -124,6 +124,14 @@ function OnboardingPage() {
 
   // Método de Autenticação / Acesso (WhatsApp ou Google)
   const [authMethod, setAuthMethod] = useState<'google' | 'whatsapp'>('google');
+  const [googleAutenticado, setGoogleAutenticado] = useState(false);
+  const [googleCarregando, setGoogleCarregando] = useState(false);
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data }) => {
+      if (data.session) setGoogleAutenticado(true);
+    });
+  }, []);
   const [whatsappValidado, setWhatsappValidado] = useState(false);
   const [enviandoLinkWhatsapp, setEnviandoLinkWhatsapp] = useState(false);
   const [linkEnviado, setLinkEnviado] = useState(false);
@@ -404,9 +412,14 @@ function OnboardingPage() {
     }
   };
 
-  // 3. Submeter Cadastro de Campanha com Validação de Foto do Administrador
+  // 3. Concluir Cadastro de Campanha com Validação de Foto do Administrador
   const handleFinalizarCadastro = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (authMethod === 'google' && !googleAutenticado) {
+      await iniciarGoogleOAuth();
+      return;
+    }
 
     if (authMethod === 'whatsapp' && adminSenha.length < 8) {
       toast.error('Crie uma senha com pelo menos 8 caracteres para acessar via WhatsApp.');
@@ -430,7 +443,7 @@ function OnboardingPage() {
 
     setIsSubmitting(true);
     try {
-      // 1. Cadastrar Registro da Campanha (Pendente de Validação pelo Admin Geral)
+      // 1. Registrar a campanha e o administrador responsável.
       const novaCampanha = await addCampanhaRegistro({
         uf,
         cargo: candidateData?.cargo || cargoSelecionado,
@@ -443,7 +456,7 @@ function OnboardingPage() {
         admin_cpf: adminCpf,
         admin_telefone: adminTelefone,
         admin_foto_validacao_url: fotoValidacaoPreview,
-        status_validacao: 'pendente_aprovacao_admin_geral',
+        status_validacao: 'aprovado',
       });
 
       // 2. Cadastrar Usuário Administrador
@@ -457,7 +470,7 @@ function OnboardingPage() {
         campanha_id: novaCampanha?.id,
         is_admin_campanha: true,
         foto_validacao_url: fotoValidacaoPreview,
-        status: 'pendente_aprovacao',
+        status: 'ativo',
         municipio: '',
         uf: uf,
         zona: '',
@@ -482,6 +495,29 @@ function OnboardingPage() {
     }
   };
 
+  const iniciarGoogleOAuth = async () => {
+    setGoogleCarregando(true);
+    try {
+      const { data, error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: `${window.location.origin}/onboarding`,
+          // A navegação é feita explicitamente com a URL retornada pelo Supabase.
+          // Isso evita que o roteador local intercepte o clique e caia em /#.
+          skipBrowserRedirect: true,
+        },
+      });
+      if (error || !data?.url) throw error || new Error('URL de autenticação indisponível');
+      // Navegação direta evita que o callback do OAuth seja interceptado pela
+      // rota inicial e garante a abertura da tela oficial do Google.
+      window.location.assign(data.url);
+    } catch (error) {
+      console.error(error);
+      setGoogleCarregando(false);
+      toast.error('Não foi possível iniciar a autenticação Google.');
+    }
+  };
+
   return (
     <div className="min-h-screen bg-slate-50 py-12 px-4 sm:px-6 lg:px-8 flex flex-col justify-center">
       <div className="max-w-2xl mx-auto w-full">
@@ -496,13 +532,13 @@ function OnboardingPage() {
             {etapa === 1 && "Validação de Responsabilidade"}
             {etapa === 2 && "Registro e Unicidade da Campanha"}
             {etapa === 3 && "Cadastro da Conta do Administrador"}
-            {etapa === 4 && "Campanha Submetida"}
+            {etapa === 4 && "Cadastro concluído"}
           </h2>
           <p className="mt-2 text-slate-600 text-sm">
             {etapa === 1 && "Verificação de perfil de acesso para coordenação e administração."}
             {etapa === 2 && "Identifique o pleito, cargo e número eleitoral da campanha."}
             {etapa === 3 && "Identificação, foto e credenciais para acesso do administrador da campanha."}
-            {etapa === 4 && "Seu pedido de cadastro foi registrado e está pronto para conectar o WhatsApp da Campanha."}
+            {etapa === 4 && "Seu cadastro foi registrado e está pronto para conectar o WhatsApp da Campanha."}
           </p>
         </div>
 
@@ -770,7 +806,7 @@ function OnboardingPage() {
                     onClick={() => setEtapa(3)} 
                     className="flex-1 h-12 text-md bg-primary hover:bg-primary/90 font-bold"
                   >
-                    Avançar para Cadastro de Usuário
+                    Avançar
                     <ArrowRight className="ml-2 h-4 w-4" />
                   </Button>
                 </div>
@@ -1000,8 +1036,8 @@ function OnboardingPage() {
                       <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z" />
                     </svg>
                     <div>
-                      <div className="font-bold text-sm text-slate-900">Vincular Conta Google</div>
-                      <div className="text-xs text-slate-500">Login rápido e seguro com sua conta Google</div>
+                      <div className="font-bold text-sm text-slate-900">{googleAutenticado ? 'Conta Google vinculada' : 'Vincular Conta Google'}</div>
+                      <div className={`text-xs ${googleAutenticado ? 'text-emerald-700 font-semibold' : 'text-slate-500'}`}>{googleAutenticado ? '✓ Autenticado com sucesso' : 'Login rápido e seguro com sua conta Google'}</div>
                     </div>
                   </div>
                 </div>
@@ -1136,13 +1172,13 @@ function OnboardingPage() {
                 ) : (
                   <ShieldCheck className="mr-2 h-5 w-5" />
                 )}
-                Submeter para Aprovação Geral
+                {authMethod === 'google' && !googleAutenticado ? 'Continuar com Google' : 'Próximo'}
               </Button>
             </div>
           </form>
         )}
 
-        {/* ETAPA 4: CONFIRMAÇÃO DE SUBMISSÃO PENDENTE DE APROVAÇÃO */}
+        {/* ETAPA 4: CONFIRMAÇÃO DO CADASTRO */}
         {etapa === 4 && (
           <div className="bg-white p-8 rounded-2xl shadow-xl border border-slate-100 text-center space-y-6">
             <div className="w-20 h-20 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto">
@@ -1151,17 +1187,17 @@ function OnboardingPage() {
 
             <div className="space-y-2">
               <h3 className="text-2xl font-extrabold text-slate-900">
-                Campanha Registrada com Sucesso!
+                Cadastro concluído com sucesso!
               </h3>
               <p className="text-slate-600 text-sm max-w-md mx-auto">
-                Os dados da campanha e a foto de identificação de <strong>{adminNome}</strong> foram enviados para o <strong>Painel do Administrador Geral</strong> para validação de autenticidade.
+                A conta de <strong>{adminNome}</strong> foi criada como administrador da campanha. Agora você pode configurar o WhatsApp e acessar o painel.
               </p>
             </div>
 
             <div className="bg-slate-50 border rounded-xl p-4 text-left text-xs text-slate-600 space-y-1">
               <div><strong>Campanha:</strong> {candidateData?.nomeUrna} ({candidateData?.cargo} - {uf})</div>
               <div><strong>Administrador:</strong> {adminNome} (CPF: {adminCpf})</div>
-              <div><strong>Status:</strong> <span className="text-amber-600 font-semibold">Pendente de Validação pelo Admin Geral</span></div>
+                <div><strong>Status:</strong> <span className="text-emerald-600 font-semibold">Administrador ativo</span></div>
             </div>
 
             <div className="pt-2 flex flex-col sm:flex-row gap-3 justify-center">
