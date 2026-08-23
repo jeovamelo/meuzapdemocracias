@@ -10,10 +10,12 @@ function LandingPage() {
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col">
       <header className="bg-white border-b px-6 py-4 flex items-center justify-between sticky top-0 z-10">
-        <div className="flex items-center gap-2">
-          <div className="bg-primary p-2 rounded-lg text-primary-foreground">
-            <Target className="h-6 w-6" />
-          </div>
+        <div className="flex items-center gap-3">
+          <img
+            src="/democraciaslogo.png"
+            alt="Democracias Logo"
+            className="h-9 w-auto object-contain rounded-md"
+          />
           <span className="font-bold text-xl tracking-tight text-slate-900">Democracias</span>
         </div>
         <div>
