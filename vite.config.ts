@@ -10,6 +10,7 @@ export default defineConfig({
   vite: {
     server: {
       host: '0.0.0.0',
+      port: 8080,
       allowedHosts: [
         'democracias.org',
         '.democracias.org',
@@ -17,6 +18,28 @@ export default defineConfig({
         'localhost',
         '127.0.0.1',
       ],
+      proxy: {
+        '/tse': {
+          target: 'https://api.democracias.org',
+          changeOrigin: true,
+          secure: false,
+        },
+        '/foto': {
+          target: 'https://api.democracias.org',
+          changeOrigin: true,
+          secure: false,
+        },
+        '/evolution': {
+          target: 'https://api.democracias.org',
+          changeOrigin: true,
+          secure: false,
+        },
+        '/whatsapp': {
+          target: 'https://api.democracias.org',
+          changeOrigin: true,
+          secure: false,
+        },
+      },
     },
     preview: {
       host: '0.0.0.0',
