@@ -153,8 +153,9 @@ function OnboardingPage() {
   const handleConfirmarResponsavel = (resp: boolean) => {
     setIsResponsavel(resp);
     if (!resp) {
-      // Se responder "Não", o usuário não tem permissão para cadastrar campanha e é guiado para o fluxo B (membro/apoiador)
-      toast.info('Para participar de uma campanha como apoiador ou membro de equipe, acesse o Cadastro Geral.');
+      // Se responder "Não", o usuário não tem permissão para cadastrar campanha e volta para a home
+      toast.info('A criação de campanha é restrita a administradores. Redirecionando para a página inicial...');
+      navigate({ to: '/' });
     } else {
       setEtapa(2);
     }
