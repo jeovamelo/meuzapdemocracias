@@ -129,7 +129,7 @@ function NovaSaida() {
 
   return (
     <>
-      <header className="sticky top-0 z-30 border-b border-border bg-background/90 px-5 pt-8 pb-4 backdrop-blur-md">
+      <header className="sticky top-0 z-30 border-b border-border bg-background/90 px-5 pt-7 pb-3.5 backdrop-blur-md">
         <div className="flex items-center justify-between">
           <Link
             to="/saidas"
@@ -137,9 +137,21 @@ function NovaSaida() {
           >
             <ArrowLeft className="size-4" /> Cancelar
           </Link>
-          <span className="font-mono text-xs text-muted-foreground">
-            PASSO 0{passo + 1}/04
-          </span>
+          <div className="flex items-center gap-2">
+            {campaign && (
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-primary/10 border border-primary/20 px-2 py-0.5 text-[10px] font-bold text-foreground">
+                <span className="size-1.5 rounded-full bg-primary" />
+                <span className="truncate max-w-[120px]">{campaign.nomeUrna}</span>
+                <span>•</span>
+                <span className="font-mono text-primary">{campaign.numero}</span>
+                <span>•</span>
+                <span className="font-mono uppercase text-muted-foreground">{campaign.uf}</span>
+              </span>
+            )}
+            <span className="font-mono text-xs text-muted-foreground">
+              PASSO 0{passo + 1}/04
+            </span>
+          </div>
         </div>
         <h1 className="mt-2 text-2xl font-extrabold tracking-tight">
           {PASSOS[passo]}
