@@ -37,70 +37,36 @@ export class EvolutionWhatsAppService {
   static async createOrReplaceCampaignInstance(campaignId: string, campaignName: string): Promise<{ success: boolean; instanceName: string; qrCode?: string; error?: string }> {
     const cleanCampaignName = campaignName.toLowerCase().replace(/[^a-z0-9]/g, '_').slice(0, 20);
     const instanceName = `camp_${cleanCampaignName}_${campaignId.slice(0, 6)}`;
-
+    const controller = new AbortController();
+    const timeout = window.setTimeout(() => controller.abort(), 20000);
     try {
-      // 1. Remover registro anterior da campanha no banco local
-      await (supabase as any)
-        .from('whatsapp_instances')
-        .delete()
-        .eq('campaign_id', campaignId);
-
-      // 2. Chamar endpoint da Evolution API para criar instância
+      await (supabase as any).from('whatsapp_instances').delete().eq('campaign_id', campaignId);
       const response = await fetch(`${this.defaultUrl}/instance/create`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'apikey': this.defaultApiKey,
-        },
-        body: JSON.stringify({
-          instanceName,
-          token: `${instanceName}_token`,
-          qrcode: true,
-          integration: 'WHATSAPP-BAILEYS',
-          webhook: `${this.defaultUrl}/webhooks/evolution`,
-          webhook_by_events: true,
-          events: [
-            'CONNECTION_UPDATE',
-            'QRCODE_UPDATED',
-            'MESSAGES_UPSERT'
-          ]
-        })
+        method: 'POST', signal: controller.signal,
+        headers: { 'Content-Type': 'application/json', apikey: this.defaultApiKey },
+        body: JSON.stringify({ name: instanceName, token: `${instanceName}_token` })
       });
+      const created = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(created?.message || `Evolution Go HTTP ${response.status}`);
 
-      const resData = await response.json().catch(() => ({}));
-
-      // 3. Salvar registro da instância no Supabase
-      await (supabase as any).from('whatsapp_instances').insert([{
-        instance_name: instanceName,
-        campaign_id: campaignId,
-        tipo: 'campaign',
-        status: resData?.instance?.status || 'connecting',
-        qr_code_base64: resData?.qrcode?.base64 || null,
-        server_url: this.defaultUrl,
-        apikey: `${instanceName}_token`
-      }]);
-
-      return {
-        success: true,
-        instanceName,
-        qrCode: resData?.qrcode?.base64 || null
-      };
-
+      await fetch(`${this.defaultUrl}/instance/connect`, {
+        method: 'POST', signal: controller.signal,
+        headers: { 'Content-Type': 'application/json', apikey: this.defaultApiKey },
+        body: JSON.stringify({ subscribe: ['MESSAGE', 'READ_RECEIPT', 'GROUP', 'CALL'] })
+      });
+      let qr = created?.qrcode?.base64 || created?.qrcode || created?.data?.qrcode?.base64 || created?.data?.qrcode || null;
+      if (!qr) {
+        const qrResponse = await fetch(`${this.defaultUrl}/instance/qr`, { signal: controller.signal, headers: { apikey: this.defaultApiKey } });
+        const qrData = await qrResponse.json().catch(() => ({}));
+        qr = qrData?.qrcode?.base64 || qrData?.qrcode || qrData?.data?.qrcode?.base64 || qrData?.data?.qrcode || null;
+      }
+      await (supabase as any).from('whatsapp_instances').insert([{ instance_name: instanceName, campaign_id: campaignId, tipo: 'campaign', status: 'connecting', qr_code_base64: qr, server_url: this.defaultUrl, apikey: `${instanceName}_token` }]);
+      return { success: true, instanceName, qrCode: qr };
     } catch (err: any) {
-      console.warn("Evolution API create instance fallback:", err);
-      // Fallback para permitir continuar fluxo em ambiente de desenvolvimento
-      await (supabase as any).from('whatsapp_instances').insert([{
-        instance_name: instanceName,
-        campaign_id: campaignId,
-        tipo: 'campaign',
-        status: 'connecting',
-        server_url: this.defaultUrl,
-      }]);
-
-      return {
-        success: true,
-        instanceName,
-      };
+      const error = err?.name === 'AbortError' ? 'A Evolution Go demorou mais de 20 segundos para responder.' : (err?.message || 'Falha ao criar a instância.');
+      return { success: false, instanceName, error };
+    } finally {
+      window.clearTimeout(timeout);
     }
   }
 

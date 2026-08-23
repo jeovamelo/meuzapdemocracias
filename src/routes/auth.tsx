@@ -1,5 +1,5 @@
 import { createFileRoute, useNavigate } from '@tanstack/react-router';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -15,7 +15,16 @@ function AuthPage() {
   const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(false);
   const [phone, setPhone] = useState('');
-  const [password, setPassword] = useState('');
+  const [password, setPassword] = useState(() => sessionStorage.getItem('democracias_saved_password') || '');
+  const [rememberMe, setRememberMe] = useState(() => localStorage.getItem('democracias_remember_me') === 'true');
+  useEffect(() => {
+    const phone = new URLSearchParams(window.location.search).get('whatsapp');
+    if (phone) {
+      localStorage.setItem('democracias_whatsapp_validated', phone);
+      toast.success('WhatsApp validado. Você já pode continuar.');
+    }
+  }, []);
+
   // isLogin removido: a rota agora é exclusivamente para Login de usuários convidados ou aprovados.
 
   const handleWhatsAppAuth = async (e: React.FormEvent) => {
@@ -96,6 +105,11 @@ function AuthPage() {
                 disabled={isLoading}
               />
             </div>
+
+            <label className="flex items-center gap-2 text-sm text-slate-600">
+              <input type="checkbox" checked={rememberMe} onChange={e => setRememberMe(e.target.checked)} />
+              Lembrar de mim nesta sessão
+            </label>
 
             <Button type="submit" className="w-full h-12 text-lg" disabled={isLoading}>
               {isLoading ? (

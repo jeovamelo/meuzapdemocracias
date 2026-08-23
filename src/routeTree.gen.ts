@@ -20,6 +20,7 @@ import { Route as PessoasRouteImport } from './routes/pessoas'
 import { Route as PotencialRouteImport } from './routes/potencial'
 import { Route as SaidasRouteImport } from './routes/saidas'
 import { Route as WhatsappRouteImport } from './routes/whatsapp'
+import { Route as WhatsappValidadoRouteImport } from './routes/whatsapp-validado'
 import { Route as BuIndexRouteImport } from './routes/bu/index'
 import { Route as PublicCadastroRouteImport } from './routes/public/cadastro'
 import { Route as SaidasIndexRouteImport } from './routes/saidas.index'
@@ -80,6 +81,11 @@ const WhatsappRoute = WhatsappRouteImport.update({
   path: '/whatsapp',
   getParentRoute: () => rootRouteImport,
 } as any)
+const WhatsappValidadoRoute = WhatsappValidadoRouteImport.update({
+  id: '/whatsapp-validado',
+  path: '/whatsapp-validado',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const BuIndexRoute = BuIndexRouteImport.update({
   id: '/bu/',
   path: '/bu/',
@@ -113,6 +119,7 @@ export interface FileRoutesByFullPath {
   '/potencial': typeof PotencialRoute
   '/saidas': typeof SaidasRouteWithChildren
   '/whatsapp': typeof WhatsappRoute
+  '/whatsapp-validado': typeof WhatsappValidadoRoute
   '/public/cadastro': typeof PublicCadastroRoute
   '/saidas/nova': typeof SaidasNovaRoute
   '/bu/': typeof BuIndexRoute
@@ -129,6 +136,7 @@ export interface FileRoutesByTo {
   '/pessoas': typeof PessoasRoute
   '/potencial': typeof PotencialRoute
   '/whatsapp': typeof WhatsappRoute
+  '/whatsapp-validado': typeof WhatsappValidadoRoute
   '/public/cadastro': typeof PublicCadastroRoute
   '/saidas/nova': typeof SaidasNovaRoute
   '/bu': typeof BuIndexRoute
@@ -147,6 +155,7 @@ export interface FileRoutesById {
   '/potencial': typeof PotencialRoute
   '/saidas': typeof SaidasRouteWithChildren
   '/whatsapp': typeof WhatsappRoute
+  '/whatsapp-validado': typeof WhatsappValidadoRoute
   '/public/cadastro': typeof PublicCadastroRoute
   '/saidas/nova': typeof SaidasNovaRoute
   '/bu/': typeof BuIndexRoute
@@ -166,6 +175,7 @@ export interface FileRouteTypes {
     | '/potencial'
     | '/saidas'
     | '/whatsapp'
+    | '/whatsapp-validado'
     | '/public/cadastro'
     | '/saidas/nova'
     | '/bu/'
@@ -182,6 +192,7 @@ export interface FileRouteTypes {
     | '/pessoas'
     | '/potencial'
     | '/whatsapp'
+    | '/whatsapp-validado'
     | '/public/cadastro'
     | '/saidas/nova'
     | '/bu'
@@ -199,6 +210,7 @@ export interface FileRouteTypes {
     | '/potencial'
     | '/saidas'
     | '/whatsapp'
+    | '/whatsapp-validado'
     | '/public/cadastro'
     | '/saidas/nova'
     | '/bu/'
@@ -217,6 +229,7 @@ export interface RootRouteChildren {
   PotencialRoute: typeof PotencialRoute
   SaidasRoute: typeof SaidasRouteWithChildren
   WhatsappRoute: typeof WhatsappRoute
+  WhatsappValidadoRoute: typeof WhatsappValidadoRoute
   PublicCadastroRoute: typeof PublicCadastroRoute
   BuIndexRoute: typeof BuIndexRoute
 }
@@ -300,6 +313,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof WhatsappRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/whatsapp-validado': {
+      id: '/whatsapp-validado'
+      path: '/whatsapp-validado'
+      fullPath: '/whatsapp-validado'
+      preLoaderRoute: typeof WhatsappValidadoRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/bu/': {
       id: '/bu/'
       path: '/bu'
@@ -356,6 +376,7 @@ const rootRouteChildren: RootRouteChildren = {
   PotencialRoute: PotencialRoute,
   SaidasRoute: SaidasRouteWithChildren,
   WhatsappRoute: WhatsappRoute,
+  WhatsappValidadoRoute: WhatsappValidadoRoute,
   PublicCadastroRoute: PublicCadastroRoute,
   BuIndexRoute: BuIndexRoute,
 }
