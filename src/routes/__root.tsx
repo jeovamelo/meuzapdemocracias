@@ -148,7 +148,7 @@ function RootComponent() {
     }
   }, [campaign, location, router]);
 
-  const showBottomNav = !['/', '/auth', '/onboarding', '/pc'].includes(location) && !location.startsWith('/public');
+  const showBottomNav = !['/', '/auth', '/onboarding', '/pc', '/saidas/nova'].includes(location) && !location.startsWith('/public');
 
   return (
     <QueryClientProvider client={queryClient}>

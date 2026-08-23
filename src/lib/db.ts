@@ -150,9 +150,11 @@ export type SaidaItem = {
 
 export type Saida = {
   id: string;
+  numero_pedido?: string;
   campaign_id?: string;
   comite_id: string;
   pessoa_id: string;
+  entregador_id?: string;
   kits: { kit_id: string; quantidade: number }[];
   itens: SaidaItem[];
   criado_em: string;

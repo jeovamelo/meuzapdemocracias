@@ -194,9 +194,14 @@ function SaidasPage() {
                   className="overflow-hidden rounded-2xl border border-border bg-surface shadow-sm transition-all hover:shadow-md"
                 >
                   <div className="flex items-center justify-between border-b border-border/50 bg-muted/5 px-4 py-2.5">
-                    <div className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                    <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
                       <Clock className="size-3" />
                       {formatData(s.criado_em)} às {formatHora(s.criado_em)}
+                      {s.numero_pedido && (
+                        <span className="font-mono bg-primary/10 text-primary px-1.5 py-0.5 rounded text-[9px] font-black">
+                          #{s.numero_pedido}
+                        </span>
+                      )}
                     </div>
                     <span className="font-mono text-[10px] font-black uppercase text-primary">
                       {formatNumero(totalUnidades)} ITENS
@@ -214,7 +219,7 @@ function SaidasPage() {
                           {pessoa?.funcao ? `${pessoa.funcao} • ` : ""}{pessoa?.municipio || comite?.municipio || "CE"}
                         </p>
                         <p className="flex items-center gap-1 text-[11px] text-muted-foreground mt-0.5">
-                          <MapPin className="size-3 shrink-0" /> {comite?.nome || "Comitê Central"}
+                          <MapPin className="size-3 shrink-0" /> {comite?.nome || "Comitê Central / Sede"}
                         </p>
                       </div>
                       {pessoa?.telefone && (
