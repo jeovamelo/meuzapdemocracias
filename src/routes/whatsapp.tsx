@@ -14,8 +14,14 @@ export const Route = createFileRoute('/whatsapp')({ component: WhatsAppSetupPage
 function WhatsAppSetupPage() {
   const navigate = useNavigate();
   const { campaign } = useCampaignScope();
-  const [campaignName, setCampaignName] = useState(() => localStorage.getItem('whatsapp_campaign_name') || campaign?.nomeUrna || '');
-  const [whatsappNumber, setWhatsappNumber] = useState(() => localStorage.getItem('whatsapp_campaign_number') || '');
+  const [campaignName, setCampaignName] = useState(() => (
+    typeof window !== 'undefined'
+      ? localStorage.getItem('whatsapp_campaign_name') || campaign?.nomeUrna || ''
+      : campaign?.nomeUrna || ''
+  ));
+  const [whatsappNumber, setWhatsappNumber] = useState(() => (
+    typeof window !== 'undefined' ? localStorage.getItem('whatsapp_campaign_number') || '' : ''
+  ));
   const [status, setStatus] = useState<{ online: boolean; message: string; qr?: string | null }>({ 
     online: false, 
     message: 'Gerando instância única para a campanha...',
