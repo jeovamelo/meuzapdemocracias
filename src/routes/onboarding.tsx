@@ -206,62 +206,91 @@ function OnboardingPage() {
 
       // Consulta ao Banco Oficial do TSE no Supabase
       try {
-        // Formatar o cargo para busca exata ou ilike
+        const cleanUf = uf.toUpperCase().trim();
+        const cleanNr = numero.trim();
         const cargoQuery = cargoSelecionado.trim().toUpperCase();
 
+        // 1. Tentar via Supabase Client
+        let cand: any = null;
         const { data: dbCand, error: dbError } = await (supabase as any)
           .from('tse_candidatos')
           .select('*')
-          .eq('sg_uf', uf.toUpperCase().trim())
-          .eq('nr_candidato', numero.trim())
+          .eq('sg_uf', cleanUf)
+          .eq('nr_candidato', cleanNr)
           .ilike('ds_cargo', `%${cargoQuery}%`)
           .limit(1)
           .maybeSingle();
 
         if (dbCand && !dbError) {
+          cand = dbCand;
+        } else {
+          // 2. Fallback direto via PostgREST na VPS
+          try {
+            const vpsUrl = `https://api.democracias.org/rest/v1/tse_candidatos?select=*&sg_uf=eq.${encodeURIComponent(cleanUf)}&nr_candidato=eq.${encodeURIComponent(cleanNr)}&ds_cargo=ilike.*${encodeURIComponent(cargoQuery)}*`;
+            const apiKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyAgCiAgICAicm9sZSI6ICJhbm9uIiwKICAgICJpc3MiOiAic3VwYWJhc2UtZGVtbyIsCiAgICAiaWF0IjogMTY0MTc2OTIwMCwKICAgICJleHAiOiAxNzk5NTM1NjAwCn0.dc_X5iR_VP_qT0zsiyj_I_OZ2T9FtRU2BBNWN8Bu4GE';
+            const res = await fetch(vpsUrl, {
+              headers: {
+                'apikey': apiKey,
+                'Authorization': `Bearer ${apiKey}`
+              }
+            });
+            if (res.ok) {
+              const resData = await res.json();
+              if (Array.isArray(resData) && resData.length > 0) {
+                cand = resData[0];
+              }
+            }
+          } catch (eRest) {
+            console.warn("Fallback REST error:", eRest);
+          }
+        }
+
+        if (cand) {
           let vice;
           if (cargoSelecionado === 'GOVERNADOR' || cargoQuery.includes('GOVERNADOR')) {
-            const { data: viceCand } = await (supabase as any)
-              .from('tse_candidatos')
-              .select('*')
-              .eq('sg_uf', uf.toUpperCase().trim())
-              .eq('nr_candidato', numero.trim())
-              .ilike('ds_cargo', '%VICE-GOVERNADOR%')
-              .limit(1)
-              .maybeSingle();
-            if (viceCand) {
-              vice = {
-                nome: viceCand.nm_candidato || '',
-                nomeUrna: viceCand.nm_urna_candidato || '',
-                fotoUrl: fotoLocal(uf, viceCand.sq_candidato)
-              };
-            }
+            try {
+              const { data: viceCand } = await (supabase as any)
+                .from('tse_candidatos')
+                .select('*')
+                .eq('sg_uf', cleanUf)
+                .eq('nr_candidato', cleanNr)
+                .ilike('ds_cargo', '%VICE-GOVERNADOR%')
+                .limit(1)
+                .maybeSingle();
+              if (viceCand) {
+                vice = {
+                  nome: viceCand.nm_candidato || '',
+                  nomeUrna: viceCand.nm_urna_candidato || '',
+                  fotoUrl: fotoLocal(uf, viceCand.sq_candidato)
+                };
+              }
+            } catch {}
           }
 
           setCandidateData({
-            nome: dbCand.nm_candidato || '',
-            nomeUrna: dbCand.nm_urna_candidato || '',
-            cargo: dbCand.ds_cargo || cargoSelecionado,
-            partido: dbCand.sg_partido || dbCand.nm_partido || 'Não informado',
-            numeroPartido: dbCand.nr_partido || '',
-            tipoAgremiacao: dbCand.tp_agremiacao || 'Não informado',
-            nomeFederacao: dbCand.nm_federacao || '',
-            siglaFederacao: dbCand.sg_federacao || '',
-            composicaoFederacao: dbCand.ds_composicao_federacao || '',
-            coligacao: dbCand.nm_coligacao || '',
-            composicaoColigacao: dbCand.ds_composicao_coligacao || '',
-            dataNascimento: dbCand.dt_nascimento || 'Não informado',
-            idade: calcularIdade(dbCand.dt_nascimento),
-            numeroCandidato: dbCand.nr_candidato || numero,
-            genero: dbCand.ds_genero || 'Não informado',
-            grauInstrucao: dbCand.ds_grau_instrucao || 'Não informado',
-            ocupacao: dbCand.ds_ocupacao || 'Não informado',
-            corRaca: dbCand.ds_cor_raca || 'Não informado',
-            fotoUrl: fotoLocal(uf, dbCand.sq_candidato),
+            nome: cand.nm_candidato || '',
+            nomeUrna: cand.nm_urna_candidato || '',
+            cargo: cand.ds_cargo || cargoSelecionado,
+            partido: cand.sg_partido || cand.nm_partido || 'Não informado',
+            numeroPartido: cand.nr_partido || '',
+            tipoAgremiacao: cand.tp_agremiacao || 'Não informado',
+            nomeFederacao: cand.nm_federacao || '',
+            siglaFederacao: cand.sg_federacao || '',
+            composicaoFederacao: cand.ds_composicao_federacao || '',
+            coligacao: cand.nm_coligacao || '',
+            composicaoColigacao: cand.ds_composicao_coligacao || '',
+            dataNascimento: cand.dt_nascimento || 'Não informado',
+            idade: calcularIdade(cand.dt_nascimento),
+            numeroCandidato: cand.nr_candidato || numero,
+            genero: cand.ds_genero || 'Não informado',
+            grauInstrucao: cand.ds_grau_instrucao || 'Não informado',
+            ocupacao: cand.ds_ocupacao || 'Não informado',
+            corRaca: cand.ds_cor_raca || 'Não informado',
+            fotoUrl: fotoLocal(uf, cand.sq_candidato),
             vice,
           });
 
-          toast.success(`Candidato(a) ${dbCand.nm_urna_candidato} validado(a) na base oficial do TSE!`);
+          toast.success(`Candidato(a) ${cand.nm_urna_candidato} validado(a) na base oficial do TSE!`);
           setIsLoadingTse(false);
           return;
         } else {
