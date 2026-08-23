@@ -108,7 +108,7 @@ function PessoasPage() {
     uf: campaign?.uf || db.config.uf || "CE",
     telefone: "",
     zona: "",
-    meta_votos: 0,
+    meta_votos: 1,
     status: "ativo" as const,
   };
 
@@ -191,10 +191,12 @@ function PessoasPage() {
     try {
       const isLideranca = form.funcao.includes("Coordenador") || form.funcao.includes("Liderança") || form.funcao.includes("Chefe");
       const tipoFinal = isLideranca ? "responsavel" : "apoiador";
+      const finalMetaVotos = Number(form.meta_votos) > 0 ? Number(form.meta_votos) : 1;
 
       if (editandoId) {
         await updatePessoa(editandoId, { 
           ...form, 
+          meta_votos: finalMetaVotos,
           tipo: tipoFinal,
           papel_campanha: form.funcao as any,
           campanha_id: campaign?.id || undefined 
@@ -203,6 +205,7 @@ function PessoasPage() {
       } else {
         await addPessoa({ 
           ...form, 
+          meta_votos: finalMetaVotos,
           tipo: tipoFinal,
           papel_campanha: form.funcao as any,
           campanha_id: campaign?.id || undefined 
@@ -306,12 +309,13 @@ function PessoasPage() {
                     />
                   </Campo>
 
-                  <Campo label="Meta de Votos (Estimativa)">
+                  <Campo label="Votos Esperados (Meta)">
                     <Input
                       type="number"
+                      min="1"
                       value={form.meta_votos || ""}
                       onChange={(e) => setForm({ ...form, meta_votos: Number(e.target.value) })}
-                      placeholder="0"
+                      placeholder="1 (próprio voto)"
                       className="bg-background font-mono"
                     />
                   </Campo>

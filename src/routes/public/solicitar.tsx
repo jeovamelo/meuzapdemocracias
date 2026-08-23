@@ -75,7 +75,7 @@ function PublicSolicitarPage() {
   const [nome, setNome] = useState("");
   const [cpf, setCpf] = useState("");
   const [telefone, setTelefone] = useState("");
-  const [expectativaVotos, setExpectativaVotos] = useState("");
+  const [expectativaVotos, setExpectativaVotos] = useState("1");
   const [uf, setUf] = useState(campanhaAtiva?.uf || db.config.uf || "CE");
   const [cidade, setCidade] = useState("Fortaleza");
   const [endereco, setEndereco] = useState("");
@@ -109,10 +109,8 @@ function PublicSolicitarPage() {
       toast.error("Informe seu número de WhatsApp para combinarmos a entrega.");
       return;
     }
-    if (!expectativaVotos || Number(expectativaVotos) <= 0) {
-      toast.error("Informe a sua expectativa / compromisso de votos a mobilizar.");
-      return;
-    }
+    const finalVotos = Number(expectativaVotos) > 0 ? Number(expectativaVotos) : 1;
+    setExpectativaVotos(String(finalVotos));
 
     setPasso("materiais");
     window.scrollTo({ top: 0, behavior: "smooth" });
@@ -133,7 +131,7 @@ function PublicSolicitarPage() {
         telefone: telefone.trim(),
         tipo: "apoiador",
         funcao: "Apoiador(a) / Mobilizador(a)",
-        meta_votos: Number(expectativaVotos) || 0,
+        meta_votos: Number(expectativaVotos) > 0 ? Number(expectativaVotos) : 1,
         campanha_id: campanhaAtiva?.id,
         uf: uf,
         municipio: cidade,
@@ -246,22 +244,24 @@ function PublicSolicitarPage() {
                 />
               </div>
 
-              <div className="rounded-xl border border-amber-500/30 bg-amber-500/5 p-3.5 space-y-1.5">
-                <Label className="text-xs font-black text-amber-700 flex items-center gap-1.5">
-                  <Target className="size-4" />
-                  Expectativa de Votos a Conquistar <span className="text-critical">*</span>
-                </Label>
+              <div className="rounded-xl border border-primary/30 bg-primary/5 p-3.5 space-y-1.5">
+                <div className="flex justify-between items-center">
+                  <Label className="text-xs font-black text-foreground flex items-center gap-1.5">
+                    <Target className="size-4 text-primary" />
+                    Votos Esperados (Compromisso / Meta)
+                  </Label>
+                  <span className="text-[11px] text-muted-foreground font-medium">Padrão: 1 (próprio voto)</span>
+                </div>
                 <Input
-                  required
                   type="number"
                   min="1"
                   value={expectativaVotos}
                   onChange={(e) => setExpectativaVotos(e.target.value)}
-                  placeholder="Ex: 50, 100, 250 votos"
+                  placeholder="1 (próprio voto) ou estimativa"
                   className="h-11 bg-background font-mono font-bold text-base"
                 />
                 <p className="text-[11px] text-muted-foreground">
-                  Quantos votos você e sua equipe de amigos se comprometem a mobilizar com estes materiais?
+                  Quantos votos você e sua equipe de amigos se preparam para mobilizar com estes materiais?
                 </p>
               </div>
 

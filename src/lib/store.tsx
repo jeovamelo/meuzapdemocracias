@@ -232,7 +232,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         funcao: p.funcao || p.papel_campanha || "Apoiador(a)",
         tipo: p.tipo || "apoiador",
         papel_campanha: p.papel_campanha || p.funcao || null,
-        meta_votos: Number(p.meta_votos) || 0,
+        meta_votos: Number(p.meta_votos) > 0 ? Number(p.meta_votos) : 1,
         comite_id: p.comite_id || null,
         cep: p.cep ? p.cep.trim() : null,
         endereco: p.endereco ? p.endereco.trim() : null,

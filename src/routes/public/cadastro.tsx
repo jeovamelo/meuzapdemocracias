@@ -88,6 +88,7 @@ function PublicCadastro() {
   const [nome, setNome] = useState("");
   const [cpf, setCpf] = useState("");
   const [telefone, setTelefone] = useState("");
+  const [metaVotos, setMetaVotos] = useState("1");
 
   // 2. Opcionais: Endereço (com CEP) e Título de Eleitor (Zona/Seção)
   const [cep, setCep] = useState("");
@@ -257,6 +258,7 @@ function PublicCadastro() {
           cpf,
           telefone,
           tipo: "eleitor",
+          meta_votos: Number(metaVotos) > 0 ? Number(metaVotos) : 1,
           papel_campanha: "Eleitor e Outros",
           funcao: "Eleitor / Apoiador Cidadão",
           cep: cep || undefined,
@@ -323,6 +325,7 @@ function PublicCadastro() {
           cpf,
           telefone,
           tipo: "responsavel",
+          meta_votos: Number(metaVotos) > 0 ? Number(metaVotos) : 1,
           papel_campanha: papelCampanha,
           papel_personalizado: papelCampanha === "Eleitor e Outros" ? papelPersonalizado : undefined,
           campanha_id: novaCamp?.id,
@@ -368,6 +371,7 @@ function PublicCadastro() {
         cpf,
         telefone,
         tipo: tipoFinal,
+        meta_votos: Number(metaVotos) > 0 ? Number(metaVotos) : 1,
         papel_campanha: papelCampanha,
         papel_personalizado: papelCampanha === "Eleitor e Outros" ? papelPersonalizado : undefined,
         campanha_id: campanhaSelecionada.id,
@@ -553,6 +557,26 @@ function PublicCadastro() {
                         className="h-12 text-md mt-1"
                       />
                     </div>
+                  </div>
+
+                  <div className="rounded-2xl border border-primary/20 bg-primary/5 p-4 space-y-1.5 mt-2">
+                    <div className="flex justify-between items-center">
+                      <Label className="text-xs font-bold uppercase text-slate-800 flex items-center gap-1.5">
+                        <Vote className="size-4 text-primary" /> Votos Esperados / Compromisso
+                      </Label>
+                      <span className="text-[11px] text-muted-foreground font-medium">Padrão: 1 (próprio voto)</span>
+                    </div>
+                    <Input
+                      type="number"
+                      min="1"
+                      placeholder="1"
+                      value={metaVotos}
+                      onChange={(e) => setMetaVotos(e.target.value)}
+                      className="h-11 font-mono font-bold bg-white text-base"
+                    />
+                    <p className="text-[11px] text-slate-500">
+                      Quantos votos você estima mobilizar com seu grupo de amigos e familiares?
+                    </p>
                   </div>
                 </div>
               </div>
