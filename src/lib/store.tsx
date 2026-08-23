@@ -299,6 +299,17 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           .single();
 
         if (!error && data) {
+          try {
+            await supabase.from("campaign_members").insert([{
+              campaign_id: data.id,
+              user_id: adminUserId,
+              role: 'admin',
+              status: 'ativo'
+            } as any]);
+          } catch (mErr) {
+            console.warn("Registro em campaign_members:", mErr);
+          }
+
           const registroRetorno: CampanhaRegistro = {
             ...camp,
             id: data.id,

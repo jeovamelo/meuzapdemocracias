@@ -17,6 +17,7 @@ import {
 } from "@/components/ui/dialog";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { EstadoCidadeSelect } from "@/components/EstadoCidadeSelect";
+import { useCampaignScope } from "@/hooks/useCampaignScope";
 
 export const Route = createFileRoute("/comites")({
   head: () => ({
@@ -39,6 +40,7 @@ export const Route = createFileRoute("/comites")({
 
 function ComitesPage() {
   const { db, addComite, removeComite, updateComite } = useStore();
+  const { campaign } = useCampaignScope();
   const [busca, setBusca] = useState("");
   const [abaInterna, setAbaInterna] = useState<"ativos" | "validacoes">("ativos");
   const [open, setOpen] = useState(false);
@@ -54,7 +56,7 @@ function ComitesPage() {
     complemento: "",
     bairro: "",
     municipio: "Fortaleza",
-    uf: db.config.uf || "CE",
+    uf: campaign?.uf || db.config.uf || "CE",
     coordenador: "",
     whatsapp_coordenador: "",
     ponto_referencia: "",
@@ -69,7 +71,7 @@ function ComitesPage() {
       setEditandoId(null);
       setForm(initialForm);
     }
-  }, [open]);
+  }, [open, campaign]);
 
   const handleCepChange = async (cep: string) => {
     const cleanCep = cep.replace(/\D/g, "");
@@ -119,10 +121,12 @@ function ComitesPage() {
   }
 
   const filtrados = db.comites.filter((c) => {
-    const matchesUf = c.uf === db.config.uf;
+    const matchesCampaign = campaign?.id
+      ? c.campaign_id === campaign.id || (!c.campaign_id && c.uf === campaign.uf)
+      : !c.uf || c.uf === (campaign?.uf || db.config.uf);
     const matchesBusca = `${c.nome} ${c.bairro} ${c.coordenador} ${c.municipio}`.toLowerCase().includes(busca.toLowerCase());
     const matchesStatus = abaInterna === "ativos" ? c.status === "ativo" : c.status === "pendente_validacao";
-    return matchesUf && matchesBusca && matchesStatus;
+    return matchesCampaign && matchesBusca && matchesStatus;
   });
 
   async function salvar() {
@@ -132,10 +136,18 @@ function ComitesPage() {
     }
     setSalvando(true);
     if (editandoId) {
-      await updateComite(editandoId, { ...form, status: "ativo" });
+      await updateComite(editandoId, { 
+        ...form, 
+        campaign_id: campaign?.id || undefined,
+        status: "ativo" 
+      });
       toast.success("Comitê atualizado.");
     } else {
-      await addComite({ ...form, status: "ativo" });
+      await addComite({ 
+        ...form, 
+        campaign_id: campaign?.id || undefined,
+        status: "ativo" 
+      });
       toast.success("Comitê cadastrado.");
     }
     setSalvando(false);
