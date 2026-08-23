@@ -552,23 +552,26 @@ function PcPage() {
                   <ExternalLink className="h-5 w-5 text-slate-400 group-hover:text-emerald-600 transition-colors" />
                 </a>
 
-                {/* PAINEL DE WHATSAPP / EVOLUTION */}
+                {/* PAINEL DE WHATSAPP / EVOLUTION MANAGER */}
                 <a 
-                  href="https://api.democracias.org/whatsapp" 
+                  href="https://api.democracias.org/manager/" 
                   target="_blank" 
                   rel="noreferrer" 
-                  className="p-5 rounded-xl border border-slate-200 bg-white hover:border-blue-300 hover:bg-blue-50/30 transition-all flex items-center justify-between group"
+                  className="p-5 rounded-xl border border-slate-200 bg-white hover:border-emerald-300 hover:bg-emerald-50/30 transition-all flex items-center justify-between group"
                 >
                   <div className="flex items-center gap-4">
-                    <div className="p-3 bg-blue-100 text-blue-600 rounded-xl">
+                    <div className="p-3 bg-emerald-100 text-emerald-600 rounded-xl">
                       <Server className="h-6 w-6" />
                     </div>
                     <div>
-                      <div className="font-bold text-slate-900">Dashboard Evolution API</div>
-                      <p className="text-xs text-slate-500 mt-0.5">Painel direto de instâncias e conexão WebSocket</p>
+                      <div className="font-bold text-slate-900 flex items-center gap-2">
+                        Evolution Manager Web (Dashboard)
+                        <span className="text-[10px] font-extrabold uppercase bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full">Painel Visual</span>
+                      </div>
+                      <p className="text-xs text-slate-500 mt-0.5">Interface gráfica oficial para gerenciar instâncias do Evolution Go</p>
                     </div>
                   </div>
-                  <ExternalLink className="h-5 w-5 text-slate-400 group-hover:text-blue-600 transition-colors" />
+                  <ExternalLink className="h-5 w-5 text-slate-400 group-hover:text-emerald-600 transition-colors" />
                 </a>
               </div>
             </div>
