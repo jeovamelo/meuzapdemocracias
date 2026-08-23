@@ -36,9 +36,14 @@ function LandingPage() {
             e monitorar sua intenção de voto com precisão. Em tempo real e do seu celular.
           </p>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-            <Link to="/auth">
-              <Button size="lg" className="w-full sm:w-auto text-lg h-14 px-8">
-                Cadastrar Campanha
+            <Link to="/onboarding">
+              <Button size="lg" className="w-full sm:w-auto text-lg h-14 px-8 shadow-md">
+                Cadastrar Campanha (Admin)
+              </Button>
+            </Link>
+            <Link to="/public/cadastro">
+              <Button size="lg" variant="secondary" className="w-full sm:w-auto text-lg h-14 px-8 bg-slate-900 text-white hover:bg-slate-800">
+                Cadastre-se Geral (Membro / Apoiador)
               </Button>
             </Link>
             <Link to="/auth">

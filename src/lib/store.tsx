@@ -14,6 +14,8 @@ import {
   type BoletimUrna,
   type ConfigCampanha,
   type MovimentacaoEstoque,
+  type CampanhaRegistro,
+  type SolicitacaoAdesaoCampanha,
 } from "./db";
 import { toast } from "sonner";
 
@@ -23,7 +25,7 @@ type Ctx = {
   addComite: (c: Omit<Comite, "id" | "ativo" | "status"> & { status?: Comite["status"] }) => Promise<void>;
   updateComite: (id: string, c: Partial<Comite>) => Promise<void>;
   removeComite: (id: string) => Promise<void>;
-  addPessoa: (p: Omit<Pessoa, "id" | "status"> & { status?: Pessoa["status"] }) => Promise<void>;
+  addPessoa: (p: Omit<Pessoa, "id" | "status"> & { status?: Pessoa["status"] }) => Promise<Pessoa | null>;
   updatePessoa: (id: string, p: Partial<Pessoa>) => Promise<void>;
   removePessoa: (id: string) => Promise<void>;
   addMaterial: (m: Omit<Material, "id" | "unidade" | "arquivado">) => Promise<void>;
@@ -40,6 +42,9 @@ type Ctx = {
   updateConfig: (config: Partial<ConfigCampanha>) => Promise<void>;
   addBoletim: (b: Omit<BoletimUrna, "id" | "data_leitura">) => Promise<void>;
   processarInventario: (ajustes: { material_id: string; quantidade_real: number }[]) => Promise<void>;
+  addCampanhaRegistro: (camp: Omit<CampanhaRegistro, "id" | "criado_em">) => Promise<CampanhaRegistro | null>;
+  addSolicitacaoAdesao: (sol: Omit<SolicitacaoAdesaoCampanha, "id" | "criado_em" | "status">) => Promise<void>;
+  verificarCampanhaExiste: (uf: string, numero: string, cargo?: string) => Promise<CampanhaRegistro | null>;
   resetarDados: () => Promise<void>;
 };
 
@@ -70,6 +75,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     config: DEFAULT_CONFIG,
     boletins: [],
     historico_estoque: [],
+    campanhas_registradas: [],
+    solicitacoes_adesao: [],
   });
   const [ready, setReady] = useState(false);
 
@@ -86,6 +93,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         { data: config },
         { data: boletins },
         { data: historico },
+        { data: campanhasDb },
+        { data: adesaoDb },
       ] = await Promise.all([
         supabase.from("comites").select("*").order("criado_em", { ascending: false }),
         supabase.from("pessoas").select("*").order("criado_em", { ascending: false }),
@@ -97,7 +106,16 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         supabase.from("config_campanha").select("*").single(),
         supabase.from("boletins_urna").select("*").order("data_leitura", { ascending: false }),
         supabase.from("historico_estoque").select("*").order("criado_em", { ascending: false }),
+        (supabase as any).from("campanhas_registradas").select("*").order("criado_em", { ascending: false }),
+        (supabase as any).from("solicitacoes_adesao").select("*").order("criado_em", { ascending: false }),
       ]);
+
+      // Fallback local caso tabelas ainda estejam sendo provisionadas
+      const localCampanhas: CampanhaRegistro[] = JSON.parse(localStorage.getItem("democracias-campanhas-locais") || "[]");
+      const localAdesoes: SolicitacaoAdesaoCampanha[] = JSON.parse(localStorage.getItem("democracias-adesao-locais") || "[]");
+
+      const allCampanhas = [...(campanhasDb || []), ...localCampanhas].filter((v, i, a) => a.findIndex(t => t.id === v.id) === i);
+      const allAdesoes = [...(adesaoDb || []), ...localAdesoes].filter((v, i, a) => a.findIndex(t => t.id === v.id) === i);
 
       setDb({
         comites: (comites || []) as any,
@@ -110,6 +128,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         config: (config || DEFAULT_CONFIG) as any,
         boletins: (boletins || []) as any,
         historico_estoque: (historico || []) as any,
+        campanhas_registradas: (allCampanhas || []) as any,
+        solicitacoes_adesao: (allAdesoes || []) as any,
       });
       setReady(true);
     } catch (error) {
@@ -158,11 +178,108 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       if (error) toast.error("Erro ao remover comitê");
     },
     addPessoa: async (pessoa) => {
-      const { error } = await supabase.from("pessoas").insert([{ 
-        ...pessoa, 
-        status: pessoa.status || "ativo" 
-      }]);
-      if (error) toast.error("Erro ao adicionar pessoa");
+      const novaPessoa: Pessoa = {
+        ...pessoa,
+        id: uid(),
+        status: pessoa.status || "ativo",
+        criado_em: new Date().toISOString()
+      };
+      try {
+        const { data, error } = await supabase.from("pessoas").insert([novaPessoa]).select().single();
+        if (error) throw error;
+        return (data || novaPessoa) as Pessoa;
+      } catch (err) {
+        console.warn("Erro ao salvar pessoa no Supabase, salvando localmente:", err);
+        // Fallback local
+        const locais: Pessoa[] = JSON.parse(localStorage.getItem("democracias-pessoas-locais") || "[]");
+        locais.push(novaPessoa);
+        localStorage.setItem("democracias-pessoas-locais", JSON.stringify(locais));
+        setDb(prev => ({ ...prev, pessoas: [novaPessoa, ...prev.pessoas] }));
+        return novaPessoa;
+      }
+    },
+    verificarCampanhaExiste: async (uf: string, numero: string, cargo?: string) => {
+      // 1. Verificar em memória
+      const matchMemoria = db.campanhas_registradas.find(
+        c => c.uf.toUpperCase() === uf.toUpperCase() && c.numero.trim() === numero.trim() && (!cargo || c.cargo.toUpperCase() === cargo.toUpperCase())
+      );
+      if (matchMemoria) return matchMemoria;
+
+      // 2. Verificar no Supabase
+      try {
+        let query = (supabase as any)
+          .from("campanhas_registradas")
+          .select("*")
+          .eq("uf", uf.toUpperCase().trim())
+          .eq("numero", numero.trim());
+        
+        if (cargo) {
+          query = query.eq("cargo", cargo.trim());
+        }
+
+        const { data, error } = await query.maybeSingle();
+        if (data && !error) return data as CampanhaRegistro;
+      } catch (e) {
+        console.warn("Erro ao consultar campanhas_registradas no Supabase:", e);
+      }
+
+      // 3. Verificar localStorage
+      const localCampanhas: CampanhaRegistro[] = JSON.parse(localStorage.getItem("democracias-campanhas-locais") || "[]");
+      const matchLocal = localCampanhas.find(
+        c => c.uf.toUpperCase() === uf.toUpperCase() && c.numero.trim() === numero.trim() && (!cargo || c.cargo.toUpperCase() === cargo.toUpperCase())
+      );
+      return matchLocal || null;
+    },
+    addCampanhaRegistro: async (camp) => {
+      const novaCampanha: CampanhaRegistro = {
+        ...camp,
+        id: `camp_${uid()}`,
+        criado_em: new Date().toISOString()
+      };
+
+      try {
+        const { data, error } = await (supabase as any).from("campanhas_registradas").insert([novaCampanha]).select().single();
+        if (!error && data) {
+          setDb(prev => ({ ...prev, campanhas_registradas: [data, ...prev.campanhas_registradas] }));
+          toast.success("Campanha enviada para validação do Administrador Geral!");
+          return data;
+        }
+      } catch (err) {
+        console.warn("Salvando campanha localmente no fallback:", err);
+      }
+
+      // Fallback local
+      const localCampanhas: CampanhaRegistro[] = JSON.parse(localStorage.getItem("democracias-campanhas-locais") || "[]");
+      localCampanhas.push(novaCampanha);
+      localStorage.setItem("democracias-campanhas-locais", JSON.stringify(localCampanhas));
+      setDb(prev => ({ ...prev, campanhas_registradas: [novaCampanha, ...prev.campanhas_registradas] }));
+      toast.success("Campanha enviada para validação do Administrador Geral!");
+      return novaCampanha;
+    },
+    addSolicitacaoAdesao: async (sol) => {
+      const novaSolicitacao: SolicitacaoAdesaoCampanha = {
+        ...sol,
+        id: `sol_${uid()}`,
+        status: "pendente",
+        criado_em: new Date().toISOString()
+      };
+
+      try {
+        const { error } = await (supabase as any).from("solicitacoes_adesao").insert([novaSolicitacao]);
+        if (!error) {
+          setDb(prev => ({ ...prev, solicitacoes_adesao: [novaSolicitacao, ...prev.solicitacoes_adesao] }));
+          toast.success("Solicitação de participação enviada para a equipe da campanha!");
+          return;
+        }
+      } catch (err) {
+        console.warn("Salvando adesão localmente no fallback:", err);
+      }
+
+      const localAdesoes: SolicitacaoAdesaoCampanha[] = JSON.parse(localStorage.getItem("democracias-adesao-locais") || "[]");
+      localAdesoes.push(novaSolicitacao);
+      localStorage.setItem("democracias-adesao-locais", JSON.stringify(localAdesoes));
+      setDb(prev => ({ ...prev, solicitacoes_adesao: [novaSolicitacao, ...prev.solicitacoes_adesao] }));
+      toast.success("Solicitação de participação enviada para a equipe da campanha!");
     },
     updatePessoa: async (id, pessoa) => {
       const { error } = await supabase.from("pessoas").update(pessoa).eq("id", id);

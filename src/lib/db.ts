@@ -3,6 +3,35 @@
  * Data persistence is managed via Lovable Cloud (Supabase).
  */
 
+export type PapelCampanha =
+  | "Candidato(a)"
+  | "Coordenador(a) Geral / Chefe de Campanha"
+  | "Marqueteiro(a) / Estrategista Chefe"
+  | "Advogado(a) Eleitoral (Jurídico)"
+  | "Contador(a) Eleitoral"
+  | "Coordenador(a) de Comunicação e Redes Sociais"
+  | "Coordenador(a) de Articulação Política / Alianças"
+  | "Tesoureiro(a) / Diretor(a) Financeiro(a)"
+  | "Coordenador(a) de Mobilização / Rua"
+  | "Lideranças Comunitárias"
+  | "Lideranças Religiosas"
+  | "Eleitor e Outros";
+
+export const PAPEIS_CAMPANHA_OPCOES: { label: string; value: PapelCampanha }[] = [
+  { label: "Candidato(a)", value: "Candidato(a)" },
+  { label: "Coordenador(a) Geral / Chefe de Campanha", value: "Coordenador(a) Geral / Chefe de Campanha" },
+  { label: "Marqueteiro(a) / Estrategista Chefe", value: "Marqueteiro(a) / Estrategista Chefe" },
+  { label: "Advogado(a) Eleitoral (Jurídico)", value: "Advogado(a) Eleitoral (Jurídico)" },
+  { label: "Contador(a) Eleitoral", value: "Contador(a) Eleitoral" },
+  { label: "Coordenador(a) de Comunicação e Redes Sociais", value: "Coordenador(a) de Comunicação e Redes Sociais" },
+  { label: "Coordenador(a) de Articulação Política / Alianças", value: "Coordenador(a) de Articulação Política / Alianças" },
+  { label: "Tesoureiro(a) / Diretor(a) Financeiro(a)", value: "Tesoureiro(a) / Diretor(a) Financeiro(a)" },
+  { label: "Coordenador(a) de Mobilização / Rua", value: "Coordenador(a) de Mobilização / Rua" },
+  { label: "Lideranças Comunitárias", value: "Lideranças Comunitárias" },
+  { label: "Lideranças Religiosas", value: "Lideranças Religiosas" },
+  { label: "Eleitor e Outros", value: "Eleitor e Outros" },
+];
+
 export type ComiteStatus = "ativo" | "pendente_validacao";
 
 export type Comite = {
@@ -27,25 +56,32 @@ export type Comite = {
   criado_em?: string;
 };
 
-export type TipoPessoa = "responsavel" | "apoiador";
+export type TipoPessoa = "responsavel" | "apoiador" | "membro_campanha" | "eleitor";
 
 export type Pessoa = {
   id: string;
   nome: string;
-  cpf?: string;
+  cpf: string;
   tipo: TipoPessoa;
-  funcao: string;
-  comite_id: string;
+  funcao?: string;
+  papel_campanha?: PapelCampanha;
+  papel_personalizado?: string;
+  comite_id?: string;
+  campanha_id?: string;
   cep?: string;
   endereco?: string;
   numero?: string;
   complemento?: string;
   bairro?: string;
-  municipio: string;
-  uf: string;
-  telefone: string;
-  zona: string;
-  status: "ativo" | "inativo";
+  municipio?: string;
+  uf?: string;
+  telefone?: string;
+  titulo_eleitor?: string;
+  zona?: string;
+  secao?: string;
+  status: "ativo" | "pendente_aprovacao" | "inativo";
+  foto_validacao_url?: string;
+  is_admin_campanha?: boolean;
   meta_votos?: number;
   meta_votos_conquistados?: number;
   criado_em?: string;
@@ -153,6 +189,36 @@ export type BoletimUrna = {
   assinatura_digital: string;
 };
 
+export type CampanhaRegistro = {
+  id: string;
+  uf: string;
+  cargo: string;
+  numero: string;
+  candidato_nome: string;
+  candidato_urna: string;
+  partido_coligacao: string;
+  foto_candidato_url?: string;
+  admin_nome: string;
+  admin_cpf: string;
+  admin_telefone?: string;
+  admin_foto_validacao_url: string;
+  status_validacao: "pendente_aprovacao_admin_geral" | "aprovado" | "rejeitado";
+  criado_em: string;
+};
+
+export type SolicitacaoAdesaoCampanha = {
+  id: string;
+  campanha_id: string;
+  pessoa_id: string;
+  nome: string;
+  cpf: string;
+  telefone?: string;
+  papel_campanha: PapelCampanha;
+  papel_personalizado?: string;
+  status: "pendente" | "aprovado" | "rejeitado";
+  criado_em: string;
+};
+
 export type ConfigCampanha = {
   id: string;
   candidato_nome: string;
@@ -178,6 +244,8 @@ export type Database = {
   config: ConfigCampanha;
   boletins: BoletimUrna[];
   historico_estoque: MovimentacaoEstoque[];
+  campanhas_registradas: CampanhaRegistro[];
+  solicitacoes_adesao: SolicitacaoAdesaoCampanha[];
 };
 
 export const CATEGORIAS: CategoriaMaterial[] = [

@@ -1,12 +1,34 @@
 import { createFileRoute } from '@tanstack/react-router';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { PageHeader } from '@/components/PageHeader';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Settings2, Phone, Save, MessageCircle, ShieldCheck, Database, Server, Key, Link as LinkIcon, ExternalLink, Lock } from 'lucide-react';
+import { 
+  Settings2, 
+  Phone, 
+  Save, 
+  MessageCircle, 
+  ShieldCheck, 
+  Database, 
+  Server, 
+  Key, 
+  Link as LinkIcon, 
+  ExternalLink, 
+  Lock,
+  CheckCircle2,
+  AlertTriangle,
+  QrCode,
+  Activity,
+  Send,
+  Loader2,
+  RefreshCw,
+  PauseCircle
+} from 'lucide-react';
 import { toast } from 'sonner';
 import { useSystemStore } from '@/hooks/useSystemStore';
+import { EvolutionWhatsAppService } from '@/lib/evolutionWhatsAppService';
+import { supabase } from '@/integrations/supabase/client';
 
 export const Route = createFileRoute('/pc')({
   component: PcPage,
@@ -18,6 +40,51 @@ function PcPage() {
   const [clientId, setClientId] = useState(googleAuth?.clientId || '');
   const [clientSecret, setClientSecret] = useState(googleAuth?.clientSecret || '');
   const [isSaving, setIsSaving] = useState(false);
+
+  // Status da Instância do Sistema na Evolution API
+  const [systemInstanceStatus, setSystemInstanceStatus] = useState<{
+    status: 'connected' | 'connecting' | 'disconnected';
+    phone?: string;
+    qrCode?: string;
+    mensagensHoje: number;
+    taxaEntrega: number;
+  }>({
+    status: 'disconnected',
+    mensagensHoje: 0,
+    taxaEntrega: 100
+  });
+  const [loadingStatus, setLoadingStatus] = useState(false);
+
+  const carregarStatusInstancia = async () => {
+    setLoadingStatus(true);
+    try {
+      const { data } = await (supabase as any)
+        .from('whatsapp_instances')
+        .select('*')
+        .eq('tipo', 'system_general')
+        .maybeSingle();
+
+      if (data) {
+        setSystemInstanceStatus({
+          status: data.status || 'disconnected',
+          phone: data.phone_number,
+          qrCode: data.qr_code_base64,
+          mensagensHoje: data.mensagens_enviadas_hoje || 0,
+          taxaEntrega: data.taxa_sucesso || 100
+        });
+      }
+    } catch (e) {
+      console.warn("Erro ao buscar status:", e);
+    } finally {
+      setLoadingStatus(false);
+    }
+  };
+
+  useEffect(() => {
+    carregarStatusInstancia();
+    const interval = setInterval(carregarStatusInstancia, 10000);
+    return () => clearInterval(interval);
+  }, []);
 
   const handleSavePhone = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -33,42 +100,26 @@ function PcPage() {
     }, 600);
   };
 
-  const handleSaveGoogleAuth = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!clientId || !clientSecret) {
-      toast.error('Preencha os campos de OAuth.');
-      return;
-    }
-    setIsSaving(true);
-    setTimeout(() => {
-      setGoogleAuth({ clientId, clientSecret });
-      toast.success('Credenciais Google OAuth salvas com sucesso!');
-      setIsSaving(false);
-    }, 600);
-  };
-
   const handleTestDisparo = async () => {
-    if (!officialWhatsApp) {
+    if (!phone) {
       toast.error('Configure um número primeiro.');
       return;
     }
     try {
-      const res = await fetch('https://api.democracias.org/whatsapp/send-message', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          number: officialWhatsApp,
-          message: '⚙️ *Democracias (Sistema)*: Teste de integração de infraestrutura bem sucedido.',
-        }),
+      const result = await EvolutionWhatsAppService.enqueueMessage({
+        instanceName: 'democracias_sistema_master',
+        recipientPhone: phone,
+        messageText: '⚙️ *Democracias (Sistema Master)*: Teste de infraestrutura e mensageria transacional concluído com sucesso.',
+        tipoMensagem: 'transacional'
       });
 
-      if (!res.ok) {
-        toast.warning('O webhook do WhatsApp falhou.');
+      if (result.success) {
+        toast.success('Mensagem enfileirada com delay randômico humano (8-15s) e controle anti-bloqueio!');
       } else {
-        toast.success('Mensagem de teste enviada!');
+        toast.error('Falha ao enviar mensagem de teste.');
       }
     } catch (err) {
-      toast.warning('Não foi possível contactar a API do WhatsApp na porta 3001.');
+      toast.error('Erro ao conectar com o serviço de mensageria.');
     }
   };
 
@@ -182,27 +233,90 @@ function PcPage() {
           </form>
         </section>
 
-        {/* 3. Configuração do WhatsApp Oficial da Plataforma */}
-        <section className="rounded-2xl border border-border bg-surface p-6 md:p-8 shadow-sm">
-          <div className="flex items-center gap-3 mb-6 pb-4 border-b border-border/50">
-            <div className="flex size-10 items-center justify-center rounded-lg bg-green-500/10 text-green-600">
-              <MessageCircle className="size-5" />
+        {/* 3. Configuração do WhatsApp Oficial da Plataforma e Painel Anti-Ban */}
+        <section className="rounded-2xl border border-border bg-surface p-6 md:p-8 shadow-sm space-y-6">
+          <div className="flex items-center justify-between pb-4 border-b border-border/50">
+            <div className="flex items-center gap-3">
+              <div className="flex size-10 items-center justify-center rounded-lg bg-green-500/10 text-green-600">
+                <MessageCircle className="size-5" />
+              </div>
+              <div>
+                <h2 className="text-xl font-bold tracking-tight">WhatsApp Master (Evolution API v2)</h2>
+                <p className="text-sm text-muted-foreground">Instância fixa `system-general-pc` e motor de disparos anti-bloqueio.</p>
+              </div>
             </div>
-            <div>
-              <h2 className="text-xl font-bold tracking-tight">WhatsApp Oficial do Sistema</h2>
-              <p className="text-sm text-muted-foreground">O canal central do Democracias para avisos de sistema.</p>
+
+            {/* Status Badge em Tempo Real */}
+            <div className="flex items-center gap-2">
+              {systemInstanceStatus.status === 'connected' ? (
+                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                  <span className="size-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                  Conectado 🟢
+                </span>
+              ) : systemInstanceStatus.status === 'connecting' ? (
+                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-amber-50 text-amber-700 border border-amber-200">
+                  <span className="size-2 rounded-full bg-amber-500 animate-ping"></span>
+                  Aguardando Leitura 🟡
+                </span>
+              ) : (
+                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-rose-50 text-rose-700 border border-rose-200">
+                  <span className="size-2 rounded-full bg-rose-500"></span>
+                  Desconectado 🔴
+                </span>
+              )}
             </div>
           </div>
-          <form onSubmit={handleSavePhone} className="space-y-6">
-            <div className="space-y-4">
+
+          {/* MÉTRICAS DE DISPARO E CONTROLE ANTI-BAN */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+            <div className="p-4 rounded-xl bg-background border border-border">
+              <div className="text-xs text-muted-foreground font-semibold">Enviados Hoje</div>
+              <div className="text-2xl font-extrabold text-slate-900 mt-1">{systemInstanceStatus.mensagensHoje}</div>
+            </div>
+            <div className="p-4 rounded-xl bg-background border border-border">
+              <div className="text-xs text-muted-foreground font-semibold">Taxa de Sucesso</div>
+              <div className="text-2xl font-extrabold text-emerald-600 mt-1">{systemInstanceStatus.taxaEntrega}%</div>
+            </div>
+            <div className="p-4 rounded-xl bg-background border border-border">
+              <div className="text-xs text-muted-foreground font-semibold">Delay Anti-Ban</div>
+              <div className="text-2xl font-extrabold text-blue-600 mt-1">8s - 15s</div>
+            </div>
+            <div className="p-4 rounded-xl bg-background border border-border">
+              <div className="text-xs text-muted-foreground font-semibold">Limite Seguro/Dia</div>
+              <div className="text-2xl font-extrabold text-purple-600 mt-1">150 msgs</div>
+            </div>
+          </div>
+
+          {/* BOTÃO KILL SWITCH DE EMERGÊNCIA */}
+          <div className="p-4 rounded-xl bg-rose-50 border border-rose-200 flex flex-col sm:flex-row items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <AlertTriangle className="h-6 w-6 text-rose-600 shrink-0" />
+              <div>
+                <div className="font-bold text-rose-950 text-sm">Parada de Emergência da Fila (Kill Switch)</div>
+                <div className="text-xs text-rose-800">Interrompe instantaneamente o envio de qualquer mensagem pendente na fila.</div>
+              </div>
+            </div>
+            <Button 
+              type="button" 
+              variant="destructive"
+              className="font-extrabold shadow-sm"
+              onClick={() => {
+                const newState = !WhatsAppDispatcherService.getKillSwitchState();
+                WhatsAppDispatcherService.setKillSwitch(newState);
+                toast.warning(newState ? "🚨 KILL SWITCH ATIVADO: Todos os disparos foram pausados imediatamente!" : "Disparos retomados.");
+              }}
+            >
+              <PauseCircle className="mr-2 h-4 w-4" />
+              {WhatsAppDispatcherService.getKillSwitchState() ? "Retomar Disparos" : "🚨 PARAR DISPAROS IMEDIATAMENTE"}
+            </Button>
+          </div>
+
+          <form onSubmit={handleSavePhone} className="space-y-4 pt-2">
+            <div className="space-y-2">
               <div className="flex items-center gap-2">
-                <Label htmlFor="systemPhone" className="text-base font-semibold">Número Mestre (Admin)</Label>
+                <Label htmlFor="systemPhone" className="text-sm font-semibold">Número Mestre (WhatsApp Geral do Sistema)</Label>
                 <Lock className="h-4 w-4 text-muted-foreground" />
               </div>
-              
-              <p className="text-sm text-muted-foreground max-w-2xl">
-                Este número é isolado e gerencia os disparos <strong>GLOBAIS</strong> do sistema (avisos da plataforma, segurança, etc). <strong>NÃO</strong> é o WhatsApp usado nas Campanhas de cada cliente.
-              </p>
               
               <div className="relative max-w-sm">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -212,7 +326,7 @@ function PcPage() {
                   id="systemPhone"
                   type="text"
                   placeholder="Ex: 5511999999999"
-                  className="pl-10 h-12 text-lg font-mono"
+                  className="pl-10 h-11 text-md font-mono"
                   value={phone}
                   onChange={(e) => setPhone(e.target.value)}
                   disabled={isSaving}
@@ -220,12 +334,12 @@ function PcPage() {
               </div>
             </div>
 
-            <div className="flex flex-col sm:flex-row gap-3 pt-2 border-t border-border/50 mt-6">
+            <div className="flex flex-col sm:flex-row gap-3 pt-2">
               <Button type="submit" className="h-11 font-bold sm:w-auto" disabled={isSaving}>
-                 {isSaving ? 'Salvando...' : <><Save className="mr-2 h-4 w-4" /> Atualizar Número</>}
+                 {isSaving ? 'Salvando...' : <><Save className="mr-2 h-4 w-4" /> Salvar Número</>}
               </Button>
               <Button type="button" variant="outline" className="h-11 font-semibold text-green-600 sm:w-auto" onClick={handleTestDisparo}>
-                <MessageCircle className="mr-2 h-4 w-4" /> Testar Conexão WA
+                <Send className="mr-2 h-4 w-4" /> Testar Disparo com Delay Anti-Ban
               </Button>
             </div>
           </form>

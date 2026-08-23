@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 import { PageHeader } from "@/components/PageHeader";
 import { useStore } from "@/lib/store";
+import { useCampaignScope } from "@/hooks/useCampaignScope";
 import { formatNumero } from "@/lib/db";
 import { 
   Target, 
@@ -42,11 +43,18 @@ export const Route = createFileRoute("/potencial")({
 
 function InteligenciaEleitoral() {
   const { db, updateCidadeMeta } = useStore();
-  const [selectedUf, setSelectedUf] = useState(db.config.uf || "CE");
+  const { campaign } = useCampaignScope();
+  
+  // UF da campanha ativa (ou db.config.uf)
+  const candidateUf = campaign?.uf || db.config.uf || "CE";
+  const [selectedUf, setSelectedUf] = useState(candidateUf);
   const [editMode, setEditMode] = useState<string | null>(null);
   const [tempValues, setTempValues] = useState({ meta: 0, realidade: 0 });
 
-  const cidadesFiltradas = db.cidade_metas.filter(c => c.uf === selectedUf);
+  // Garante que se o escopo da campanha mudar, o selectedUf acompanha
+  const activeUf = candidateUf;
+
+  const cidadesFiltradas = db.cidade_metas.filter(c => c.uf === activeUf);
 
   const getExpectativaApoiadores = (municipio: string) => {
     const pessoasNoMunicipio = db.pessoas.filter(p => p.municipio === municipio);
@@ -81,18 +89,11 @@ function InteligenciaEleitoral() {
       <div className="px-5 py-4">
         <div className="flex flex-col gap-4 md:flex-row md:items-end justify-between mb-8">
           <div className="w-full md:w-64">
-            <Label className="text-[10px] font-bold uppercase text-muted-foreground mb-1.5 block">Estado (UF)</Label>
-            <Select value={selectedUf} onValueChange={setSelectedUf}>
-              <SelectTrigger className="h-12 border-2">
-                <SelectValue placeholder="Selecione o Estado" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="CE">Ceará (CE)</SelectItem>
-                <SelectItem value="PE">Pernambuco (PE)</SelectItem>
-                <SelectItem value="BA">Bahia (BA)</SelectItem>
-                <SelectItem value="RN">Rio Grande do Norte (RN)</SelectItem>
-              </SelectContent>
-            </Select>
+            <Label className="text-[10px] font-bold uppercase text-muted-foreground mb-1.5 block">Estado (UF da Campanha)</Label>
+            <div className="flex h-12 w-full items-center justify-between rounded-md border-2 border-input bg-muted/40 px-3 py-2 text-sm font-bold uppercase tracking-wider">
+              <span>{activeUf}</span>
+              <Badge variant="outline" className="text-[10px] font-bold">Estado Concorrente</Badge>
+            </div>
           </div>
           
           <div className="flex gap-2">

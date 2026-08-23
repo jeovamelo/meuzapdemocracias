@@ -1,5 +1,5 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef } from "react";
 import { 
   CheckCircle2, 
   UserPlus, 
@@ -8,10 +8,18 @@ import {
   Package, 
   MapPin, 
   Loader2, 
-  Camera,
-  Search,
-  QrCode,
-  ShieldCheck
+  Camera, 
+  Search, 
+  QrCode, 
+  ShieldCheck, 
+  ShieldAlert, 
+  HelpCircle, 
+  Building, 
+  Users, 
+  UploadCloud, 
+  RefreshCw,
+  Vote,
+  Sparkles
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { useStore } from "@/lib/store";
@@ -28,76 +36,110 @@ import {
   SelectValue 
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { PAPEIS_CAMPANHA_OPCOES, type PapelCampanha, type CampanhaRegistro } from "@/lib/db";
+import { useCampaignScope } from "@/hooks/useCampaignScope";
 
 export const Route = createFileRoute("/public/cadastro")({
   head: () => ({
     meta: [
-      { title: "Portal Público — Campanha 2026" },
+      { title: "Cadastre-se — Democracias.org" },
       {
         name: "description",
-        content: "Cadastro de apoiadores, comitês populares e solicitação de materiais.",
+        content: "Cadastro geral de apoiadores, membros de campanha e eleitores na plataforma Democracias.",
       },
     ],
   }),
   component: PublicCadastro,
 });
 
+const ESTADOS_BR = [
+  'AC', 'AL', 'AP', 'AM', 'BA', 'CE', 'DF', 'ES', 'GO', 'MA', 'MT', 'MS', 'MG',
+  'PA', 'PB', 'PR', 'PE', 'PI', 'RJ', 'RN', 'RS', 'RO', 'RR', 'SC', 'SP', 'SE', 'TO'
+];
+
 function PublicCadastro() {
-  const { addPessoa, addComite, addSolicitacao, addBoletim, db } = useStore();
+  const navigate = useNavigate();
+  const { 
+    addPessoa, 
+    addSolicitacaoAdesao, 
+    addCampanhaRegistro, 
+    verificarCampanhaExiste, 
+    addBoletim, 
+    db 
+  } = useStore();
+  const { setCampaign } = useCampaignScope();
+
   const [enviado, setEnviado] = useState(false);
+  const [mensagemSucesso, setMensagemSucesso] = useState<{ titulo: string; desc: string }>({
+    titulo: "Cadastro Realizado!",
+    desc: "Suas informações foram salvas com sucesso no sistema."
+  });
   const [carregando, setCarregando] = useState(false);
   const [cepLoading, setCepLoading] = useState(false);
-  const [abaAtiva, setAbaAtiva] = useState("apoiador");
+  const [abaAtiva, setAbaAtiva] = useState("cadastro_geral");
+  const [mostrarOpcionais, setMostrarOpcionais] = useState(false);
+
+  // Scanner BU
   const [scanning, setScanning] = useState(false);
   const [buData, setBuData] = useState<any>(null);
 
-  // Apoiador State
-  const [apoiadorForm, setApoiadorForm] = useState({
-    nome: "",
-    telefone: "",
-    cep: "",
-    uf: "",
-    cidade: "",
-    endereco: "",
-    numero: "",
-    complemento: "",
-    meta_votos: "0",
-  });
-  
-  const municipios = Array.from(new Set(db.comites.map(c => c.municipio))).sort();
+  // DADOS DO FORMULÁRIO GERAL
+  // 1. Obrigatórios: Nome Completo e CPF
+  const [nome, setNome] = useState("");
+  const [cpf, setCpf] = useState("");
+  const [telefone, setTelefone] = useState("");
 
-  // Solicitação State
-  const [solicitacaoForm, setSolicitacaoForm] = useState({
-    whatsapp: "",
-    nome: "",
-    endereco: "",
-    comite_id: "",
-    lideranca_id: "",
-    municipio: "",
-    itens: [] as { material_id: string; quantidade: number }[],
-    tipo_logistica: "retirada" as "retirada" | "entrega",
-    endereco_entrega: "",
-  });
-  
-  const [passoMaterial, setPassoMaterial] = useState(1); // 1: WhatsApp, 2: Pedido, 3: Logística, 4: Resumo
-  const [passoComite, setPassoComite] = useState(1); // 1: WhatsApp/Responsável, 2: Endereço
+  // 2. Opcionais: Endereço (com CEP) e Título de Eleitor (Zona/Seção)
+  const [cep, setCep] = useState("");
+  const [uf, setUf] = useState(db.config.uf || "CE");
+  const [cidade, setCidade] = useState("");
+  const [endereco, setEndereco] = useState("");
+  const [numeroEnd, setNumeroEnd] = useState("");
+  const [complemento, setComplemento] = useState("");
+  const [bairro, setBairro] = useState("");
+  const [tituloEleitor, setTituloEleitor] = useState("");
+  const [zona, setZona] = useState("");
+  const [secao, setSecao] = useState("");
 
-  // Comitê State
-  const [comiteForm, setComiteForm] = useState({
-    responsavel: "",
-    whatsapp: "",
-    cep: "",
-    endereco: "",
-    numero: "",
-    bairro: "",
-    municipio: "Fortaleza",
-    uf: db.config.uf || "CE",
-    ponto_referencia: "",
-  });
+  // 3. Papel e Seleção de Campanha
+  const [tipoVinculo, setTipoVinculo] = useState<"campanha" | "eleitor">("campanha");
+  const [papelCampanha, setPapelCampanha] = useState<PapelCampanha>("Coordenador(a) de Mobilização / Rua");
+  const [papelPersonalizado, setPapelPersonalizado] = useState("");
 
-  const handleCepLookup = async (cep: string) => {
-    const cleanCep = cep.replace(/\D/g, "");
-    setComiteForm(prev => ({ ...prev, cep }));
+  // Busca de Campanha
+  const [buscaCampanhaUf, setBuscaCampanhaUf] = useState(db.config.uf || "CE");
+  const [buscaTermo, setBuscaTermo] = useState("");
+  const [campanhaSelecionada, setCampanhaSelecionada] = useState<CampanhaRegistro | null>(null);
+  const [campanhaNaoEncontrada, setCampanhaNaoEncontrada] = useState(false);
+
+  // Modal / Fluxo de "Deseja ser o Administrador?"
+  const [modoCriarAdmin, setModoCriarAdmin] = useState(false);
+  const [cargoNovaCampanha, setCargoNovaCampanha] = useState("DEPUTADO ESTADUAL");
+  const [numeroNovaCampanha, setNumeroNovaCampanha] = useState("");
+  const [nomeUrnaNovaCampanha, setNomeUrnaNovaCampanha] = useState("");
+  const [partidoNovaCampanha, setPartidoNovaCampanha] = useState("");
+  const [fotoValidacaoAdmin, setFotoValidacaoAdmin] = useState("");
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const [usandoCamera, setUsandoCamera] = useState(false);
+
+  const formatCpf = (val: string) => {
+    const d = val.replace(/\D/g, '').slice(0, 11);
+    if (d.length <= 3) return d;
+    if (d.length <= 6) return `${d.slice(0, 3)}.${d.slice(3)}`;
+    if (d.length <= 9) return `${d.slice(0, 3)}.${d.slice(3, 6)}.${d.slice(6)}`;
+    return `${d.slice(0, 3)}.${d.slice(3, 6)}.${d.slice(6, 9)}-${d.slice(9)}`;
+  };
+
+  const formatCep = (val: string) => {
+    const d = val.replace(/\D/g, '').slice(0, 8);
+    if (d.length <= 5) return d;
+    return `${d.slice(0, 5)}-${d.slice(5)}`;
+  };
+
+  const handleCepLookup = async (valorCep: string) => {
+    const cleanCep = valorCep.replace(/\D/g, "");
+    setCep(formatCep(valorCep));
     
     if (cleanCep.length === 8) {
       setCepLoading(true);
@@ -105,121 +147,258 @@ function PublicCadastro() {
         const res = await fetch(`https://viacep.com.br/ws/${cleanCep}/json/`);
         const data = await res.json();
         if (!data.erro) {
-          setComiteForm(prev => ({
-            ...prev,
-            endereco: data.logradouro || prev.endereco,
-            bairro: data.bairro || prev.bairro,
-            municipio: data.localidade || prev.municipio,
-            uf: data.uf || prev.uf,
-          }));
-          toast.success("Endereço localizado!");
+          setEndereco(data.logradouro || endereco);
+          setBairro(data.bairro || bairro);
+          setCidade(data.localidade || cidade);
+          setUf(data.uf || uf);
+          toast.success("Endereço localizado com sucesso!");
         }
       } catch (e) {
-        toast.error("Erro ao buscar CEP");
+        toast.error("Não foi possível buscar o CEP automaticamente.");
       } finally {
         setCepLoading(false);
       }
     }
   };
 
-  const handleApoiadorSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setCarregando(true);
+  // Câmera para validação de admin
+  const handleIniciarCamera = async () => {
     try {
-      const enderecoCompleto = `${apoiadorForm.endereco}, ${apoiadorForm.numero} ${apoiadorForm.complemento ? `- ${apoiadorForm.complemento}` : ""} - ${apoiadorForm.cidade}/${apoiadorForm.uf} (CEP: ${apoiadorForm.cep})`;
-      
-      await addPessoa({
-        nome: apoiadorForm.nome,
-        telefone: apoiadorForm.telefone,
-        endereco: enderecoCompleto,
-        meta_votos: Number(apoiadorForm.meta_votos),
-        municipio: apoiadorForm.cidade || "Ceará",
-        uf: apoiadorForm.uf || db.config.uf || "CE",
-        tipo: "apoiador",
-        funcao: "Apoiador Voluntário",
-        comite_id: db.comites.find(c => c.municipio === apoiadorForm.cidade)?.id || db.comites[0]?.id || "c1",
-        status: "ativo",
-        zona: "",
-      });
-      setEnviado(true);
-    } catch (error) {
-      toast.error("Erro ao processar.");
-    } finally {
-      setCarregando(false);
+      setUsandoCamera(true);
+      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' } });
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+      }
+    } catch (err) {
+      toast.error('Câmera indisponível. Você pode enviar um arquivo com sua foto.');
+      setUsandoCamera(false);
     }
   };
 
-  const handleApoiadorCepLookup = async (cep: string) => {
-    const cleanCep = cep.replace(/\D/g, "");
-    setApoiadorForm(prev => ({ ...prev, cep }));
-    
-    if (cleanCep.length === 8) {
-      setCepLoading(true);
-      try {
-        const res = await fetch(`https://viacep.com.br/ws/${cleanCep}/json/`);
-        const data = await res.json();
-        if (!data.erro) {
-          setApoiadorForm(prev => ({
-            ...prev,
-            endereco: data.logradouro || prev.endereco,
-            cidade: data.localidade || prev.cidade,
-            uf: data.uf || prev.uf,
-          }));
-          toast.success("Endereço localizado!");
+  const handleTirarFoto = () => {
+    if (videoRef.current) {
+      const canvas = document.createElement('canvas');
+      canvas.width = videoRef.current.videoWidth || 640;
+      canvas.height = videoRef.current.videoHeight || 480;
+      const ctx = canvas.getContext('2d');
+      if (ctx) {
+        ctx.drawImage(videoRef.current, 0, 0, canvas.width, canvas.height);
+        const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+        setFotoValidacaoAdmin(dataUrl);
+        const stream = videoRef.current.srcObject as MediaStream;
+        if (stream) {
+          stream.getTracks().forEach(t => t.stop());
         }
-      } catch (e) {
-        toast.error("Erro ao buscar CEP");
-      } finally {
-        setCepLoading(false);
+        setUsandoCamera(false);
+        toast.success('Foto capturada para validação!');
       }
     }
   };
 
-  const handleSolicitacaoSubmit = async () => {
-    if (solicitacaoForm.itens.length === 0) {
-      toast.error("Selecione ao menos um item.");
+  const handleUploadFoto = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        if (ev.target?.result) {
+          setFotoValidacaoAdmin(ev.target.result as string);
+          toast.success('Foto carregada com sucesso!');
+        }
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  // Lista de campanhas disponíveis filtradas
+  const campanhasFiltradas = useMemo(() => {
+    return db.campanhas_registradas.filter(c => {
+      const matchUf = !buscaCampanhaUf || c.uf.toUpperCase() === buscaCampanhaUf.toUpperCase();
+      const matchTermo = !buscaTermo || 
+        c.candidato_urna.toLowerCase().includes(buscaTermo.toLowerCase()) ||
+        c.candidato_nome.toLowerCase().includes(buscaTermo.toLowerCase()) ||
+        c.numero.includes(buscaTermo) ||
+        c.cargo.toLowerCase().includes(buscaTermo.toLowerCase());
+      return matchUf && matchTermo;
+    });
+  }, [db.campanhas_registradas, buscaCampanhaUf, buscaTermo]);
+
+  const handleBuscarCampanha = () => {
+    if (campanhasFiltradas.length === 0) {
+      setCampanhaNaoEncontrada(true);
+      setCampanhaSelecionada(null);
+    } else {
+      setCampanhaNaoEncontrada(false);
+    }
+  };
+
+  // SUBMISSÃO DO CADASTRO
+  const handleSubmitCadastroGeral = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    // 1. Validação Obrigatória: Nome e CPF
+    if (!nome.trim()) {
+      toast.error("O campo Nome Completo é obrigatório.");
       return;
     }
-    setCarregando(true);
-    try {
-      await addSolicitacao({
-        nome: solicitacaoForm.nome,
-        comite_id: solicitacaoForm.comite_id || db.comites.find(c => c.municipio === solicitacaoForm.municipio)?.id || db.comites[0]?.id || "c1",
-        lideranca_id: solicitacaoForm.lideranca_id,
-        municipio: solicitacaoForm.municipio,
-        itens: solicitacaoForm.itens,
-        tipo_logistica: solicitacaoForm.tipo_logistica,
-        endereco_entrega: solicitacaoForm.endereco_entrega,
-      });
-      setEnviado(true);
-    } catch (error) {
-      toast.error("Erro ao processar.");
-    } finally {
-      setCarregando(false);
-    }
-  };
 
-  const handleComiteSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+    if (cpf.replace(/\D/g, '').length !== 11) {
+      toast.error("Informe um CPF válido com 11 dígitos.");
+      return;
+    }
+
     setCarregando(true);
     try {
-      await addComite({
-        nome: `Comitê Popular - ${comiteForm.responsavel}`,
-        coordenador: comiteForm.responsavel,
-        whatsapp_coordenador: comiteForm.whatsapp,
-        cep: comiteForm.cep,
-        endereco: comiteForm.endereco,
-        numero: comiteForm.numero,
-        bairro: comiteForm.bairro,
-        municipio: comiteForm.municipio,
-        uf: comiteForm.uf || db.config.uf || "CE",
-        ponto_referencia: comiteForm.ponto_referencia,
-        observacoes: "Cadastro via portal público.",
-        status: "pendente_validacao",
+      const enderecoCompleto = endereco ? `${endereco}, ${numeroEnd} ${complemento ? `- ${complemento}` : ""} ${bairro ? `(${bairro})` : ""} - ${cidade}/${uf} (CEP: ${cep})` : undefined;
+
+      // CASO 1: Usuário optou por ser Eleitor Geral (sem vínculo de campanha)
+      if (tipoVinculo === "eleitor") {
+        const pessoaCriada = await addPessoa({
+          nome,
+          cpf,
+          telefone,
+          tipo: "eleitor",
+          papel_campanha: "Eleitor e Outros",
+          funcao: "Eleitor / Apoiador Cidadão",
+          cep: cep || undefined,
+          endereco: enderecoCompleto,
+          numero: numeroEnd || undefined,
+          complemento: complemento || undefined,
+          bairro: bairro || undefined,
+          municipio: cidade || undefined,
+          uf: uf || undefined,
+          titulo_eleitor: tituloEleitor || undefined,
+          zona: zona || undefined,
+          secao: secao || undefined,
+          status: "ativo",
+        });
+
+        setMensagemSucesso({
+          titulo: "Cadastro de Eleitor Concluído!",
+          desc: "Você agora possui acesso às consultas públicas da plataforma Democracias, como Boletins de Urna e informações eleitorais."
+        });
+        setEnviado(true);
+        return;
+      }
+
+      // CASO 2: Usuário se tornou Administrador de Campanha Inexistente
+      if (modoCriarAdmin) {
+        if (!fotoValidacaoAdmin) {
+          toast.error("Para se tornar o Administrador da Campanha, o envio da FOTO DE VALIDAÇÃO é obrigatório.");
+          setCarregando(false);
+          return;
+        }
+
+        if (!numeroNovaCampanha || !nomeUrnaNovaCampanha) {
+          toast.error("Preencha o Número e o Nome de Urna do Candidato.");
+          setCarregando(false);
+          return;
+        }
+
+        // Validação de unicidade
+        const existe = await verificarCampanhaExiste(buscaCampanhaUf, numeroNovaCampanha, cargoNovaCampanha);
+        if (existe) {
+          toast.error("Esta campanha já se encontra cadastrada no sistema.");
+          setCarregando(false);
+          return;
+        }
+
+        // Cadastra Campanha
+        const novaCamp = await addCampanhaRegistro({
+          uf: buscaCampanhaUf,
+          cargo: cargoNovaCampanha,
+          numero: numeroNovaCampanha,
+          candidato_nome: nomeUrnaNovaCampanha,
+          candidato_urna: nomeUrnaNovaCampanha,
+          partido_coligacao: partidoNovaCampanha,
+          admin_nome: nome,
+          admin_cpf: cpf,
+          admin_telefone: telefone,
+          admin_foto_validacao_url: fotoValidacaoAdmin,
+          status_validacao: "pendente_aprovacao_admin_geral",
+        });
+
+        // Cadastra Pessoa como Admin
+        await addPessoa({
+          nome,
+          cpf,
+          telefone,
+          tipo: "responsavel",
+          papel_campanha: papelCampanha,
+          papel_personalizado: papelCampanha === "Eleitor e Outros" ? papelPersonalizado : undefined,
+          campanha_id: novaCamp?.id,
+          is_admin_campanha: true,
+          foto_validacao_url: fotoValidacaoAdmin,
+          endereco: enderecoCompleto,
+          municipio: cidade,
+          uf: buscaCampanhaUf,
+          titulo_eleitor: tituloEleitor,
+          zona,
+          secao,
+          status: "pendente_aprovacao",
+        });
+
+        setCampaign({
+          id: novaCamp?.id || 'camp_nova',
+          uf: buscaCampanhaUf,
+          numero: numeroNovaCampanha,
+          nomeUrna: nomeUrnaNovaCampanha,
+          cargo: cargoNovaCampanha,
+        });
+
+        setMensagemSucesso({
+          titulo: "Campanha e Administrador Registrados!",
+          desc: "Seus dados e a foto de identificação foram enviados para a fila de validação do Administrador Geral do Democracias."
+        });
+        setEnviado(true);
+        return;
+      }
+
+      // CASO 3: Usuário escolheu uma campanha existente -> entra na Fila de Aprovação
+      if (!campanhaSelecionada) {
+        toast.error("Selecione uma campanha na lista ou opte pelo cadastro como Eleitor.");
+        setCarregando(false);
+        return;
+      }
+
+      const pessoaMembro = await addPessoa({
+        nome,
+        cpf,
+        telefone,
+        tipo: "membro_campanha",
+        papel_campanha: papelCampanha,
+        papel_personalizado: papelCampanha === "Eleitor e Outros" ? papelPersonalizado : undefined,
+        campanha_id: campanhaSelecionada.id,
+        funcao: papelCampanha === "Eleitor e Outros" && papelPersonalizado ? papelPersonalizado : papelCampanha,
+        endereco: enderecoCompleto,
+        municipio: cidade,
+        uf: uf,
+        titulo_eleitor: tituloEleitor,
+        zona,
+        secao,
+        status: "pendente_aprovacao",
+      });
+
+      if (pessoaMembro) {
+        await addSolicitacaoAdesao({
+          campanha_id: campanhaSelecionada.id,
+          pessoa_id: pessoaMembro.id,
+          nome,
+          cpf,
+          telefone,
+          papel_campanha: papelCampanha,
+          papel_personalizado: papelPersonalizado,
+        });
+      }
+
+      setMensagemSucesso({
+        titulo: "Solicitação de Participação Enviada!",
+        desc: `Você entrou na fila de aprovação da campanha de ${campanhaSelecionada.candidato_urna}. Assim que o Administrador da Campanha liberar, seu acesso será ativado.`
       });
       setEnviado(true);
-    } catch (error) {
-      toast.error("Erro ao processar.");
+
+    } catch (err) {
+      console.error(err);
+      toast.error("Erro ao salvar cadastro.");
     } finally {
       setCarregando(false);
     }
@@ -242,7 +421,7 @@ function PublicCadastro() {
 
     setBuData(mockBU);
     setScanning(false);
-    toast.success("Boletim de Urna validado!");
+    toast.success("Boletim de Urna validado via QR Code TSE!");
   };
 
   const handleBuSubmit = async () => {
@@ -250,6 +429,10 @@ function PublicCadastro() {
     setCarregando(true);
     try {
       await addBoletim(buData);
+      setMensagemSucesso({
+        titulo: "Boletim de Urna Registrado!",
+        desc: "Os dados da seção eleitoral foram consolidados no sistema de Apuração Paralela."
+      });
       setEnviado(true);
       setBuData(null);
     } catch (e) {
@@ -261,710 +444,597 @@ function PublicCadastro() {
 
   if (enviado) {
     return (
-      <div className="flex min-h-screen flex-col items-center justify-center px-6 text-center animate-in fade-in zoom-in duration-300">
-        <div className="mb-6 flex size-20 items-center justify-center rounded-full bg-primary/10">
-          <CheckCircle2 className="size-10 text-primary" />
+      <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-6 text-center animate-in fade-in zoom-in duration-300">
+        <div className="bg-white p-8 sm:p-12 rounded-3xl shadow-xl max-w-lg w-full border border-slate-100 space-y-6">
+          <div className="size-20 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto">
+            <CheckCircle2 className="size-10" />
+          </div>
+          <div className="space-y-2">
+            <h1 className="text-2xl font-extrabold text-slate-900">{mensagemSucesso.titulo}</h1>
+            <p className="text-slate-600 text-sm leading-relaxed">{mensagemSucesso.desc}</p>
+          </div>
+          <div className="pt-4 flex flex-col gap-3">
+            <Link to="/">
+              <Button className="w-full h-12 text-md bg-primary hover:bg-primary/90">
+                Voltar à Página Principal
+              </Button>
+            </Link>
+            <Button variant="outline" onClick={() => setEnviado(false)}>
+              Fazer Outro Cadastro
+            </Button>
+          </div>
         </div>
-        <h1 className="text-3xl font-extrabold tracking-tight">Sucesso!</h1>
-        <p className="mt-4 text-muted-foreground">
-          Sua ação foi registrada. Se necessário, entraremos em contato.
-        </p>
-        <Button className="mt-10 h-14 w-full text-lg font-bold" onClick={() => setEnviado(false)}>
-          Fazer novo registro
-        </Button>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-background pb-20">
-      <div className="bg-primary px-6 py-12 text-primary-foreground">
-        <header className="mx-auto max-w-lg text-center">
-          <h1 className="text-3xl font-black uppercase tracking-tight">Portal da Campanha</h1>
-          <p className="mt-2 text-primary-foreground/80 font-medium">
-            Fortaleça nosso time em {db.config.uf || "seu estado"}
+    <div className="min-h-screen bg-slate-50 pb-20">
+      {/* BANNER SUPERIOR */}
+      <div className="bg-slate-900 text-white px-6 py-12">
+        <header className="mx-auto max-w-2xl text-center space-y-3">
+          <div className="inline-flex items-center gap-2 bg-primary/20 text-primary-foreground px-3.5 py-1 rounded-full text-xs font-semibold">
+            <ShieldCheck className="h-4 w-4" /> Plataforma Democracias • democracias.org
+          </div>
+          <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight">
+            Portal de Cadastro e Participação
+          </h1>
+          <p className="text-slate-300 text-sm sm:text-base max-w-lg mx-auto">
+            Cadastre-se para apoiar, coordenar ou acompanhar com transparência a sua campanha eleitoral.
           </p>
         </header>
       </div>
 
-      <div className="mx-auto -mt-8 max-w-lg px-4">
+      <div className="mx-auto -mt-6 max-w-2xl px-4">
         <Tabs value={abaAtiva} onValueChange={setAbaAtiva} className="w-full">
-          <TabsList className="grid w-full grid-cols-4 rounded-2xl bg-surface h-16 p-2 shadow-xl border border-border">
-            <TabsTrigger value="apoiador" className="rounded-xl text-[10px] font-black uppercase">Apoiador</TabsTrigger>
-            <TabsTrigger value="material" className="rounded-xl text-[10px] font-black uppercase">Material</TabsTrigger>
-            <TabsTrigger value="comite" className="rounded-xl text-[10px] font-black uppercase">Comitê</TabsTrigger>
-            <TabsTrigger value="bu" className="rounded-xl text-[10px] font-black uppercase">Scanner BU</TabsTrigger>
+          <TabsList className="grid w-full grid-cols-2 rounded-2xl bg-white h-14 p-1.5 shadow-lg border border-slate-200">
+            <TabsTrigger value="cadastro_geral" className="rounded-xl text-xs font-bold uppercase tracking-wide">
+              <UserPlus className="mr-2 h-4 w-4" /> Cadastre-se Geral
+            </TabsTrigger>
+            <TabsTrigger value="bu" className="rounded-xl text-xs font-bold uppercase tracking-wide">
+              <QrCode className="mr-2 h-4 w-4" /> Scanner BU (Apuração)
+            </TabsTrigger>
           </TabsList>
 
-          <div className="mt-6 rounded-3xl border border-border bg-background p-6 shadow-sm">
-            <TabsContent value="apoiador" className="mt-0 space-y-4">
-              <div className="mb-4 flex items-center gap-3">
-                <div className="rounded-lg bg-primary/10 p-2 text-primary">
-                  <UserPlus className="size-5" />
-                </div>
-                <h2 className="font-extrabold">Cadastro de Apoiador</h2>
-              </div>
+          {/* TAB 1: CADASTRE-SE GERAL (MEMBRO / APOIADOR / ELEITOR) */}
+          <TabsContent value="cadastro_geral" className="mt-6">
+            <form onSubmit={handleSubmitCadastroGeral} className="bg-white p-6 sm:p-8 rounded-3xl shadow-xl border border-slate-100 space-y-6">
               
-              <form onSubmit={handleApoiadorSubmit} className="space-y-4">
-                <div className="space-y-1.5">
-                  <Label className="text-[10px] font-bold uppercase text-muted-foreground">Nome Completo</Label>
-                  <Input 
-                    value={apoiadorForm.nome}
-                    onChange={e => setApoiadorForm({...apoiadorForm, nome: e.target.value})}
-                    placeholder="Seu nome"
-                    className="h-12 border-2"
-                    required
-                  />
+              {/* 1. DADOS OBRIGATÓRIOS */}
+              <div className="space-y-4">
+                <div className="border-b pb-2 flex items-center justify-between">
+                  <h2 className="font-bold text-slate-900 flex items-center gap-2">
+                    <UserPlus className="h-5 w-5 text-primary" />
+                    1. Dados Obrigatórios
+                  </h2>
+                  <span className="text-[11px] font-semibold text-rose-600 bg-rose-50 px-2 py-0.5 rounded">
+                    * Obrigatórios
+                  </span>
                 </div>
-                <div className="space-y-1.5">
-                  <Label className="text-[10px] font-bold uppercase text-muted-foreground">WhatsApp</Label>
-                  <Input 
-                    value={apoiadorForm.telefone}
-                    onChange={e => setApoiadorForm({...apoiadorForm, telefone: e.target.value})}
-                    placeholder="85 9..."
-                    type="tel"
-                    className="h-12 border-2"
-                    required
-                  />
-                </div>
-                <div className="grid grid-cols-1 gap-4">
-                  <div className="space-y-1.5">
-                    <Label className="text-[10px] font-bold uppercase text-muted-foreground">CEP</Label>
-                    <div className="relative">
-                      <Input 
-                        value={apoiadorForm.cep}
-                        onChange={e => handleApoiadorCepLookup(e.target.value)}
-                        placeholder="00000-000"
-                        maxLength={9}
-                        className="h-12 border-2"
-                        required
-                      />
-                      {cepLoading && <Loader2 className="absolute right-3 top-1/2 size-4 -translate-y-1/2 animate-spin text-primary" />}
-                    </div>
-                  </div>
 
-                  <div className="grid grid-cols-4 gap-3">
-                    <div className="space-y-1.5">
-                      <Label className="text-[10px] font-bold uppercase text-muted-foreground">UF</Label>
-                      <Input 
-                        value={apoiadorForm.uf}
-                        onChange={e => setApoiadorForm({...apoiadorForm, uf: e.target.value.toUpperCase()})}
-                        placeholder="CE"
-                        maxLength={2}
-                        className="h-12 border-2"
-                        required
-                      />
-                    </div>
-                    <div className="col-span-3 space-y-1.5">
-                      <Label className="text-[10px] font-bold uppercase text-muted-foreground">Cidade</Label>
-                      <Input 
-                        value={apoiadorForm.cidade}
-                        onChange={e => setApoiadorForm({...apoiadorForm, cidade: e.target.value})}
-                        placeholder="Sua cidade"
-                        className="h-12 border-2"
-                        required
-                      />
-                    </div>
-                  </div>
-
-                  <div className="space-y-1.5">
-                    <Label className="text-[10px] font-bold uppercase text-muted-foreground">Endereço (Logradouro)</Label>
+                <div className="space-y-3">
+                  <div>
+                    <Label className="text-xs font-bold uppercase text-slate-700">
+                      Nome Completo <span className="text-rose-500">*</span>
+                    </Label>
                     <Input 
-                      value={apoiadorForm.endereco}
-                      onChange={e => setApoiadorForm({...apoiadorForm, endereco: e.target.value})}
-                      placeholder="Rua, Av..."
-                      className="h-12 border-2"
+                      placeholder="Ex: Maria da Silva"
+                      value={nome}
+                      onChange={e => setNome(e.target.value)}
+                      className="h-12 text-md mt-1"
                       required
                     />
                   </div>
 
-                  <div className="grid grid-cols-3 gap-3">
-                    <div className="space-y-1.5">
-                      <Label className="text-[10px] font-bold uppercase text-muted-foreground">Número</Label>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <Label className="text-xs font-bold uppercase text-slate-700">
+                        CPF <span className="text-rose-500">*</span>
+                      </Label>
                       <Input 
-                        value={apoiadorForm.numero}
-                        onChange={e => setApoiadorForm({...apoiadorForm, numero: e.target.value})}
-                        placeholder="123"
-                        className="h-12 border-2"
+                        placeholder="000.000.000-00"
+                        value={cpf}
+                        onChange={e => setCpf(formatCpf(e.target.value))}
+                        className="h-12 text-md mt-1"
                         required
                       />
                     </div>
-                    <div className="col-span-2 space-y-1.5">
-                      <Label className="text-[10px] font-bold uppercase text-muted-foreground">Complemento</Label>
+                    <div>
+                      <Label className="text-xs font-bold uppercase text-slate-700">
+                        WhatsApp de Contato
+                      </Label>
                       <Input 
-                        value={apoiadorForm.complemento}
-                        onChange={e => setApoiadorForm({...apoiadorForm, complemento: e.target.value})}
-                        placeholder="Apto, Sala, Casa..."
-                        className="h-12 border-2"
+                        placeholder="(00) 00000-0000"
+                        value={telefone}
+                        onChange={e => setTelefone(e.target.value)}
+                        className="h-12 text-md mt-1"
                       />
                     </div>
                   </div>
                 </div>
-
-                <div className="space-y-1.5">
-                  <Label className="text-[10px] font-bold uppercase text-muted-foreground">Quantidade de Votos (Expectativa)</Label>
-                  <Input 
-                    type="number"
-                    value={apoiadorForm.meta_votos}
-                    onChange={e => setApoiadorForm({...apoiadorForm, meta_votos: e.target.value})}
-                    placeholder="0"
-                    className="h-12 border-2"
-                    required
-                  />
-                </div>
-                <Button type="submit" className="h-14 w-full text-lg font-black uppercase" disabled={carregando}>
-                  {carregando ? "Enviando..." : "Confirmar Cadastro"}
-                </Button>
-              </form>
-            </TabsContent>
-
-            <TabsContent value="material" className="mt-0 space-y-4">
-              <div className="mb-4 flex items-center gap-3">
-                <div className="rounded-lg bg-accent/10 p-2 text-accent">
-                  <Package className="size-5" />
-                </div>
-                <h2 className="font-extrabold">Solicitar Material</h2>
               </div>
 
-              <div className="space-y-4">
-                {passoMaterial === 1 && (
-                  <div className="space-y-4 animate-in fade-in slide-in-from-right-4 duration-300">
-                    <div className="space-y-1.5">
-                      <Label className="text-[10px] font-bold uppercase text-muted-foreground">Número do WhatsApp</Label>
-                      <div className="flex gap-2">
-                        <Input 
-                          value={solicitacaoForm.whatsapp}
-                          onChange={e => setSolicitacaoForm({...solicitacaoForm, whatsapp: e.target.value})}
-                          placeholder="85 9..."
-                          className="h-12 border-2"
-                        />
-                        <Button 
-                          type="button" 
-                          variant="secondary" 
-                          className="h-12 px-4"
-                          onClick={() => {
-                            const pessoa = db.pessoas.find(p => p.telefone.replace(/\D/g, '') === solicitacaoForm.whatsapp.replace(/\D/g, ''));
-                            if (pessoa) {
-                              setSolicitacaoForm({
-                                ...solicitacaoForm,
-                                nome: pessoa.nome,
-                                endereco: pessoa.endereco || "",
-                                municipio: pessoa.municipio
-                              });
-                              toast.success(`Olá ${pessoa.nome}!`);
-                              setPassoMaterial(2);
-                            } else {
-                              toast.error("WhatsApp não cadastrado como apoiador.");
-                              setAbaAtiva("apoiador");
-                              setApoiadorForm(prev => ({ ...prev, telefone: solicitacaoForm.whatsapp }));
-                            }
-                          }}
-                        >
-                          <Search className="size-4" />
-                        </Button>
+              {/* 2. DADOS OPCIONAIS */}
+              <div className="space-y-4 border-t pt-4">
+                <div className="flex items-center justify-between">
+                  <h2 className="font-bold text-slate-900 flex items-center gap-2">
+                    <Building className="h-5 w-5 text-slate-600" />
+                    2. Endereço e Dados Eleitorais (Opcionais)
+                  </h2>
+                  <Button 
+                    type="button" 
+                    variant="ghost" 
+                    size="sm" 
+                    onClick={() => setMostrarOpcionais(!mostrarOpcionais)}
+                    className="text-xs text-primary"
+                  >
+                    {mostrarOpcionais ? "Ocultar Opcionais" : "+ Preencher Opcionais"}
+                  </Button>
+                </div>
+
+                {mostrarOpcionais && (
+                  <div className="space-y-4 bg-slate-50 p-5 rounded-2xl border border-slate-200 animate-in fade-in duration-200">
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                      <div>
+                        <Label className="text-xs text-slate-600">CEP</Label>
+                        <div className="relative mt-1">
+                          <Input 
+                            placeholder="00000-000"
+                            value={cep}
+                            onChange={e => handleCepLookup(e.target.value)}
+                          />
+                          {cepLoading && <Loader2 className="absolute right-3 top-2.5 h-4 w-4 animate-spin text-primary" />}
+                        </div>
                       </div>
-                      <p className="text-[10px] text-muted-foreground italic">Insira seu WhatsApp para começar o pedido.</p>
-                    </div>
-                  </div>
-                )}
-
-                {passoMaterial === 2 && (
-                  <div className="space-y-4 animate-in fade-in slide-in-from-right-4 duration-300">
-                    <div className="rounded-xl bg-muted/30 p-4 text-sm border border-border">
-                      <p className="font-bold">{solicitacaoForm.nome}</p>
-                      <p className="text-xs text-muted-foreground">{solicitacaoForm.endereco}</p>
-                      <button 
-                        onClick={() => setPassoMaterial(1)}
-                        className="mt-2 text-[10px] font-black uppercase text-primary underline"
-                      >
-                        Não sou eu / Corrigir
-                      </button>
-                    </div>
-
-                    <div className="space-y-3">
-                      <Label className="text-[10px] font-bold uppercase text-muted-foreground">Escolha os Materiais</Label>
-                      <div className="grid gap-3">
-                        {db.materiais.filter(m => !m.arquivado).map(m => {
-                          const item = solicitacaoForm.itens.find(i => i.material_id === m.id);
-                          return (
-                            <div key={m.id} className="flex items-center justify-between rounded-xl border border-border p-3 bg-surface">
-                              <div className="flex-1">
-                                <p className="text-xs font-bold leading-tight">{m.nome}</p>
-                                <p className="text-[9px] uppercase text-muted-foreground">{m.categoria}</p>
-                              </div>
-                              <div className="w-20">
-                                <Input 
-                                  type="number"
-                                  min="0"
-                                  placeholder="0"
-                                  className="h-9 border-2 text-center"
-                                  value={item?.quantidade || ""}
-                                  onChange={e => {
-                                    const qty = parseInt(e.target.value) || 0;
-                                    const novosItens = solicitacaoForm.itens.filter(i => i.material_id !== m.id);
-                                    if (qty > 0) {
-                                      novosItens.push({ material_id: m.id, quantidade: qty });
-                                    }
-                                    setSolicitacaoForm({ ...solicitacaoForm, itens: novosItens });
-                                  }}
-                                />
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </div>
-
-                    <Button 
-                      className="h-14 w-full text-lg font-black uppercase" 
-                      onClick={() => {
-                        if (solicitacaoForm.itens.length === 0) {
-                          toast.error("Selecione ao menos um item.");
-                          return;
-                        }
-                        setPassoMaterial(3);
-                      }}
-                    >
-                      Continuar
-                    </Button>
-                  </div>
-                )}
-
-                {passoMaterial === 3 && (
-                  <div className="space-y-4 animate-in fade-in slide-in-from-right-4 duration-300">
-                    <div className="space-y-3">
-                      <Label className="text-[10px] font-bold uppercase text-muted-foreground">Forma de Recebimento</Label>
-                      <div className="grid grid-cols-2 gap-3">
-                        <Button 
-                          type="button"
-                          variant={solicitacaoForm.tipo_logistica === "retirada" ? "default" : "outline"}
-                          className="h-20 flex-col gap-2 rounded-2xl"
-                          onClick={() => setSolicitacaoForm({ ...solicitacaoForm, tipo_logistica: "retirada" })}
-                        >
-                          <MapPin className="size-5" />
-                          <span className="text-[10px] font-black uppercase">Retirar no Comitê</span>
-                        </Button>
-                        <Button 
-                          type="button"
-                          variant={solicitacaoForm.tipo_logistica === "entrega" ? "default" : "outline"}
-                          className="h-20 flex-col gap-2 rounded-2xl"
-                          onClick={() => setSolicitacaoForm({ ...solicitacaoForm, tipo_logistica: "entrega" })}
-                        >
-                          <Send className="size-5" />
-                          <span className="text-[10px] font-black uppercase">Receber em Casa</span>
-                        </Button>
-                      </div>
-                    </div>
-
-                    {solicitacaoForm.tipo_logistica === "entrega" && (
-                      <div className="space-y-3 animate-in fade-in duration-300">
-                        <Label className="text-[10px] font-bold uppercase text-muted-foreground">Endereço de Entrega</Label>
-                        <Select 
-                          value={solicitacaoForm.endereco_entrega === solicitacaoForm.endereco ? "atual" : "novo"}
-                          onValueChange={(v) => {
-                            if (v === "atual") setSolicitacaoForm({ ...solicitacaoForm, endereco_entrega: solicitacaoForm.endereco });
-                            else setSolicitacaoForm({ ...solicitacaoForm, endereco_entrega: "" });
-                          }}
-                        >
-                          <SelectTrigger className="h-12 border-2">
-                            <SelectValue placeholder="Onde entregar?" />
+                      <div>
+                        <Label className="text-xs text-slate-600">UF</Label>
+                        <Select value={uf} onValueChange={setUf}>
+                          <SelectTrigger className="mt-1">
+                            <SelectValue placeholder="UF" />
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="atual">Meu endereço cadastrado</SelectItem>
-                            <SelectItem value="novo">Outro endereço</SelectItem>
+                            {ESTADOS_BR.map(e => <SelectItem key={e} value={e}>{e}</SelectItem>)}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div>
+                        <Label className="text-xs text-slate-600">Município</Label>
+                        <Input 
+                          placeholder="Cidade"
+                          value={cidade}
+                          onChange={e => setCidade(e.target.value)}
+                          className="mt-1"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                      <div className="sm:col-span-2">
+                        <Label className="text-xs text-slate-600">Logradouro (Rua, Av.)</Label>
+                        <Input 
+                          placeholder="Endereço"
+                          value={endereco}
+                          onChange={e => setEndereco(e.target.value)}
+                          className="mt-1"
+                        />
+                      </div>
+                      <div>
+                        <Label className="text-xs text-slate-600">Número</Label>
+                        <Input 
+                          placeholder="Nº"
+                          value={numeroEnd}
+                          onChange={e => setNumeroEnd(e.target.value)}
+                          className="mt-1"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div>
+                        <Label className="text-xs text-slate-600">Bairro</Label>
+                        <Input 
+                          placeholder="Bairro"
+                          value={bairro}
+                          onChange={e => setBairro(e.target.value)}
+                          className="mt-1"
+                        />
+                      </div>
+                      <div>
+                        <Label className="text-xs text-slate-600">Complemento</Label>
+                        <Input 
+                          placeholder="Apto, Bloco..."
+                          value={complemento}
+                          onChange={e => setComplemento(e.target.value)}
+                          className="mt-1"
+                        />
+                      </div>
+                    </div>
+
+                    {/* DADOS ELEITORAIS OPCIONAIS */}
+                    <div className="border-t border-slate-200 pt-3 mt-3">
+                      <div className="text-xs font-semibold text-slate-700 mb-2">Dados do Título de Eleitor (Opcional)</div>
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                        <div>
+                          <Label className="text-[11px] text-slate-500">Título de Eleitor</Label>
+                          <Input 
+                            placeholder="Nº do Título"
+                            value={tituloEleitor}
+                            onChange={e => setTituloEleitor(e.target.value)}
+                            className="mt-1"
+                          />
+                        </div>
+                        <div>
+                          <Label className="text-[11px] text-slate-500">Zona Eleitoral</Label>
+                          <Input 
+                            placeholder="Ex: 001"
+                            value={zona}
+                            onChange={e => setZona(e.target.value)}
+                            className="mt-1"
+                          />
+                        </div>
+                        <div>
+                          <Label className="text-[11px] text-slate-500">Seção Eleitoral</Label>
+                          <Input 
+                            placeholder="Ex: 0142"
+                            value={secao}
+                            onChange={e => setSecao(e.target.value)}
+                            className="mt-1"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* 3. ASSOCIAÇÃO À CAMPANHA OU ACESSO COMO ELEITOR */}
+              <div className="space-y-4 border-t pt-4">
+                <div className="border-b pb-2 flex items-center justify-between">
+                  <h2 className="font-bold text-slate-900 flex items-center gap-2">
+                    <Users className="h-5 w-5 text-primary" />
+                    3. Vínculo e Papel na Campanha
+                  </h2>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <Button 
+                    type="button" 
+                    variant={tipoVinculo === "campanha" ? "default" : "outline"}
+                    className="h-14 font-bold text-xs uppercase"
+                    onClick={() => { setTipoVinculo("campanha"); setModoCriarAdmin(false); }}
+                  >
+                    Vincular a uma Campanha
+                  </Button>
+                  <Button 
+                    type="button" 
+                    variant={tipoVinculo === "eleitor" ? "default" : "outline"}
+                    className="h-14 font-bold text-xs uppercase"
+                    onClick={() => { setTipoVinculo("eleitor"); setModoCriarAdmin(false); setCampanhaSelecionada(null); }}
+                  >
+                    Apenas Eleitor / Cidadão
+                  </Button>
+                </div>
+
+                {/* FLUXO: ELEITOR / CIDADÃO */}
+                {tipoVinculo === "eleitor" && (
+                  <div className="bg-slate-50 p-4 rounded-xl border text-sm text-slate-600">
+                    Você será registrado como <strong>Usuário / Eleitor</strong>, com acesso livre às ferramentas públicas, consulta de dados eleitorais e envio de Boletins de Urna (BU).
+                  </div>
+                )}
+
+                {/* FLUXO: VINCULAR A UMA CAMPANHA */}
+                {tipoVinculo === "campanha" && !modoCriarAdmin && (
+                  <div className="space-y-4 pt-2">
+                    
+                    {/* PAPÉIS E DENOMINAÇÕES OFICIAIS */}
+                    <div>
+                      <Label className="text-xs font-bold uppercase text-slate-700">
+                        Seu Papel / Função na Campanha <span className="text-rose-500">*</span>
+                      </Label>
+                      <Select value={papelCampanha} onValueChange={(v: any) => setPapelCampanha(v)}>
+                        <SelectTrigger className="h-12 mt-1">
+                          <SelectValue placeholder="Selecione o papel exato..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {PAPEIS_CAMPANHA_OPCOES.map(p => (
+                            <SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    {papelCampanha === "Eleitor e Outros" && (
+                      <div className="animate-in fade-in">
+                        <Label className="text-xs font-bold uppercase text-slate-700">
+                          Denominação Personalizada da Função
+                        </Label>
+                        <Input 
+                          placeholder="Ex: Assessor de Imprensa, Motorista da Coordenação..."
+                          value={papelPersonalizado}
+                          onChange={e => setPapelPersonalizado(e.target.value)}
+                          className="h-11 mt-1"
+                        />
+                      </div>
+                    )}
+
+                    {/* BUSCA DE CAMPANHA */}
+                    <div className="space-y-3 pt-2">
+                      <Label className="text-xs font-bold uppercase text-slate-700">
+                        Localize a Campanha para Participar <span className="text-rose-500">*</span>
+                      </Label>
+
+                      <div className="flex gap-2">
+                        <Select value={buscaCampanhaUf} onValueChange={setBuscaCampanhaUf}>
+                          <SelectTrigger className="w-28 h-12">
+                            <SelectValue placeholder="UF" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {ESTADOS_BR.map(e => <SelectItem key={e} value={e}>{e}</SelectItem>)}
                           </SelectContent>
                         </Select>
 
-                        {solicitacaoForm.endereco_entrega !== solicitacaoForm.endereco && (
-                          <Textarea 
-                            placeholder="Rua, número, bairro, cidade e complemento..."
-                            className="border-2 min-h-[100px]"
-                            value={solicitacaoForm.endereco_entrega}
-                            onChange={e => setSolicitacaoForm({ ...solicitacaoForm, endereco_entrega: e.target.value })}
-                          />
-                        )}
+                        <Input 
+                          placeholder="Nome do candidato, número ou cargo..."
+                          value={buscaTermo}
+                          onChange={e => { setBuscaTermo(e.target.value); setCampanhaNaoEncontrada(false); }}
+                          className="h-12"
+                        />
+
+                        <Button type="button" onClick={handleBuscarCampanha} className="h-12 px-4">
+                          <Search className="h-5 w-5" />
+                        </Button>
                       </div>
-                    )}
 
-                    <Button 
-                      className="h-14 w-full text-lg font-black uppercase" 
-                      onClick={() => setPassoMaterial(4)}
-                    >
-                      Revisar Pedido
-                    </Button>
-                  </div>
-                )}
-
-                {passoMaterial === 4 && (
-                  <div className="space-y-4 animate-in fade-in slide-in-from-right-4 duration-300">
-                    <div className="rounded-2xl border-2 border-primary bg-primary/5 p-5">
-                      <h3 className="text-sm font-black uppercase tracking-wider mb-3">Resumo do Pedido</h3>
-                      <div className="space-y-3">
-                        <div className="space-y-1">
-                          <p className="text-[10px] font-bold uppercase text-muted-foreground">Apoiador</p>
-                          <p className="text-sm font-bold">{solicitacaoForm.nome}</p>
+                      {/* LISTAGEM DE CAMPANHAS ENCONTRADAS */}
+                      {campanhasFiltradas.length > 0 && (
+                        <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
+                          {campanhasFiltradas.map(c => (
+                            <div 
+                              key={c.id} 
+                              onClick={() => setCampanhaSelecionada(c)}
+                              className={`p-3.5 rounded-xl border-2 cursor-pointer transition-all flex items-center justify-between ${
+                                campanhaSelecionada?.id === c.id 
+                                  ? "border-primary bg-primary/5 shadow-sm" 
+                                  : "border-slate-200 hover:border-slate-300 bg-white"
+                              }`}
+                            >
+                              <div>
+                                <div className="font-bold text-slate-900 text-sm">{c.candidato_urna} ({c.numero})</div>
+                                <div className="text-xs text-slate-500">{c.cargo} • {c.uf} • {c.partido_coligacao || 'Coligação'}</div>
+                              </div>
+                              {campanhaSelecionada?.id === c.id ? (
+                                <Badge className="bg-primary text-white">Selecionada</Badge>
+                              ) : (
+                                <Button type="button" variant="outline" size="sm">Selecionar</Button>
+                              )}
+                            </div>
+                          ))}
                         </div>
-                        <div className="space-y-1">
-                          <p className="text-[10px] font-bold uppercase text-muted-foreground">Itens</p>
-                          <div className="space-y-1">
-                            {solicitacaoForm.itens.map(i => {
-                              const m = db.materiais.find(mat => mat.id === i.material_id);
-                              return (
-                                <p key={i.material_id} className="text-xs font-medium">
-                                  {i.quantidade}x {m?.nome}
-                                </p>
-                              );
-                            })}
+                      )}
+
+                      {/* TRATAMENTO DE CAMPANHA INEXISTENTE */}
+                      {(campanhasFiltradas.length === 0 || campanhaNaoEncontrada) && (
+                        <div className="bg-amber-50 border-2 border-amber-200 rounded-2xl p-5 space-y-4 animate-in fade-in">
+                          <div className="flex gap-3">
+                            <HelpCircle className="h-7 w-7 text-amber-600 flex-shrink-0" />
+                            <div>
+                              <h3 className="font-bold text-amber-950 text-base">
+                                A campanha não existe na plataforma.
+                              </h3>
+                              <p className="text-xs text-amber-900 mt-1">
+                                Deseja cadastrá-la e ser o <strong>Administrador Responsável</strong> dela?
+                              </p>
+                            </div>
+                          </div>
+
+                          <div className="flex gap-3">
+                            <Button 
+                              type="button" 
+                              className="bg-amber-600 hover:bg-amber-700 text-white flex-1 font-bold"
+                              onClick={() => {
+                                setModoCriarAdmin(true);
+                                setNomeUrnaNovaCampanha(buscaTermo);
+                              }}
+                            >
+                              <ShieldCheck className="mr-2 h-4 w-4" />
+                              Sim, desejo ser o Administrador
+                            </Button>
+                            <Button 
+                              type="button" 
+                              variant="outline" 
+                              onClick={() => { setBuscaTermo(""); setCampanhaNaoEncontrada(false); }}
+                            >
+                              Buscar Outra
+                            </Button>
                           </div>
                         </div>
-                        <div className="space-y-1">
-                          <p className="text-[10px] font-bold uppercase text-muted-foreground">Logística</p>
-                          <p className="text-sm font-bold">
-                            {solicitacaoForm.tipo_logistica === "retirada" ? "Retirada no Comitê" : `Entrega em: ${solicitacaoForm.endereco_entrega}`}
-                          </p>
-                        </div>
-                      </div>
+                      )}
                     </div>
-
-                    <Button 
-                      className="h-14 w-full text-lg font-black uppercase" 
-                      onClick={handleSolicitacaoSubmit}
-                      disabled={carregando}
-                    >
-                      {carregando ? <Loader2 className="animate-spin" /> : "Confirmar e Finalizar"}
-                    </Button>
-                    <Button variant="ghost" className="w-full text-[10px] font-black uppercase" onClick={() => setPassoMaterial(2)}>
-                      Voltar e Editar
-                    </Button>
-                  </div>
-                )}
-              </div>
-            </TabsContent>
-
-            <TabsContent value="comite" className="mt-0 space-y-4">
-              <div className="mb-4 flex items-center gap-3">
-                <div className="rounded-lg bg-green-500/10 p-2 text-green-600">
-                  <MapPin className="size-5" />
-                </div>
-                <h2 className="font-extrabold">Comitê Popular</h2>
-              </div>
-
-              <div className="space-y-4">
-                {passoComite === 1 && (
-                  <div className="space-y-4 animate-in fade-in slide-in-from-right-4 duration-300">
-                    <div className="space-y-1.5">
-                      <Label className="text-[10px] font-bold uppercase text-muted-foreground">Número do WhatsApp do Responsável</Label>
-                      <div className="flex gap-2">
-                        <Input 
-                          value={comiteForm.whatsapp}
-                          onChange={e => setComiteForm({...comiteForm, whatsapp: e.target.value})}
-                          placeholder="85 9..."
-                          className="h-12 border-2"
-                        />
-                        <Button 
-                          type="button" 
-                          variant="secondary" 
-                          className="h-12 px-4"
-                          onClick={() => {
-                            const pessoa = db.pessoas.find(p => p.telefone.replace(/\D/g, '') === comiteForm.whatsapp.replace(/\D/g, ''));
-                            if (pessoa) {
-                              setComiteForm({
-                                ...comiteForm,
-                                responsavel: pessoa.nome,
-                              });
-                              toast.success(`Olá ${pessoa.nome}! Vamos cadastrar o comitê.`);
-                              setPassoComite(2);
-                            } else {
-                              toast.error("Responsável não cadastrado como apoiador.");
-                              setAbaAtiva("apoiador");
-                              setApoiadorForm(prev => ({ ...prev, telefone: comiteForm.whatsapp }));
-                            }
-                          }}
-                        >
-                          <Search className="size-4" />
-                        </Button>
-                      </div>
-                      <p className="text-[10px] text-muted-foreground italic">O responsável deve estar cadastrado como apoiador primeiro.</p>
-                    </div>
-
-                    {comiteForm.responsavel && (
-                      <div className="rounded-xl bg-muted/30 p-4 text-sm border border-border">
-                        <p className="text-[10px] font-bold uppercase text-muted-foreground mb-1">Responsável Identificado</p>
-                        <p className="font-bold">{comiteForm.responsavel}</p>
-                        <Button 
-                          variant="ghost" 
-                          className="mt-2 h-auto p-0 text-[10px] font-black uppercase text-primary underline"
-                          onClick={() => setPassoComite(2)}
-                        >
-                          Continuar para Endereço
-                        </Button>
-                      </div>
-                    )}
                   </div>
                 )}
 
-                {passoComite === 2 && (
-                  <form onSubmit={handleComiteSubmit} className="space-y-4 animate-in fade-in slide-in-from-right-4 duration-300">
-                    <div className="rounded-xl bg-muted/30 p-4 text-sm border border-border mb-2">
-                      <p className="text-[10px] font-bold uppercase text-muted-foreground mb-1">Responsável</p>
-                      <p className="font-bold">{comiteForm.responsavel}</p>
-                      <button 
-                        type="button"
-                        onClick={() => setPassoComite(1)}
-                        className="mt-1 text-[10px] font-black uppercase text-primary underline"
+                {/* SE O USUÁRIO OPTOU POR SER O ADMINISTRADOR DA CAMPANHA INEXISTENTE */}
+                {tipoVinculo === "campanha" && modoCriarAdmin && (
+                  <div className="bg-blue-50 border-2 border-blue-200 rounded-2xl p-5 space-y-4 animate-in fade-in">
+                    <div className="flex items-center justify-between border-b border-blue-200 pb-2">
+                      <div className="flex items-center gap-2 text-blue-950 font-bold">
+                        <ShieldCheck className="h-5 w-5 text-blue-600" />
+                        Cadastro de Administrador da Nova Campanha
+                      </div>
+                      <Button 
+                        type="button" 
+                        variant="ghost" 
+                        size="sm" 
+                        className="text-xs text-blue-700" 
+                        onClick={() => setModoCriarAdmin(false)}
                       >
-                        Trocar Responsável
-                      </button>
-                    </div>
-
-                    <div className="space-y-1.5">
-                      <Label className="text-[10px] font-bold uppercase text-muted-foreground">CEP</Label>
-                      <div className="relative">
-                        <Input 
-                          value={comiteForm.cep}
-                          onChange={e => handleCepLookup(e.target.value)}
-                          placeholder="00000-000"
-                          maxLength={9}
-                          className="h-12 border-2"
-                          required
-                        />
-                        {cepLoading && <Loader2 className="absolute right-3 top-1/2 size-4 -translate-y-1/2 animate-spin text-primary" />}
-                      </div>
-                    </div>
-
-                    <div className="grid grid-cols-3 gap-3">
-                      <div className="col-span-2 space-y-1.5">
-                        <Label className="text-[10px] font-bold uppercase text-muted-foreground">Endereço</Label>
-                        <Input 
-                          value={comiteForm.endereco}
-                          onChange={e => setComiteForm({...comiteForm, endereco: e.target.value})}
-                          className="h-12 border-2"
-                          required
-                        />
-                      </div>
-                      <div className="space-y-1.5">
-                        <Label className="text-[10px] font-bold uppercase text-muted-foreground">Nº</Label>
-                        <Input 
-                          value={comiteForm.numero}
-                          onChange={e => setComiteForm({...comiteForm, numero: e.target.value})}
-                          className="h-12 border-2"
-                          required
-                        />
-                      </div>
-                    </div>
-                    
-                    <div className="grid grid-cols-4 gap-3">
-                      <div className="col-span-3 space-y-1.5">
-                        <Label className="text-[10px] font-bold uppercase text-muted-foreground">Cidade</Label>
-                        <Input 
-                          value={comiteForm.municipio}
-                          onChange={e => setComiteForm({...comiteForm, municipio: e.target.value})}
-                          placeholder="Sua cidade"
-                          className="h-12 border-2"
-                          required
-                        />
-                      </div>
-                      <div className="space-y-1.5">
-                        <Label className="text-[10px] font-bold uppercase text-muted-foreground">UF</Label>
-                        <Input 
-                          value={comiteForm.uf}
-                          onChange={e => setComiteForm({...comiteForm, uf: e.target.value.toUpperCase()})}
-                          placeholder="CE"
-                          maxLength={2}
-                          className="h-12 border-2"
-                          required
-                        />
-                      </div>
-                    </div>
-
-                    <div className="space-y-1.5">
-                      <Label className="text-[10px] font-bold uppercase text-muted-foreground">Ponto de Referência</Label>
-                      <Input 
-                        value={comiteForm.ponto_referencia}
-                        onChange={e => setComiteForm({...comiteForm, ponto_referencia: e.target.value})}
-                        placeholder="Ex: Perto do mercadinho..."
-                        className="h-12 border-2"
-                      />
-                    </div>
-
-                    <div className="rounded-xl border-2 border-dashed border-border p-4 text-center">
-                      <Camera className="mx-auto size-6 text-muted-foreground" />
-                      <span className="mt-1 block text-[10px] font-bold uppercase text-muted-foreground">Foto do Local (Opcional)</span>
-                    </div>
-
-                    <Button type="submit" className="h-14 w-full text-lg font-black uppercase" disabled={carregando}>
-                      {carregando ? <Loader2 className="animate-spin" /> : "Solicitar Abertura"}
-                    </Button>
-                  </form>
-                )}
-              </div>
-            </TabsContent>
-            <TabsContent value="bu" className="mt-0 space-y-4">
-              <div className="mb-4 flex items-center gap-3">
-                <div className="rounded-lg bg-primary/10 p-2 text-primary">
-                  <QrCode className="size-5" />
-                </div>
-                <h2 className="font-extrabold">Escaneamento de BU</h2>
-              </div>
-              
-              <div className="space-y-6">
-                <div className="relative aspect-square w-full max-w-[280px] mx-auto rounded-3xl border-4 border-dashed border-primary/20 bg-muted/30 flex items-center justify-center overflow-hidden group">
-                  {scanning ? (
-                    <div className="flex flex-col items-center gap-3 animate-pulse">
-                      <QrCode className="size-16 text-primary/40" />
-                      <span className="text-[10px] font-black uppercase tracking-widest text-primary">Escaneando...</span>
-                      <div className="absolute inset-x-0 top-0 bg-gradient-to-b from-transparent via-primary/40 to-transparent h-1 w-full animate-scan-loop" />
-                    </div>
-                  ) : buData ? (
-                    <div className="flex flex-col items-center gap-4 text-center p-6">
-                      <div className="size-16 rounded-full bg-green-500/10 flex items-center justify-center">
-                        <ShieldCheck className="size-8 text-green-500" />
-                      </div>
-                      <div>
-                        <p className="font-black text-lg uppercase leading-tight">BU Digitalizado</p>
-                        <p className="text-[10px] text-muted-foreground uppercase font-bold">Pronto para envio</p>
-                      </div>
-                      <Button variant="outline" size="sm" className="h-9 px-4 text-[10px] font-black uppercase" onClick={() => setBuData(null)}>Repetir</Button>
-                    </div>
-                  ) : (
-                    <div className="flex flex-col items-center gap-4">
-                      <QrCode className="size-20 text-muted-foreground/20 group-hover:text-primary/20 transition-colors" />
-                      <Button className="h-12 px-6 font-bold uppercase gap-2 shadow-xl shadow-primary/20" onClick={simulatedScan}>
-                        Abrir Câmera
-                        <Camera className="size-4" />
+                        Cancelar
                       </Button>
                     </div>
-                  )}
-                </div>
 
-                {buData && (
-                  <div className="space-y-4 animate-in fade-in slide-in-from-bottom-2">
-                    <div className="p-4 rounded-2xl border-2 border-primary/20 bg-primary/5 space-y-3">
-                      <div className="flex justify-between items-start">
-                        <div>
-                          <p className="text-xs font-black uppercase tracking-tight">Seção {buData.secao}</p>
-                          <p className="text-[9px] font-bold uppercase text-primary">{buData.municipio}</p>
-                        </div>
-                        <Badge className="font-mono text-[10px]">{buData.total_votos} Votos</Badge>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div>
+                        <Label className="text-xs text-blue-900">Cargo</Label>
+                        <Select value={cargoNovaCampanha} onValueChange={setCargoNovaCampanha}>
+                          <SelectTrigger className="mt-1 bg-white">
+                            <SelectValue placeholder="Selecione o cargo" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="GOVERNADOR">Governador</SelectItem>
+                            <SelectItem value="SENADOR">Senador</SelectItem>
+                            <SelectItem value="DEPUTADO FEDERAL">Deputado Federal</SelectItem>
+                            <SelectItem value="DEPUTADO ESTADUAL">Deputado Estadual</SelectItem>
+                            <SelectItem value="PRESIDENTE">Presidente</SelectItem>
+                          </SelectContent>
+                        </Select>
                       </div>
-                      <div className="pt-2 border-t border-primary/10 flex justify-between">
-                        <span className="text-[10px] font-bold uppercase text-muted-foreground">Votos {db.config.candidato_urna || 'Candidato'}:</span>
-                        <span className="text-sm font-black text-primary">{buData.votos_candidato}</span>
+
+                      <div>
+                        <Label className="text-xs text-blue-900">Número do Candidato <span className="text-rose-500">*</span></Label>
+                        <Input 
+                          placeholder="Ex: 13, 22, 10123"
+                          value={numeroNovaCampanha}
+                          onChange={e => setNumeroNovaCampanha(e.target.value.replace(/\D/g, ''))}
+                          className="mt-1 bg-white"
+                          required
+                        />
+                      </div>
+
+                      <div className="sm:col-span-2">
+                        <Label className="text-xs text-blue-900">Nome de Urna do Candidato <span className="text-rose-500">*</span></Label>
+                        <Input 
+                          placeholder="Nome como aparecerá na urna"
+                          value={nomeUrnaNovaCampanha}
+                          onChange={e => setNomeUrnaNovaCampanha(e.target.value)}
+                          className="mt-1 bg-white"
+                          required
+                        />
                       </div>
                     </div>
-                    
-                    <Button 
-                      className="h-14 w-full text-lg font-black uppercase gap-2"
-                      onClick={handleBuSubmit}
-                      disabled={carregando}
-                    >
-                      {carregando ? <Loader2 className="size-5 animate-spin" /> : "Enviar Boletim"}
-                    </Button>
+
+                    {/* CAPTURA DE FOTO OBRIGATÓRIA */}
+                    <div className="border-t border-blue-200 pt-3 space-y-2">
+                      <Label className="text-xs font-bold text-blue-950 flex items-center gap-1">
+                        <Camera className="h-4 w-4 text-primary" />
+                        Foto Obrigatória de Validação do Administrador <span className="text-rose-500">*</span>
+                      </Label>
+                      <p className="text-[11px] text-blue-800">
+                        Para comprovar autenticidade, tire ou anexe uma foto para análise do Administrador Geral do Sistema.
+                      </p>
+
+                      <div className="flex flex-col items-center justify-center p-4 border-2 border-dashed border-blue-300 rounded-xl bg-white text-center">
+                        {usandoCamera ? (
+                          <div className="space-y-3 w-full max-w-xs">
+                            <video ref={videoRef} autoPlay playsInline className="w-full h-48 object-cover rounded-lg bg-black" />
+                            <Button type="button" size="sm" onClick={handleTirarFoto} className="w-full bg-emerald-600 hover:bg-emerald-700 text-white">
+                              <Camera className="mr-1 h-4 w-4" /> Capturar Foto
+                            </Button>
+                          </div>
+                        ) : fotoValidacaoAdmin ? (
+                          <div className="space-y-2">
+                            <img src={fotoValidacaoAdmin} alt="Validação Admin" className="w-32 h-40 object-cover rounded-lg border-2 border-primary mx-auto" />
+                            <Button type="button" variant="outline" size="sm" onClick={() => setFotoValidacaoAdmin("")}>
+                              <RefreshCw className="mr-1 h-3.5 w-3.5" /> Trocar Foto
+                            </Button>
+                          </div>
+                        ) : (
+                          <div className="space-y-3">
+                            <div className="flex justify-center gap-2">
+                              <Button type="button" size="sm" variant="secondary" onClick={handleIniciarCamera}>
+                                <Camera className="mr-1 h-4 w-4" /> Câmera
+                              </Button>
+                              <Button type="button" size="sm" variant="outline" onClick={() => fileInputRef.current?.click()}>
+                                <UploadCloud className="mr-1 h-4 w-4" /> Anexar
+                              </Button>
+                              <input type="file" ref={fileInputRef} accept="image/*" className="hidden" onChange={handleUploadFoto} />
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
                   </div>
                 )}
-
-                <div className="rounded-2xl border p-4 bg-muted/20 text-center">
-                  <p className="text-[9px] text-muted-foreground font-medium uppercase leading-tight">
-                    O fiscal não precisa estar logado para enviar. A auditoria é feita via assinatura digital do TSE.
-                  </p>
-                </div>
               </div>
-            </TabsContent>
+
+              {/* BOTÃO FINAL DE SUBMISSÃO */}
+              <Button 
+                type="submit" 
+                disabled={carregando}
+                className="w-full h-14 text-lg font-extrabold uppercase tracking-wide bg-primary hover:bg-primary/90 shadow-md"
+              >
+                {carregando ? (
+                  <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                ) : (
+                  <ShieldCheck className="mr-2 h-5 w-5" />
+                )}
+                {tipoVinculo === "eleitor" 
+                  ? "Concluir Cadastro de Eleitor" 
+                  : modoCriarAdmin 
+                    ? "Submeter Campanha e Admin para Aprovação Geral" 
+                    : "Solicitar Entrada na Campanha"}
+              </Button>
+            </form>
+          </TabsContent>
+
+          {/* TAB 2: SCANNER BU */}
+          <TabsContent value="bu" className="mt-6">
+            <div className="bg-white p-6 sm:p-8 rounded-3xl shadow-xl border border-slate-100 space-y-6">
+              <div className="text-center space-y-2">
+                <div className="size-16 bg-primary/10 text-primary rounded-full flex items-center justify-center mx-auto">
+                  <QrCode className="size-8" />
+                </div>
+                <h2 className="text-2xl font-extrabold text-slate-900">Leitor de Boletim de Urna (BU)</h2>
+                <p className="text-xs text-slate-500 max-w-sm mx-auto">
+                  Envie fotos ou escaneie o QR Code oficial do TSE impresso na seção para a Apuração Paralela do Democracias.
+                </p>
+              </div>
+
+              {!buData ? (
+                <div className="flex flex-col items-center justify-center p-8 border-2 border-dashed rounded-2xl bg-slate-50 text-center space-y-4">
+                  <Button 
+                    type="button" 
+                    size="lg" 
+                    className="h-14 px-8 text-md font-bold"
+                    onClick={simulatedScan}
+                    disabled={scanning}
+                  >
+                    {scanning ? (
+                      <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                    ) : (
+                      <Camera className="mr-2 h-5 w-5" />
+                    )}
+                    Escanear QR Code do BU
+                  </Button>
+                </div>
+              ) : (
+                <div className="space-y-4 animate-in fade-in">
+                  <div className="bg-emerald-50 border border-emerald-200 p-4 rounded-xl space-y-2 text-sm text-emerald-950">
+                    <div className="font-bold flex items-center gap-2">
+                      <CheckCircle2 className="h-5 w-5 text-emerald-600" />
+                      Boletim de Urna Validado com Sucesso!
+                    </div>
+                    <div className="grid grid-cols-2 gap-2 text-xs pt-2">
+                      <div><strong>Município:</strong> {buData.municipio} - {buData.uf}</div>
+                      <div><strong>Zona / Seção:</strong> {buData.zona} / {buData.secao}</div>
+                      <div><strong>Total de Votos:</strong> {buData.total_votos}</div>
+                      <div><strong>Votos Apurados:</strong> {buData.votos_candidato}</div>
+                    </div>
+                  </div>
+
+                  <Button 
+                    type="button" 
+                    className="w-full h-12 text-md bg-emerald-600 hover:bg-emerald-700 text-white"
+                    onClick={handleBuSubmit}
+                    disabled={carregando}
+                  >
+                    Salvar e Transmitir BU
+                  </Button>
+                </div>
+              )}
             </div>
-          </Tabs>
-        </div>
-
-      <div className="mt-10 px-6 text-center">
-        <Link to="/" className="text-sm font-mono text-muted-foreground underline">
-          VOLTAR AO ACESSO RESTRITO
-        </Link>
+          </TabsContent>
+        </Tabs>
       </div>
-    </div>
-  );
-}
-
-function LiderancaSelect({ municipio, value, onChange, db }: { municipio: string, value: string, onChange: (v: string) => void, db: any }) {
-  const liderancas = useMemo(() => {
-    let list = [...db.pessoas];
-    
-    // Priorização
-    return list.sort((a, b) => {
-      // 1. Prioridade por município selecionado
-      const aMatches = a.municipio === municipio;
-      const bMatches = b.municipio === municipio;
-      if (aMatches && !bMatches) return -1;
-      if (!aMatches && bMatches) return 1;
-
-      // 2. Destaque extra para Fortaleza
-      if (a.municipio === "Fortaleza" && b.municipio !== "Fortaleza") return -1;
-      if (a.municipio !== "Fortaleza" && b.municipio === "Fortaleza") return 1;
-
-      return a.nome.localeCompare(b.nome);
-    });
-  }, [db.pessoas, municipio]);
-
-  return (
-    <div className="space-y-1.5">
-      <Label className="text-[10px] font-bold uppercase text-muted-foreground">Liderança</Label>
-      <Select value={value} onValueChange={onChange}>
-        <SelectTrigger className="h-12 border-2">
-          <SelectValue placeholder="Selecione a liderança" />
-        </SelectTrigger>
-        <SelectContent>
-          {liderancas.map(p => (
-            <SelectItem key={p.id} value={p.id}>
-              {p.nome} {p.municipio ? `(${p.municipio})` : ""}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-    </div>
-  );
-}
-
-function MetaInfo({ municipio, liderancaId, db }: { municipio: string, liderancaId: string, db: any }) {
-  if (!municipio && !liderancaId) return null;
-
-  const lideranca = db.pessoas.find((p: any) => p.id === liderancaId);
-  const comiteLocal = db.comites.find((c: any) => c.municipio === municipio);
-  
-  const meta = lideranca?.meta_votos || comiteLocal?.meta_votos || 0;
-  
-  // Cálculo simplificado de material enviado
-  const enviado = db.saidas
-    .filter((s: any) => (liderancaId && s.pessoa_id === liderancaId) || (municipio && !liderancaId && db.comites.find((c: any) => c.id === s.comite_id)?.municipio === municipio))
-    .reduce((acc: number, s: any) => acc + s.itens.reduce((sum: number, i: any) => sum + i.quantidade, 0), 0);
-
-  const status = enviado >= meta && meta > 0 ? "Suficiente" : "Necessita mais";
-  const statusColor = status === "Suficiente" ? "text-green-600 bg-green-50" : "text-amber-600 bg-amber-50";
-
-  return (
-    <div className="rounded-2xl border-2 border-border bg-surface p-4 space-y-2 animate-in fade-in slide-in-from-top-2 duration-300">
-      <div className="flex items-center justify-between">
-        <span className="text-[10px] font-bold uppercase text-muted-foreground">Votos Estimados</span>
-        <span className="font-mono font-bold text-sm">{meta}</span>
-      </div>
-      <div className="flex items-center justify-between">
-        <span className="text-[10px] font-bold uppercase text-muted-foreground">Material já enviado</span>
-        <span className="font-mono font-bold text-sm">{enviado}</span>
-      </div>
-      <div className="flex items-center justify-between pt-1 border-t border-border">
-        <span className="text-[10px] font-bold uppercase text-muted-foreground">Status</span>
-        <span className={`px-2 py-0.5 rounded-full text-[10px] font-black uppercase ${statusColor}`}>
-          {status}
-        </span>
-      </div>
-    </div>
-  );
-}
-
-function Campo({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <div className="space-y-1.5">
-      <Label className="text-[11px] font-semibold uppercase text-muted-foreground">
-        {label}
-      </Label>
-      {children}
     </div>
   );
 }

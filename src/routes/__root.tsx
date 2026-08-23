@@ -13,6 +13,7 @@ import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 import { StoreProvider } from "@/lib/store";
 import { BottomNav } from "@/components/BottomNav";
+import { Footer } from "@/components/Footer";
 import { Toaster } from "@/components/ui/sonner";
 import { useCampaignScope } from "@/hooks/useCampaignScope";
 
@@ -137,15 +138,15 @@ function RootComponent() {
 
   useEffect(() => {
     // Redireciona para /onboarding se tentar acessar rotas protegidas sem campanha
-    const publicRoutes = ['/', '/auth', '/onboarding', '/pc'];
-    const isPublic = publicRoutes.includes(location);
+    const publicRoutes = ['/', '/auth', '/onboarding', '/pc', '/public/cadastro', '/bu'];
+    const isPublic = publicRoutes.some(r => location === r || location.startsWith('/public') || location.startsWith('/bu'));
 
     if (!isPublic && !campaign) {
       router.navigate({ to: '/onboarding' });
     }
   }, [campaign, location, router]);
 
-  const showBottomNav = !['/', '/auth', '/onboarding', '/pc'].includes(location);
+  const showBottomNav = !['/', '/auth', '/onboarding', '/pc'].includes(location) && !location.startsWith('/public');
 
   return (
     <QueryClientProvider client={queryClient}>
@@ -153,9 +154,10 @@ function RootComponent() {
         <div className="mx-auto flex min-h-screen w-full flex-col bg-background font-sans text-foreground shadow-2xl ring-1 ring-black/5 md:max-w-none lg:max-w-none">
           <div className="pointer-events-none fixed left-0 top-0 z-50 h-1 w-full bg-gradient-to-r from-primary to-accent" />
           {/* O container interno mantém a largura mobile para as páginas de campo, mas permite dashboard em tela cheia se necessário via classes nos filhos */}
-          <main className="mx-auto flex-1 pb-32 w-full">
+          <main className="mx-auto flex-1 pb-16 w-full">
             <Outlet />
           </main>
+          <Footer />
           {showBottomNav && <BottomNav />}
         </div>
         <Toaster position="top-center" />
