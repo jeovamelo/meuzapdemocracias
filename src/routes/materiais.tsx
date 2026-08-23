@@ -23,6 +23,7 @@ import { useCampaignScope } from "@/hooks/useCampaignScope";
 import {
   CATEGORIAS,
   formatNumero,
+  formatDataHora,
   isCritico,
   type CategoriaMaterial,
   type KitItem,
@@ -777,7 +778,7 @@ function Historico() {
                   )}
                 </div>
                 <p className="text-[10px] font-medium text-muted-foreground">
-                  {new Date(m.criado_em).toLocaleString('pt-BR')} • {m.observacao}
+                  {formatDataHora(m.criado_em)} • {m.observacao}
                 </p>
               </div>
               <div className="text-right">

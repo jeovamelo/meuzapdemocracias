@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 import { PageHeader } from "@/components/PageHeader";
 import { useStore } from "@/lib/store";
-import { formatNumero } from "@/lib/db";
+import { formatNumero, formatHora } from "@/lib/db";
 import { 
   BarChart3, 
   Target, 
@@ -335,7 +335,7 @@ function ApuracaoParalela() {
                         <Badge variant="outline" className="text-[9px] uppercase font-mono">{bu.municipio}</Badge>
                       </div>
                       <div className="flex items-center gap-3 text-[10px] font-bold text-muted-foreground uppercase">
-                        <span className="flex items-center gap-1"><Clock className="size-3" /> {new Date(bu.data_leitura).toLocaleTimeString()}</span>
+                        <span className="flex items-center gap-1"><Clock className="size-3" /> {formatHora(bu.data_leitura)}</span>
                         <span className="flex items-center gap-1"><ShieldCheck className="size-3 text-green-500" /> TSE Validado</span>
                       </div>
                     </div>

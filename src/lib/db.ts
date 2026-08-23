@@ -292,21 +292,4 @@ export const formatTelefone = (t: string) => {
   return t;
 };
 
-export const isHoje = (iso: string) => {
-  const d = new Date(iso);
-  const n = new Date();
-  return (
-    d.getDate() === n.getDate() &&
-    d.getMonth() === n.getMonth() &&
-    d.getFullYear() === n.getFullYear()
-  );
-};
-
-export const formatHora = (iso: string) =>
-  new Date(iso).toLocaleTimeString("pt-BR", {
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-
-export const formatData = (iso: string) =>
-  new Date(iso).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" });
+export { formatHora, formatData, formatDataHora, formatDataCompleta, isHoje, APP_TIMEZONE } from "./date";

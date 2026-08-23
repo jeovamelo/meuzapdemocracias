@@ -38,6 +38,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { formatHora, formatDataCompleta } from '@/lib/date';
 
 export const Route = createFileRoute('/pc')({
   component: PcPage,
@@ -183,7 +184,7 @@ function PcPage() {
             phone: item.jid || item.owner || 'Não pareado',
             status: item.connected ? 'connected' : (item.qrcode ? 'connecting' : 'disconnected'),
             campaign: item.name?.replace('camp_', 'Campanha ') || 'Sistema Geral',
-            updatedAt: item.createdAt ? new Date(item.createdAt).toLocaleTimeString() : 'Recentemente'
+            updatedAt: item.createdAt ? formatHora(item.createdAt) : 'Recentemente'
           }));
           setInstances(list);
           
@@ -205,7 +206,7 @@ function PcPage() {
             phone: d.phone_number || 'Não informado',
             status: d.status || 'disconnected',
             campaign: d.campanha_id ? `Campanha #${d.campanha_id}` : 'Sistema Geral',
-            updatedAt: d.updated_at ? new Date(d.updated_at).toLocaleTimeString() : ''
+            updatedAt: d.updated_at ? formatHora(d.updated_at) : ''
           }));
           setInstances(mapped);
         }
@@ -816,7 +817,7 @@ function PcPage() {
                           <td className="px-4 py-4 text-xs text-slate-500">
                             <span className="inline-flex items-center gap-1.5">
                               <CalendarDays className="h-3.5 w-3.5" />
-                              {campaign.created_at ? new Date(campaign.created_at).toLocaleDateString('pt-BR') : '—'}
+                              {campaign.created_at ? formatDataCompleta(campaign.created_at) : '—'}
                             </span>
                           </td>
                           <td className="px-4 py-4 text-right">
