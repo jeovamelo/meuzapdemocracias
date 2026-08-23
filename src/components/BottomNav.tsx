@@ -2,7 +2,7 @@ import { Link } from "@tanstack/react-router";
 import { Home, MapPin, Users, Package, ArrowRightLeft, Target, QrCode } from "lucide-react";
  
  const tabs = [
-   { to: "/", label: "Início", icon: Home, exact: true },
+   { to: "/dashboard", label: "Início", icon: Home, exact: true },
    { to: "/potencial", label: "Inteligência", icon: Target, exact: false },
    { to: "/comites", label: "Comitês", icon: MapPin, exact: false },
    { to: "/pessoas", label: "Pessoas", icon: Users, exact: false },

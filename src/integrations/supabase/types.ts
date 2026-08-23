@@ -139,6 +139,7 @@ export type Database = {
       }
       cidade_metas: {
         Row: {
+          campaign_id: string | null
           criado_em: string | null
           id: string
           meta_campanha: number | null
@@ -147,6 +148,7 @@ export type Database = {
           uf: string
         }
         Insert: {
+          campaign_id?: string | null
           criado_em?: string | null
           id?: string
           meta_campanha?: number | null
@@ -155,6 +157,7 @@ export type Database = {
           uf: string
         }
         Update: {
+          campaign_id?: string | null
           criado_em?: string | null
           id?: string
           meta_campanha?: number | null

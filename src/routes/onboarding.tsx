@@ -40,6 +40,35 @@ const ESTADOS_BR = [
   'PA', 'PB', 'PR', 'PE', 'PI', 'RJ', 'RN', 'RS', 'RO', 'RR', 'SC', 'SP', 'SE', 'TO'
 ];
 
+const CANDIDATE_PHOTOS_BASE_PATH = '/candidatos';
+
+function montarUrlFotoCandidato(sqCandidato?: string | number | null): string {
+  const identificador = String(sqCandidato ?? '').replace(/\D/g, '');
+  return identificador
+    ? `${CANDIDATE_PHOTOS_BASE_PATH}/FCE${identificador}_div.jpg`
+    : '';
+}
+
+function calcularIdade(dataNascimento?: string | null): number | null {
+  if (!dataNascimento) return null;
+
+  const partesBr = dataNascimento.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+  const data = partesBr
+    ? new Date(Number(partesBr[3]), Number(partesBr[2]) - 1, Number(partesBr[1]))
+    : new Date(dataNascimento);
+
+  if (Number.isNaN(data.getTime())) return null;
+
+  const hoje = new Date();
+  let idade = hoje.getFullYear() - data.getFullYear();
+  const aniversarioAindaNaoOcorreu =
+    hoje.getMonth() < data.getMonth() ||
+    (hoje.getMonth() === data.getMonth() && hoje.getDate() < data.getDate());
+
+  if (aniversarioAindaNaoOcorreu) idade -= 1;
+  return idade >= 0 ? idade : null;
+}
+
 function OnboardingPage() {
   const navigate = useNavigate();
   const { setCampaign } = useCampaignScope();
@@ -62,6 +91,8 @@ function OnboardingPage() {
   const [numero, setNumero] = useState('');
   const [isLoadingTse, setIsLoadingTse] = useState(false);
   const [campanhaJaCadastrada, setCampanhaJaCadastrada] = useState<any | null>(null);
+  const [candidateLookupMessage, setCandidateLookupMessage] = useState('');
+  const [candidatePhotoUnavailable, setCandidatePhotoUnavailable] = useState(false);
 
   const [candidateData, setCandidateData] = useState<{
     nome: string;
@@ -82,6 +113,7 @@ function OnboardingPage() {
     grauInstrucao?: string;
     ocupacao?: string;
     corRaca?: string;
+    sqCandidato?: string;
     fotoUrl?: string;
     vice?: { nome: string; nomeUrna: string; fotoUrl: string };
     dadosEleitoraisEncontrados?: boolean;
@@ -377,6 +409,8 @@ function OnboardingPage() {
     setIsLoadingTse(true);
     setCampanhaJaCadastrada(null);
     setCandidateData(null);
+    setCandidateLookupMessage('');
+    setCandidatePhotoUnavailable(false);
 
     try {
       const cleanUf = uf.trim().toUpperCase();
@@ -392,7 +426,7 @@ function OnboardingPage() {
       const { data: candidato, error: candidatoError } = await (supabase as any)
         .from('tse_candidatos')
         .select([
-          'uf', 'cargo', 'nr_candidato', 'nm_candidato', 'nm_urna_candidato', 'foto_url',
+          'uf', 'cargo', 'nr_candidato', 'sq_candidato', 'nm_candidato', 'nm_urna_candidato', 'foto_url',
           'sg_partido', 'nm_partido', 'nr_partido', 'tp_agremiacao',
           'nm_federacao', 'sg_federacao', 'ds_composicao_federacao',
           'nm_coligacao', 'ds_composicao_coligacao', 'dt_nascimento',
@@ -411,44 +445,40 @@ function OnboardingPage() {
       if (candidato) {
         setCandidateData({
           nome: candidato.nm_candidato || '',
-          nomeUrna: candidato.nm_urna_candidato || candidato.nm_candidato || '',
-          cargo: candidato.cargo || cargoSelecionado,
-          partido: candidato.sg_partido || candidato.nm_partido || 'Não informado',
+          nomeUrna: candidato.nm_urna_candidato || '',
+          cargo: candidato.cargo || '',
+          partido: candidato.sg_partido || candidato.nm_partido || '',
           numeroPartido: candidato.nr_partido || '',
-          tipoAgremiacao: candidato.tp_agremiacao || 'Não informado',
+          tipoAgremiacao: candidato.tp_agremiacao || '',
           nomeFederacao: candidato.nm_federacao || '',
           siglaFederacao: candidato.sg_federacao || '',
           composicaoFederacao: candidato.ds_composicao_federacao || '',
           coligacao: candidato.nm_coligacao || '',
           composicaoColigacao: candidato.ds_composicao_coligacao || '',
-          dataNascimento: candidato.dt_nascimento || 'Não informado',
-          numeroCandidato: candidato.nr_candidato || cleanNr,
-          genero: candidato.ds_genero || 'Não informado',
-          grauInstrucao: candidato.ds_grau_instrucao || 'Não informado',
-          ocupacao: candidato.ds_ocupacao || 'Não informado',
-          corRaca: candidato.ds_cor_raca || 'Não informado',
-          fotoUrl: candidato.foto_url || '',
+          dataNascimento: candidato.dt_nascimento || '',
+          idade: calcularIdade(candidato.dt_nascimento),
+          numeroCandidato: candidato.nr_candidato || '',
+          genero: candidato.ds_genero || '',
+          grauInstrucao: candidato.ds_grau_instrucao || '',
+          ocupacao: candidato.ds_ocupacao || '',
+          corRaca: candidato.ds_cor_raca || '',
+          sqCandidato: candidato.sq_candidato || '',
+          // A foto oficial vem do acervo estático da VPS, indexado pelo SQ do candidato.
+          // Não há consulta a API externa nem uso de cache local neste fluxo.
+          fotoUrl: montarUrlFotoCandidato(candidato.sq_candidato),
           dadosEleitoraisEncontrados: true,
         });
         toast.success('Dados do candidato encontrados no banco eleitoral da plataforma.');
         return;
       }
 
-      // Uma tabela `campaigns` sem registro homônimo nunca bloqueia o cadastro.
-      // Caso a base eleitoral ainda não contenha o candidato, o administrador pode
-      // continuar o fluxo, sem que o sistema tente consultar qualquer fonte externa.
-      setCandidateData({
-        nome: `Campanha ${cleanNr}`,
-        nomeUrna: `Campanha ${cleanNr}`,
-        cargo: cargoSelecionado,
-        partido: 'A informar',
-        numeroCandidato: cleanNr,
-        dadosEleitoraisEncontrados: false,
-      });
-      toast.success('Campanha disponível para cadastro. Os dados eleitorais poderão ser complementados depois.');
+      // Sem candidato no Supabase, o fluxo não cria dados fictícios nem consulta outra fonte.
+      setCandidateLookupMessage('Nenhum candidato foi encontrado na base eleitoral da plataforma para os dados informados.');
+      toast.error('Candidato não encontrado no banco eleitoral da plataforma.');
     } catch (err) {
       console.warn('Falha ao verificar a unicidade da campanha:', err);
       toast.error('Não foi possível consultar as campanhas. Tente novamente.');
+      setCandidateLookupMessage('Não foi possível consultar o banco eleitoral da plataforma. Tente novamente.');
       setCandidateData(null);
     } finally {
       setIsLoadingTse(false);
@@ -752,36 +782,43 @@ function OnboardingPage() {
               )}
             </form>
 
+            {candidateLookupMessage && !candidateData && !campanhaJaCadastrada && (
+              <div className="mt-5 flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
+                <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0" />
+                <p>{candidateLookupMessage}</p>
+              </div>
+            )}
+
             {/* DADOS ENCONTRADOS / CONFIRMAÇÃO PARA AVANÇAR */}
             {candidateData && !campanhaJaCadastrada && (
               <div className="space-y-6 pt-4 border-t">
                 <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-5 flex items-center gap-4">
-                  {candidateData.fotoUrl ? (
+                  {candidateData.fotoUrl && !candidatePhotoUnavailable ? (
                     <img
                       src={candidateData.fotoUrl}
                       alt={candidateData.nomeUrna}
                       className="w-20 h-24 object-cover rounded-lg border border-emerald-300 shadow-sm bg-white"
                       onError={(e) => {
-                        e.currentTarget.style.display = 'none';
+                        e.currentTarget.onerror = null;
+                        setCandidatePhotoUnavailable(true);
                       }}
                     />
                   ) : (
-                    <div className="w-20 h-24 bg-emerald-100 rounded-lg flex items-center justify-center text-emerald-700 font-bold">
-                      {candidateData.nomeUrna?.[0] || 'C'}
+                    <div className="w-20 h-24 bg-emerald-100 rounded-lg flex flex-col items-center justify-center px-2 text-center text-emerald-700">
+                      <span className="text-lg font-bold">{candidateData.nomeUrna?.split(' ').map((parte) => parte[0]).join('').slice(0, 2) || 'C'}</span>
+                      <span className="mt-1 text-[9px] font-semibold leading-tight">Foto indisponível na base</span>
                     </div>
                   )}
 
                   <div className="flex-1">
                     <div className="text-xs font-bold uppercase tracking-wider text-emerald-800">
-                      {candidateData.dadosEleitoraisEncontrados
-                        ? 'Dados encontrados no banco eleitoral'
-                        : 'Campanha disponível para cadastro'}
+                      Dados encontrados no banco eleitoral
                     </div>
                     <div className="text-lg font-bold text-emerald-950">
                       {candidateData.nomeUrna || candidateData.nome}
                     </div>
                     <div className="text-sm text-emerald-700">
-                      {candidateData.cargo} • Partido: {candidateData.partido || 'N/A'} • {uf}
+                      {candidateData.cargo || '—'} • Partido: {candidateData.partido || '—'} • {uf}
                     </div>
                   </div>
                 </div>
@@ -789,49 +826,49 @@ function OnboardingPage() {
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 rounded-xl border border-emerald-200 bg-white p-5 text-sm shadow-sm">
                   <div>
                     <span className="block text-[10px] font-bold uppercase tracking-wider text-slate-500">Número de Urna</span>
-                    <strong className="text-base text-slate-900">{candidateData.numeroCandidato || numero}</strong>
+                    <strong className="text-base text-slate-900">{candidateData.numeroCandidato || '—'}</strong>
                   </div>
                   <div>
                     <span className="block text-[10px] font-bold uppercase tracking-wider text-slate-500">Cargo</span>
-                    <strong className="text-base text-slate-900">{candidateData.cargo}</strong>
+                    <strong className="text-base text-slate-900">{candidateData.cargo || '—'}</strong>
                   </div>
                   <div>
                     <span className="block text-[10px] font-bold uppercase tracking-wider text-slate-500">Data de Nascimento</span>
-                    <strong className="text-slate-800">{candidateData.dataNascimento || 'Não informado'}</strong>
+                    <strong className="text-slate-800">{candidateData.dataNascimento || '—'}</strong>
                   </div>
                   <div>
                     <span className="block text-[10px] font-bold uppercase tracking-wider text-slate-500">Idade</span>
-                    <strong className="text-slate-800">{candidateData.idade ? `${candidateData.idade} anos` : 'Não informado'}</strong>
+                    <strong className="text-slate-800">{candidateData.idade !== null && candidateData.idade !== undefined ? `${candidateData.idade} anos` : '—'}</strong>
                   </div>
 
                   <div>
                     <span className="block text-[10px] font-bold uppercase tracking-wider text-slate-500">Partido</span>
-                    <strong className="text-slate-800">{candidateData.partido || 'Não informado'} {candidateData.numeroPartido ? `(${candidateData.numeroPartido})` : ''}</strong>
+                    <strong className="text-slate-800">{candidateData.partido || '—'} {candidateData.numeroPartido ? `(${candidateData.numeroPartido})` : ''}</strong>
                   </div>
                   <div>
                     <span className="block text-[10px] font-bold uppercase tracking-wider text-slate-500">Tipo de Agremiação</span>
-                    <strong className="text-slate-800">{candidateData.tipoAgremiacao || 'Não informado'}</strong>
+                    <strong className="text-slate-800">{candidateData.tipoAgremiacao || '—'}</strong>
                   </div>
                   <div className="col-span-2">
                     <span className="block text-[10px] font-bold uppercase tracking-wider text-slate-500">Federação / Coligação</span>
-                    <strong className="text-slate-800">{candidateData.nomeFederacao || candidateData.siglaFederacao || candidateData.coligacao || 'Partido Isolado'} {candidateData.composicaoFederacao ? `(${candidateData.composicaoFederacao})` : ''}</strong>
+                    <strong className="text-slate-800">{candidateData.nomeFederacao || candidateData.siglaFederacao || candidateData.coligacao || '—'} {candidateData.composicaoFederacao ? `(${candidateData.composicaoFederacao})` : ''}</strong>
                   </div>
 
                   <div>
                     <span className="block text-[10px] font-bold uppercase tracking-wider text-slate-500">Gênero</span>
-                    <strong className="text-slate-800">{candidateData.genero || 'Não informado'}</strong>
+                    <strong className="text-slate-800">{candidateData.genero || '—'}</strong>
                   </div>
                   <div>
                     <span className="block text-[10px] font-bold uppercase tracking-wider text-slate-500">Grau de Instrução</span>
-                    <strong className="text-slate-800">{candidateData.grauInstrucao || 'Não informado'}</strong>
+                    <strong className="text-slate-800">{candidateData.grauInstrucao || '—'}</strong>
                   </div>
                   <div>
                     <span className="block text-[10px] font-bold uppercase tracking-wider text-slate-500">Cor / Raça</span>
-                    <strong className="text-slate-800">{candidateData.corRaca || 'Não informado'}</strong>
+                    <strong className="text-slate-800">{candidateData.corRaca || '—'}</strong>
                   </div>
                   <div>
                     <span className="block text-[10px] font-bold uppercase tracking-wider text-slate-500">Ocupação</span>
-                    <strong className="text-slate-800">{candidateData.ocupacao || 'Não informado'}</strong>
+                    <strong className="text-slate-800">{candidateData.ocupacao || '—'}</strong>
                   </div>
                 </div>
 
@@ -850,7 +887,11 @@ function OnboardingPage() {
                 <div className="flex gap-3 pt-2">
                   <Button
                     variant="outline"
-                    onClick={() => { setCandidateData(null); }}
+                    onClick={() => {
+                      setCandidateData(null);
+                      setCandidateLookupMessage('');
+                      setCandidatePhotoUnavailable(false);
+                    }}
                     className="flex-1 h-12"
                   >
                     Alterar Busca

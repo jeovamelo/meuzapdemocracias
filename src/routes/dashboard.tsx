@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import {
   Plus,
@@ -13,6 +14,8 @@ import {
   Settings2,
 } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
+import { useCampaignScope } from "@/hooks/useCampaignScope";
+import { supabase } from "@/integrations/supabase/client";
 import { useStore } from "@/lib/store";
 import { formatNumero, isCritico, isHoje, pad2, type Material } from "@/lib/db";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -67,8 +70,62 @@ const iconePorCategoria = (m: Material) => {
 
 const COLORS = ["var(--primary)", "var(--accent)", "#10b981", "#8b5cf6", "#f43f5e"];
 
+type CampaignHeaderData = {
+  nomeUrna: string;
+  numero: string;
+  uf: string;
+};
+
 function Dashboard() {
   const { db, ready } = useStore();
+  const { campaign } = useCampaignScope();
+  const [campaignHeader, setCampaignHeader] = useState<CampaignHeaderData | null>(null);
+
+  useEffect(() => {
+    let active = true;
+
+    const fallback = campaign
+      ? {
+          nomeUrna: campaign.nomeUrna,
+          numero: campaign.numero,
+          uf: campaign.uf,
+        }
+      : null;
+
+    if (!campaign?.id) {
+      setCampaignHeader(fallback);
+      return () => {
+        active = false;
+      };
+    }
+
+    async function loadCampaignHeader() {
+      const { data, error } = await supabase
+        .from("campaigns")
+        .select("nome_urna, nr_candidato, uf")
+        .eq("id", campaign.id)
+        .maybeSingle();
+
+      if (!active) return;
+
+      if (error || !data) {
+        setCampaignHeader(fallback);
+        return;
+      }
+
+      setCampaignHeader({
+        nomeUrna: data.nome_urna || fallback?.nomeUrna || "Campanha",
+        numero: data.nr_candidato || fallback?.numero || "",
+        uf: data.uf || fallback?.uf || "",
+      });
+    }
+
+    void loadCampaignHeader();
+
+    return () => {
+      active = false;
+    };
+  }, [campaign?.id, campaign?.nomeUrna, campaign?.numero, campaign?.uf]);
 
   const comitesAtivos = db.comites.filter((c) => c.ativo).length;
   const apoiadores = db.pessoas.length;
@@ -78,7 +135,12 @@ function Dashboard() {
     .reduce((acc, s) => acc + s.kits.reduce((a, k) => a + k.quantidade, 0), 0);
 
   // Filtragem por UF da Campanha
-  const ufCampanha = db.config.uf || "CE";
+  const ufCampanha = campaignHeader?.uf || db.config.uf || "CE";
+  const dashboardTitle = campaignHeader
+    ? [campaignHeader.nomeUrna, campaignHeader.numero, campaignHeader.uf]
+        .filter(Boolean)
+        .join(" • ")
+    : `Gestão ${db.config.uf || "Estadual"}`;
 
   // Dados para Gráfico por Município (filtrados pela UF da campanha)
   const dadosPorMunicipio = db.comites
@@ -122,11 +184,11 @@ function Dashboard() {
 
       <PageHeader
         eyebrow="Painel Administrativo"
-        title={`Gestão ${db.config.uf || "Estadual"}`}
+        title={dashboardTitle}
         right={
           <div className="flex items-center gap-2">
             <span className="hidden font-mono text-xs text-muted-foreground md:inline">
-              {db.config.uf || "BR"}-LOG V2.0
+              {campaignHeader?.uf || db.config.uf || "BR"}-LOG V2.0
             </span>
             <Link
               to="/whatsapp"
