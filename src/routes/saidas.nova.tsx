@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { useStore } from "@/lib/store";
 import { formatNumero, type SaidaItem } from "@/lib/db";
 import { Input } from "@/components/ui/input";
+import { EstadoCidadeSelect } from "@/components/EstadoCidadeSelect";
 
 export const Route = createFileRoute("/saidas/nova")({
   head: () => ({
@@ -34,6 +35,8 @@ function NovaSaida() {
   const [comiteId, setComiteId] = useState("");
   const [pessoaId, setPessoaId] = useState("");
   const [busca, setBusca] = useState("");
+  const [filtroUf, setFiltroUf] = useState(db.config.uf || "CE");
+  const [filtroCidade, setFiltroCidade] = useState("");
   const [kits, setKits] = useState<Record<string, number>>({});
   const [avulsos, setAvulsos] = useState<Record<string, number>>({});
   const [salvando, setSalvando] = useState(false);
@@ -41,6 +44,12 @@ function NovaSaida() {
   const pessoas = db.pessoas.filter((p) =>
     `${p.nome} ${p.funcao}`.toLowerCase().includes(busca.toLowerCase()),
   );
+
+  const comitesFiltrados = db.comites.filter((c) => {
+    const matchUf = !filtroUf || c.uf === filtroUf;
+    const matchCidade = !filtroCidade || (c.municipio && c.municipio.toLowerCase().includes(filtroCidade.toLowerCase()));
+    return matchUf && matchCidade;
+  });
 
   const itensFinais: SaidaItem[] = [
     ...Object.entries(kits).flatMap(([kitId, qtd]) => {
@@ -111,31 +120,49 @@ function NovaSaida() {
 
       <main className="animate-slide-up px-5 py-6 pb-40">
         {passo === 0 && (
-          <div className="space-y-2">
-            <p className="mb-4 font-mono text-xs uppercase text-muted-foreground">
+          <div className="space-y-3">
+            <div className="rounded-xl border border-border bg-surface p-3 space-y-2">
+              <p className="font-mono text-[10px] uppercase font-bold text-muted-foreground">
+                Filtrar Comitês por Região
+              </p>
+              <EstadoCidadeSelect
+                uf={filtroUf}
+                cidade={filtroCidade}
+                onUfChange={setFiltroUf}
+                onCidadeChange={setFiltroCidade}
+                showLabels={false}
+              />
+            </div>
+            <p className="font-mono text-xs uppercase text-muted-foreground pt-1">
               De qual comitê o material sai?
             </p>
-            {db.comites.map((c) => (
-              <button
-                key={c.id}
-                onClick={() => setComiteId(c.id)}
-                className={`flex w-full items-center justify-between rounded-xl border p-4 text-left ${
-                  comiteId === c.id ? "border-2 border-primary bg-primary/5" : "border-border bg-surface"
-                }`}
-              >
-                <div>
-                  <p className="font-bold leading-tight">{c.nome}</p>
-                  <p className="flex items-center gap-1 text-xs text-muted-foreground">
-                    <MapPin className="size-3" /> {c.bairro}
-                  </p>
-                </div>
-                {comiteId === c.id && (
-                  <span className="flex size-5 items-center justify-center rounded-full bg-primary">
-                    <Check className="size-3 text-primary-foreground" strokeWidth={4} />
-                  </span>
-                )}
-              </button>
-            ))}
+            {comitesFiltrados.length === 0 ? (
+              <p className="rounded-xl border border-border bg-surface p-4 text-xs text-muted-foreground text-center">
+                Nenhum comitê encontrado para a localidade selecionada.
+              </p>
+            ) : (
+              comitesFiltrados.map((c) => (
+                <button
+                  key={c.id}
+                  onClick={() => setComiteId(c.id)}
+                  className={`flex w-full items-center justify-between rounded-xl border p-4 text-left ${
+                    comiteId === c.id ? "border-2 border-primary bg-primary/5" : "border-border bg-surface"
+                  }`}
+                >
+                  <div>
+                    <p className="font-bold leading-tight">{c.nome}</p>
+                    <p className="flex items-center gap-1 text-xs text-muted-foreground">
+                      <MapPin className="size-3" /> {c.bairro} {c.municipio ? `• ${c.municipio}/${c.uf}` : ""}
+                    </p>
+                  </div>
+                  {comiteId === c.id && (
+                    <span className="flex size-5 items-center justify-center rounded-full bg-primary">
+                      <Check className="size-3 text-primary-foreground" strokeWidth={4} />
+                    </span>
+                  )}
+                </button>
+              ))
+            )}
           </div>
         )}
 

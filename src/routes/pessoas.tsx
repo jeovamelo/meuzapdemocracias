@@ -23,6 +23,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { EstadoCidadeSelect } from "@/components/EstadoCidadeSelect";
 
 export const Route = createFileRoute("/pessoas")({
   head: () => ({
@@ -231,22 +232,13 @@ function PessoasPage() {
                       placeholder="00000-000"
                     />
                   </Campo>
-                  <Campo label="Município">
-                    <Input
-                      value={form.municipio}
-                      onChange={(e) => setForm({ ...form, municipio: e.target.value })}
-                      placeholder="Cidade"
-                    />
-                  </Campo>
-                  <Campo label="UF">
-                    <Input
-                      value={form.uf}
-                      onChange={(e) => setForm({ ...form, uf: e.target.value.toUpperCase() })}
-                      placeholder="UF"
-                      maxLength={2}
-                    />
-                  </Campo>
                 </div>
+                <EstadoCidadeSelect
+                  uf={form.uf}
+                  cidade={form.municipio}
+                  onUfChange={(newUf) => setForm({ ...form, uf: newUf })}
+                  onCidadeChange={(newMunicipio) => setForm({ ...form, municipio: newMunicipio })}
+                />
                 <Campo label="Endereço">
                   <Input
                     value={form.endereco}

@@ -16,6 +16,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { EstadoCidadeSelect } from "@/components/EstadoCidadeSelect";
 
 export const Route = createFileRoute("/comites")({
   head: () => ({
@@ -273,26 +274,13 @@ function ComitesPage() {
                   placeholder="Vila Maria / Zona Norte"
                 />
               </Campo>
-              <div className="grid grid-cols-4 gap-3">
-                <div className="col-span-3">
-                  <Campo label="Município">
-                    <Input
-                      value={form.municipio}
-                      onChange={(e) => setForm({ ...form, municipio: e.target.value })}
-                      placeholder="Fortaleza, Caucaia..."
-                    />
-                  </Campo>
-                </div>
-                <div>
-                  <Campo label="UF">
-                    <Input
-                      value={form.uf}
-                      onChange={(e) => setForm({ ...form, uf: e.target.value.toUpperCase() })}
-                      placeholder="CE"
-                      maxLength={2}
-                    />
-                  </Campo>
-                </div>
+              <div className="space-y-1">
+                <EstadoCidadeSelect
+                  uf={form.uf}
+                  cidade={form.municipio}
+                  onUfChange={(newUf) => setForm({ ...form, uf: newUf })}
+                  onCidadeChange={(newMunicipio) => setForm({ ...form, municipio: newMunicipio })}
+                />
               </div>
               <Campo label="Ponto de Referência">
                 <Input
