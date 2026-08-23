@@ -554,7 +554,7 @@ function PcPage() {
 
                 {/* PAINEL DE WHATSAPP / EVOLUTION MANAGER */}
                 <a 
-                  href="https://api.democracias.org/manager/" 
+                  href="https://manager.democracias.org" 
                   target="_blank" 
                   rel="noreferrer" 
                   className="p-5 rounded-xl border border-slate-200 bg-white hover:border-emerald-300 hover:bg-emerald-50/30 transition-all flex items-center justify-between group"
