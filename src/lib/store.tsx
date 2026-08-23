@@ -106,16 +106,26 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         supabase.from("config_campanha").select("*").single(),
         supabase.from("boletins_urna").select("*").order("data_leitura", { ascending: false }),
         supabase.from("historico_estoque").select("*").order("criado_em", { ascending: false }),
-        (supabase as any).from("campanhas_registradas").select("*").order("criado_em", { ascending: false }),
+        supabase.from("campaigns").select("*").order("created_at", { ascending: false }),
         (supabase as any).from("solicitacoes_adesao").select("*").order("criado_em", { ascending: false }),
       ]);
 
-      // Fallback local caso tabelas ainda estejam sendo provisionadas
-      const localCampanhas: CampanhaRegistro[] = JSON.parse(localStorage.getItem("democracias-campanhas-locais") || "[]");
-      const localAdesoes: SolicitacaoAdesaoCampanha[] = JSON.parse(localStorage.getItem("democracias-adesao-locais") || "[]");
-
-      const allCampanhas = [...(campanhasDb || []), ...localCampanhas].filter((v, i, a) => a.findIndex(t => t.id === v.id) === i);
-      const allAdesoes = [...(adesaoDb || []), ...localAdesoes].filter((v, i, a) => a.findIndex(t => t.id === v.id) === i);
+      const mappedCampanhas: CampanhaRegistro[] = (campanhasDb || []).map((c: any) => ({
+        id: c.id,
+        uf: c.uf,
+        numero: c.nr_candidato,
+        cargo: c.cargo || "",
+        candidato_nome: c.nome_candidato || "",
+        candidato_urna: c.nome_urna || "",
+        partido_coligacao: c.partido || "",
+        foto_candidato_url: "",
+        admin_nome: "",
+        admin_cpf: "",
+        admin_telefone: "",
+        admin_foto_validacao_url: "",
+        status_validacao: "aprovado",
+        criado_em: c.created_at,
+      }));
 
       setDb({
         comites: (comites || []) as any,
@@ -128,8 +138,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         config: (config || DEFAULT_CONFIG) as any,
         boletins: (boletins || []) as any,
         historico_estoque: (historico || []) as any,
-        campanhas_registradas: (allCampanhas || []) as any,
-        solicitacoes_adesao: (allAdesoes || []) as any,
+        campanhas_registradas: mappedCampanhas,
+        solicitacoes_adesao: (adesaoDb || []) as any,
       });
       setReady(true);
     } catch (error) {
@@ -199,62 +209,95 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       }
     },
     verificarCampanhaExiste: async (uf: string, numero: string, cargo?: string) => {
-      // 1. Verificar em memória
-      const matchMemoria = db.campanhas_registradas.find(
-        c => c.uf.toUpperCase() === uf.toUpperCase() && c.numero.trim() === numero.trim() && (!cargo || c.cargo.toUpperCase() === cargo.toUpperCase())
-      );
-      if (matchMemoria) return matchMemoria;
-
-      // 2. Verificar no Supabase
       try {
-        let query = (supabase as any)
-          .from("campanhas_registradas")
+        const cleanUf = uf.toUpperCase().trim();
+        const cleanNr = numero.trim();
+
+        // 1. Consultar tabela oficial `campaigns` do Supabase
+        let query = supabase
+          .from("campaigns")
           .select("*")
-          .eq("uf", uf.toUpperCase().trim())
-          .eq("numero", numero.trim());
+          .eq("uf", cleanUf)
+          .eq("nr_candidato", cleanNr);
         
         if (cargo) {
-          query = query.eq("cargo", cargo.trim());
+          query = query.ilike("cargo", `%${cargo.trim()}%`);
         }
 
-        const { data, error } = await query.maybeSingle();
-        if (data && !error) return data as CampanhaRegistro;
-      } catch (e) {
-        console.warn("Erro ao consultar campanhas_registradas no Supabase:", e);
-      }
+        const { data, error } = await query.limit(1).maybeSingle();
+        if (data && !error) {
+          return {
+            id: data.id,
+            uf: data.uf,
+            numero: data.nr_candidato,
+            cargo: data.cargo || "",
+            candidato_nome: data.nome_candidato || "",
+            candidato_urna: data.nome_urna || "",
+            partido_coligacao: data.partido || "",
+            foto_candidato_url: "",
+            admin_nome: "",
+            admin_cpf: "",
+            admin_telefone: "",
+            admin_foto_validacao_url: "",
+            status_validacao: "aprovado",
+            criado_em: data.created_at,
+          } as CampanhaRegistro;
+        }
 
-      // 3. Verificar localStorage
-      const localCampanhas: CampanhaRegistro[] = JSON.parse(localStorage.getItem("democracias-campanhas-locais") || "[]");
-      const matchLocal = localCampanhas.find(
-        c => c.uf.toUpperCase() === uf.toUpperCase() && c.numero.trim() === numero.trim() && (!cargo || c.cargo.toUpperCase() === cargo.toUpperCase())
-      );
-      return matchLocal || null;
+        // Tabela campaigns está limpa / não há campanha existente
+        return null;
+      } catch (e) {
+        console.warn("Erro ao consultar campaigns no Supabase:", e);
+        return null;
+      }
     },
     addCampanhaRegistro: async (camp) => {
-      const novaCampanha: CampanhaRegistro = {
-        ...camp,
-        id: `camp_${uid()}`,
-        criado_em: new Date().toISOString()
-      };
-
       try {
-        const { data, error } = await (supabase as any).from("campanhas_registradas").insert([novaCampanha]).select().single();
+        const session = (await supabase.auth.getSession()).data.session;
+        const adminUserId = session?.user?.id || `anon_${uid()}`;
+
+        const novaCampanhaSupabase = {
+          ano_eleicao: 2026,
+          uf: camp.uf.toUpperCase().trim(),
+          nr_candidato: camp.numero.trim(),
+          cargo: camp.cargo || null,
+          nome_candidato: camp.candidato_nome || camp.candidato_urna || "Candidato",
+          nome_urna: camp.candidato_urna || camp.candidato_nome || "Candidato",
+          nome_campanha: `${camp.candidato_urna || camp.candidato_nome || "Campanha"} ${camp.numero}`,
+          partido: camp.partido_coligacao || null,
+          admin_user_id: adminUserId,
+        };
+
+        const { data, error } = await supabase
+          .from("campaigns")
+          .insert([novaCampanhaSupabase as any])
+          .select()
+          .single();
+
         if (!error && data) {
-          setDb(prev => ({ ...prev, campanhas_registradas: [data, ...prev.campanhas_registradas] }));
-          toast.success("Campanha enviada para validação do Administrador Geral!");
-          return data;
+          const registroRetorno: CampanhaRegistro = {
+            ...camp,
+            id: data.id,
+            criado_em: data.created_at,
+          };
+          setDb(prev => ({ ...prev, campanhas_registradas: [registroRetorno, ...prev.campanhas_registradas] }));
+          return registroRetorno;
+        } else if (error) {
+          console.warn("Erro inserindo na tabela campaigns do Supabase:", error);
         }
       } catch (err) {
-        console.warn("Salvando campanha localmente no fallback:", err);
+        console.warn("Erro ao salvar campanha no Supabase:", err);
       }
 
-      // Fallback local
-      const localCampanhas: CampanhaRegistro[] = JSON.parse(localStorage.getItem("democracias-campanhas-locais") || "[]");
-      localCampanhas.push(novaCampanha);
-      localStorage.setItem("democracias-campanhas-locais", JSON.stringify(localCampanhas));
-      setDb(prev => ({ ...prev, campanhas_registradas: [novaCampanha, ...prev.campanhas_registradas] }));
-      toast.success("Campanha enviada para validação do Administrador Geral!");
-      return novaCampanha;
+      // Fallback
+      const localId = `camp_${uid()}`;
+      const registroLocal: CampanhaRegistro = {
+        ...camp,
+        id: localId,
+        criado_em: new Date().toISOString()
+      };
+      setDb(prev => ({ ...prev, campanhas_registradas: [registroLocal, ...prev.campanhas_registradas] }));
+      return registroLocal;
     },
     addSolicitacaoAdesao: async (sol) => {
       const novaSolicitacao: SolicitacaoAdesaoCampanha = {
