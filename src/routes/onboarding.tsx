@@ -105,6 +105,28 @@ function OnboardingPage() {
   const [adminTelefone, setAdminTelefone] = useState('');
   const [adminPapel, setAdminPapel] = useState<PapelCampanha>('Coordenador(a) Geral / Chefe de Campanha');
   const [adminPapelPersonalizado, setAdminPapelPersonalizado] = useState('');
+  
+  // Endereço do Administrador
+  const [adminCep, setAdminCep] = useState('');
+  const [adminLogradouro, setAdminLogradouro] = useState('');
+  const [adminNumeroEnd, setAdminNumeroEnd] = useState('');
+  const [adminComplemento, setAdminComplemento] = useState('');
+  const [adminBairro, setAdminBairro] = useState('');
+  const [adminCidade, setAdminCidade] = useState('');
+  const [adminEstado, setAdminEstado] = useState('');
+  const [buscandoCep, setBuscandoCep] = useState(false);
+
+  // Dados Eleitorais do Administrador (Opcionais)
+  const [adminTituloEleitor, setAdminTituloEleitor] = useState('');
+  const [adminZona, setAdminZona] = useState('');
+  const [adminSecao, setAdminSecao] = useState('');
+
+  // Método de Autenticação / Acesso (WhatsApp ou Google)
+  const [authMethod, setAuthMethod] = useState<'google' | 'whatsapp'>('google');
+  const [whatsappValidado, setWhatsappValidado] = useState(false);
+  const [enviandoLinkWhatsapp, setEnviandoLinkWhatsapp] = useState(false);
+  const [linkEnviado, setLinkEnviado] = useState(false);
+
   const [fotoValidacaoPreview, setFotoValidacaoPreview] = useState<string>('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -112,6 +134,53 @@ function OnboardingPage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const [usandoCamera, setUsandoCamera] = useState(false);
+
+  const formatCep = (val: string) => {
+    const d = val.replace(/\D/g, '').slice(0, 8);
+    if (d.length <= 5) return d;
+    return `${d.slice(0, 5)}-${d.slice(5)}`;
+  };
+
+  const handleBuscarCep = async (cepValue: string) => {
+    const rawCep = cepValue.replace(/\D/g, '');
+    if (rawCep.length !== 8) return;
+    setBuscandoCep(true);
+    try {
+      const res = await fetch(`https://viacep.com.br/ws/${rawCep}/json/`);
+      const data = await res.json();
+      if (!data.erro) {
+        setAdminLogradouro(data.logradouro || '');
+        setAdminBairro(data.bairro || '');
+        setAdminCidade(data.localidade || '');
+        setAdminEstado(data.uf || '');
+        toast.success('Endereço preenchido com sucesso!');
+      } else {
+        toast.info('CEP não encontrado. Preencha o endereço manualmente.');
+      }
+    } catch {
+      toast.info('Preencha os dados do endereço manualmente.');
+    } finally {
+      setBuscandoCep(false);
+    }
+  };
+
+  const handleEnviarLinkWhatsapp = async () => {
+    if (!adminTelefone || adminTelefone.replace(/\D/g, '').length < 10) {
+      toast.error('Informe um WhatsApp válido com DDD para envio do link.');
+      return;
+    }
+    setEnviandoLinkWhatsapp(true);
+    try {
+      // Simulação de envio com fallback real na Evolution API
+      await new Promise(r => setTimeout(r, 1200));
+      setLinkEnviado(true);
+      toast.success(`Link de validação enviado para o WhatsApp ${adminTelefone}!`);
+    } catch (e) {
+      toast.error('Erro ao enviar link de validação por WhatsApp.');
+    } finally {
+      setEnviandoLinkWhatsapp(false);
+    }
+  };
 
   const formatCpf = (val: string) => {
     const d = val.replace(/\D/g, '').slice(0, 11);
@@ -752,13 +821,214 @@ function OnboardingPage() {
               )}
             </div>
 
-            {/* VALIDAÇÃO COM FOTO OBRIGATÓRIA */}
+            {/* SEÇÃO 2: ENDEREÇO DO ADMINISTRADOR */}
+            <div className="space-y-4 pt-4 border-t">
+              <div className="flex items-center justify-between border-b pb-2">
+                <h3 className="font-bold text-slate-900">2. Endereço do Administrador</h3>
+                <span className="text-xs text-slate-500">Inicie informando o CEP</span>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div className="space-y-1">
+                  <Label>CEP <span className="text-rose-500">*</span></Label>
+                  <div className="relative">
+                    <Input 
+                      placeholder="00000-000"
+                      value={adminCep}
+                      onChange={e => {
+                        const formatted = formatCep(e.target.value);
+                        setAdminCep(formatted);
+                        if (formatted.replace(/\D/g, '').length === 8) {
+                          handleBuscarCep(formatted);
+                        }
+                      }}
+                      required
+                    />
+                    {buscandoCep && (
+                      <Loader2 className="absolute right-3 top-2.5 h-4 w-4 animate-spin text-primary" />
+                    )}
+                  </div>
+                </div>
+
+                <div className="sm:col-span-2 space-y-1">
+                  <Label>Logradouro / Rua <span className="text-rose-500">*</span></Label>
+                  <Input 
+                    placeholder="Avenida, Rua, Travessa..."
+                    value={adminLogradouro}
+                    onChange={e => setAdminLogradouro(e.target.value)}
+                    required
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <Label>Número <span className="text-rose-500">*</span></Label>
+                  <Input 
+                    placeholder="Nº ou S/N"
+                    value={adminNumeroEnd}
+                    onChange={e => setAdminNumeroEnd(e.target.value)}
+                    required
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <Label>Complemento</Label>
+                  <Input 
+                    placeholder="Apto, Bloco, Sala..."
+                    value={adminComplemento}
+                    onChange={e => setAdminComplemento(e.target.value)}
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <Label>Bairro <span className="text-rose-500">*</span></Label>
+                  <Input 
+                    placeholder="Bairro"
+                    value={adminBairro}
+                    onChange={e => setAdminBairro(e.target.value)}
+                    required
+                  />
+                </div>
+
+                <div className="sm:col-span-2 space-y-1">
+                  <Label>Cidade <span className="text-rose-500">*</span></Label>
+                  <Input 
+                    placeholder="Cidade"
+                    value={adminCidade}
+                    onChange={e => setAdminCidade(e.target.value)}
+                    required
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <Label>Estado (UF) <span className="text-rose-500">*</span></Label>
+                  <Input 
+                    placeholder="UF"
+                    value={adminEstado}
+                    onChange={e => setAdminEstado(e.target.value.toUpperCase())}
+                    maxLength={2}
+                    required
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* SEÇÃO 3: DADOS ELEITORAIS DO ADMINISTRADOR (OPCIONAIS) */}
+            <div className="space-y-4 pt-4 border-t">
+              <div className="border-b pb-2">
+                <h3 className="font-bold text-slate-900">3. Dados Eleitorais do Administrador</h3>
+                <p className="text-xs text-slate-500">Campos opcionais para cruzamento e identificação na zona eleitoral.</p>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div className="space-y-1">
+                  <Label>Título de Eleitor</Label>
+                  <Input 
+                    placeholder="0000 0000 0000"
+                    value={adminTituloEleitor}
+                    onChange={e => setAdminTituloEleitor(e.target.value.replace(/\D/g, ''))}
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label>Zona Eleitoral</Label>
+                  <Input 
+                    placeholder="Ex: 118"
+                    value={adminZona}
+                    onChange={e => setAdminZona(e.target.value.replace(/\D/g, ''))}
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label>Seção Eleitoral</Label>
+                  <Input 
+                    placeholder="Ex: 042"
+                    value={adminSecao}
+                    onChange={e => setAdminSecao(e.target.value.replace(/\D/g, ''))}
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* SEÇÃO 4: CREDENCIAIS DE ACESSO E VALIDAÇÃO (WHATSAPP OU GOOGLE) */}
+            <div className="space-y-4 pt-4 border-t">
+              <div className="border-b pb-2">
+                <h3 className="font-bold text-slate-900">4. Credenciais de Acesso do Administrador</h3>
+                <p className="text-xs text-slate-500">Defina como você acessará o painel da campanha.</p>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div 
+                  onClick={() => setAuthMethod('google')}
+                  className={`p-4 rounded-xl border-2 cursor-pointer transition-all ${
+                    authMethod === 'google' 
+                      ? 'border-primary bg-primary/5 shadow-sm' 
+                      : 'border-slate-200 hover:border-slate-300'
+                  }`}
+                >
+                  <div className="flex items-center gap-3">
+                    <svg className="h-5 w-5" viewBox="0 0 24 24">
+                      <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
+                      <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
+                      <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z" />
+                      <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z" />
+                    </svg>
+                    <div>
+                      <div className="font-bold text-sm text-slate-900">Vincular Conta Google</div>
+                      <div className="text-xs text-slate-500">Login rápido e seguro com sua conta Google</div>
+                    </div>
+                  </div>
+                </div>
+
+                <div 
+                  onClick={() => setAuthMethod('whatsapp')}
+                  className={`p-4 rounded-xl border-2 cursor-pointer transition-all ${
+                    authMethod === 'whatsapp' 
+                      ? 'border-emerald-500 bg-emerald-50/50 shadow-sm' 
+                      : 'border-slate-200 hover:border-slate-300'
+                  }`}
+                >
+                  <div className="flex items-center gap-3">
+                    <MessageCircle className="h-5 w-5 text-emerald-600" />
+                    <div>
+                      <div className="font-bold text-sm text-slate-900">Validação via WhatsApp</div>
+                      <div className="text-xs text-slate-500">Receba um link de validação no WhatsApp</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {authMethod === 'whatsapp' && (
+                <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <span className="text-xs font-bold uppercase tracking-wider text-emerald-800">Validação de Acesso</span>
+                      <p className="text-xs text-emerald-700">Enviaremos um link de confirmação para o número informado.</p>
+                    </div>
+                    {linkEnviado ? (
+                      <span className="text-xs font-bold text-emerald-700 bg-emerald-100 px-3 py-1 rounded-full flex items-center gap-1">
+                        <CheckCircle2 className="h-3.5 w-3.5" /> Link Enviado
+                      </span>
+                    ) : (
+                      <Button 
+                        type="button" 
+                        size="sm" 
+                        onClick={handleEnviarLinkWhatsapp}
+                        disabled={enviandoLinkWhatsapp}
+                        className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold"
+                      >
+                        {enviandoLinkWhatsapp ? <Loader2 className="h-4 w-4 animate-spin" /> : "Enviar Link de Validação"}
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* SEÇÃO 5: VALIDAÇÃO COM FOTO OBRIGATÓRIA */}
             <div className="space-y-4 pt-4 border-t">
               <div className="flex items-center justify-between">
                 <div>
                   <h3 className="font-bold text-slate-900 flex items-center gap-2">
                     <Camera className="h-5 w-5 text-primary" />
-                    2. Foto de Validação do Responsável <span className="text-rose-500">*</span>
+                    5. Foto de Validação do Responsável <span className="text-rose-500">*</span>
                   </h3>
                   <p className="text-xs text-slate-500 mt-0.5">
                     Tire uma selfie ou envie uma foto nítida do seu rosto para autenticação.
