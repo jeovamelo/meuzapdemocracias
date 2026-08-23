@@ -84,6 +84,7 @@ function OnboardingPage() {
     corRaca?: string;
     fotoUrl?: string;
     vice?: { nome: string; nomeUrna: string; fotoUrl: string };
+    dadosEleitoraisEncontrados?: boolean;
   } | null>(null);
 
   // Dados do Administrador e Foto Obrigatória
@@ -386,16 +387,64 @@ function OnboardingPage() {
         return;
       }
 
-      // Não existe registro com a mesma UF, cargo e número em `campaigns`.
-      // Não há consulta a TSE, endpoints externos ou bases legadas nesta etapa.
+      // Os dados eleitorais também vêm exclusivamente do Supabase da VPS.
+      // Não há fallback para arquivos, APIs externas ou fontes legadas.
+      const { data: candidato, error: candidatoError } = await (supabase as any)
+        .from('tse_candidatos')
+        .select([
+          'nr_candidato', 'nm_candidato', 'nm_urna_candidato', 'ds_cargo',
+          'sg_partido', 'nm_partido', 'nr_partido', 'tp_agremiacao',
+          'nm_federacao', 'sg_federacao', 'ds_composicao_federacao',
+          'nm_coligacao', 'ds_composicao_coligacao', 'dt_nascimento',
+          'ds_genero', 'ds_grau_instrucao', 'ds_ocupacao', 'ds_cor_raca',
+        ].join(','))
+        .eq('sg_uf', cleanUf)
+        .eq('nr_candidato', cleanNr)
+        .ilike('ds_cargo', cargoSelecionado.trim())
+        .limit(1)
+        .maybeSingle();
+
+      if (candidatoError) {
+        throw candidatoError;
+      }
+
+      if (candidato) {
+        setCandidateData({
+          nome: candidato.nm_candidato || '',
+          nomeUrna: candidato.nm_urna_candidato || candidato.nm_candidato || '',
+          cargo: candidato.ds_cargo || cargoSelecionado,
+          partido: candidato.sg_partido || candidato.nm_partido || 'Não informado',
+          numeroPartido: candidato.nr_partido || '',
+          tipoAgremiacao: candidato.tp_agremiacao || 'Não informado',
+          nomeFederacao: candidato.nm_federacao || '',
+          siglaFederacao: candidato.sg_federacao || '',
+          composicaoFederacao: candidato.ds_composicao_federacao || '',
+          coligacao: candidato.nm_coligacao || '',
+          composicaoColigacao: candidato.ds_composicao_coligacao || '',
+          dataNascimento: candidato.dt_nascimento || 'Não informado',
+          numeroCandidato: candidato.nr_candidato || cleanNr,
+          genero: candidato.ds_genero || 'Não informado',
+          grauInstrucao: candidato.ds_grau_instrucao || 'Não informado',
+          ocupacao: candidato.ds_ocupacao || 'Não informado',
+          corRaca: candidato.ds_cor_raca || 'Não informado',
+          dadosEleitoraisEncontrados: true,
+        });
+        toast.success('Dados do candidato encontrados no banco eleitoral da plataforma.');
+        return;
+      }
+
+      // Uma tabela `campaigns` sem registro homônimo nunca bloqueia o cadastro.
+      // Caso a base eleitoral ainda não contenha o candidato, o administrador pode
+      // continuar o fluxo, sem que o sistema tente consultar qualquer fonte externa.
       setCandidateData({
         nome: `Campanha ${cleanNr}`,
         nomeUrna: `Campanha ${cleanNr}`,
         cargo: cargoSelecionado,
         partido: 'A informar',
         numeroCandidato: cleanNr,
+        dadosEleitoraisEncontrados: false,
       });
-      toast.success('Campanha disponível para cadastro. Você pode avançar para a próxima etapa.');
+      toast.success('Campanha disponível para cadastro. Os dados eleitorais poderão ser complementados depois.');
     } catch (err) {
       console.warn('Falha ao verificar a unicidade da campanha:', err);
       toast.error('Não foi possível consultar as campanhas. Tente novamente.');
@@ -723,7 +772,9 @@ function OnboardingPage() {
 
                   <div className="flex-1">
                     <div className="text-xs font-bold uppercase tracking-wider text-emerald-800">
-                      Campanha disponível para cadastro
+                      {candidateData.dadosEleitoraisEncontrados
+                        ? 'Dados encontrados no banco eleitoral'
+                        : 'Campanha disponível para cadastro'}
                     </div>
                     <div className="text-lg font-bold text-emerald-950">
                       {candidateData.nomeUrna || candidateData.nome}
