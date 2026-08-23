@@ -86,34 +86,32 @@ function PcPage() {
     toast.info('Sessão administrativa encerrada.');
   };
 
-  // 1. Carregar Instâncias da Evolution API
+  // 1. Carregar Instâncias do Evolution Go
   const carregarInstancias = async () => {
     setLoadingInstances(true);
     try {
-      // Buscar direto na rota da Evolution API ou banco Supabase
-      const res = await fetch('https://api.democracias.org/evolution/instance/fetchInstances', {
+      // Buscar no endpoint /instance/all do Evolution Go
+      const res = await fetch('https://api.democracias.org/evolution/instance/all', {
         headers: {
-          'apikey': 'democracias_master_evolution_secret_key_2026'
+          'apikey': 'democracias_global_evolution_key_2026'
         }
       });
       if (res.ok) {
-        const data = await res.json();
+        const json = await res.json();
+        const data = json.data || json;
         if (Array.isArray(data)) {
           const list: WhatsAppInstanceItem[] = data.map((item: any) => ({
-            name: item.instance?.instanceName || item.name || 'instancia',
-            phone: item.instance?.owner || item.phone || 'Não pareado',
-            status: item.instance?.status === 'open' ? 'connected' : (item.instance?.status === 'connecting' ? 'connecting' : 'disconnected'),
-            profilePic: item.instance?.profilePicUrl,
-            campaign: item.instance?.instanceName?.replace('camp_', 'Campanha ') || 'Sistema Geral',
-            updatedAt: item.instance?.updatedAt ? new Date(item.instance.updatedAt).toLocaleTimeString() : 'Recentemente'
+            name: item.name || item.instanceName || 'instancia',
+            phone: item.jid || item.owner || 'Não pareado',
+            status: item.connected ? 'connected' : (item.qrcode ? 'connecting' : 'disconnected'),
+            campaign: item.name?.replace('camp_', 'Campanha ') || 'Sistema Geral',
+            updatedAt: item.createdAt ? new Date(item.createdAt).toLocaleTimeString() : 'Recentemente'
           }));
           setInstances(list);
           
-          // Checar status do sistema master
-          const master = list.find(i => i.name === 'democracias_master' || i.name === 'system_general');
+          const master = list.find(i => i.name === 'sistema-geral-democracias');
           if (master) {
             setSystemStatus(master.status);
-            if (master.phone) setSystemPhone(master.phone);
           }
         }
       } else {
@@ -149,20 +147,22 @@ function PcPage() {
 
   // 2. Instância Única Padrão do Sistema: 'sistema-geral-democracias'
   const INSTANCE_MASTER = 'sistema-geral-democracias';
+  const INSTANCE_MASTER_TOKEN = 'democracias_master_token_2026';
 
   const verificarStatusInstancia = async () => {
     try {
-      const res = await fetch(`https://api.democracias.org/evolution/instance/connectionState/${INSTANCE_MASTER}`, {
-        headers: { 'apikey': 'democracias_global_evolution_key_2026' }
+      const res = await fetch('https://api.democracias.org/evolution/instance/status', {
+        headers: { 'apikey': INSTANCE_MASTER_TOKEN }
       });
       if (res.ok) {
-        const data = await res.json();
-        const state = data?.instance?.state || data?.state;
-        if (state === 'open') {
+        const json = await res.json();
+        const data = json.data || json;
+        if (data?.connected === true) {
           setSystemStatus('connected');
           setSystemQrCode(null);
-        } else if (state === 'connecting') {
+        } else if (data?.qrcode) {
           setSystemStatus('connecting');
+          setSystemQrCode(data.qrcode);
         } else {
           setSystemStatus('disconnected');
         }
@@ -185,7 +185,7 @@ function PcPage() {
     localStorage.setItem('democracias_system_phone', systemPhone);
 
     try {
-      // 1. Criar instância única se não existir
+      // 1. Criar instância se não existir no Evolution Go
       await fetch('https://api.democracias.org/evolution/instance/create', {
         method: 'POST',
         headers: {
@@ -193,36 +193,48 @@ function PcPage() {
           'apikey': 'democracias_global_evolution_key_2026'
         },
         body: JSON.stringify({
-          instanceName: INSTANCE_MASTER,
-          token: `${INSTANCE_MASTER}_token`,
-          qrcode: true,
-          integration: 'WHATSAPP-BAILEYS',
-          number: systemPhone.replace(/\D/g, '')
+          name: INSTANCE_MASTER,
+          token: INSTANCE_MASTER_TOKEN
         })
       }).catch(() => {});
 
-      // 2. Chamar endpoint de conexão para obter o QR Code imediato
-      const connectRes = await fetch(`https://api.democracias.org/evolution/instance/connect/${INSTANCE_MASTER}`, {
-        headers: { 'apikey': 'democracias_global_evolution_key_2026' }
+      // 2. Iniciar conexão da instância
+      await fetch('https://api.democracias.org/evolution/instance/connect', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'apikey': INSTANCE_MASTER_TOKEN
+        },
+        body: JSON.stringify({
+          subscribe: ['MESSAGE', 'READ_RECEIPT', 'GROUP', 'CALL']
+        })
+      }).catch(() => {});
+
+      // 3. Obter QR Code oficial da Evolution Go
+      const qrRes = await fetch('https://api.democracias.org/evolution/instance/qr', {
+        headers: { 'apikey': INSTANCE_MASTER_TOKEN }
       });
 
-      const connectData = await connectRes.json().catch(() => ({}));
-      const qrBase64 = connectData?.base64 || connectData?.qrcode?.base64 || connectData?.code || connectData?.instance?.qrcode;
-
-      if (qrBase64) {
-        setSystemQrCode(qrBase64.startsWith('data:image') ? qrBase64 : `data:image/png;base64,${qrBase64}`);
-        setSystemStatus('connecting');
-        toast.success('QR Code oficial da Evolution API gerado com sucesso!');
+      if (qrRes.ok) {
+        const qrJson = await qrRes.json();
+        const qrBase64 = qrJson?.data?.qrcode || qrJson?.qrcode || qrJson?.base64;
+        if (qrBase64) {
+          setSystemQrCode(qrBase64.startsWith('data:image') ? qrBase64 : `data:image/png;base64,${qrBase64}`);
+          setSystemStatus('connecting');
+          toast.success('QR Code oficial do Evolution Go gerado com sucesso!');
+        } else {
+          verificarStatusInstancia();
+          toast.info('Instância pronta para conexão!');
+        }
       } else {
-        // Obter status direto
         verificarStatusInstancia();
-        toast.info('Instância pronta para pareamento na Evolution API.');
+        toast.info('Instância iniciada!');
       }
 
       carregarInstancias();
     } catch (err) {
       console.warn("Erro ao registrar WhatsApp master:", err);
-      toast.error('Erro ao comunicar com a Evolution API.');
+      toast.error('Erro ao comunicar com o Evolution Go.');
     } finally {
       setIsSavingPhone(false);
       setIsGeneratingQr(false);
