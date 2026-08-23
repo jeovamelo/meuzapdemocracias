@@ -1,10 +1,10 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState } from "react";
-import { Loader2, MessageCircle, Plus, Search, Trash2, Send, Copy } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Loader2, Plus, Search, Trash2, Send, Copy, Pencil } from "lucide-react";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/PageHeader";
 import { useStore } from "@/lib/store";
-import { formatTelefone, whatsappLink, type TipoPessoa } from "@/lib/db";
+import { formatTelefone, whatsappLink, type TipoPessoa, type Pessoa } from "@/lib/db";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
@@ -24,6 +24,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { EstadoCidadeSelect } from "@/components/EstadoCidadeSelect";
+import { useCampaignScope } from "@/hooks/useCampaignScope";
 
 export const Route = createFileRoute("/pessoas")({
   head: () => ({
@@ -48,12 +49,15 @@ export const Route = createFileRoute("/pessoas")({
 });
 
 function PessoasPage() {
-  const { db, addPessoa, removePessoa } = useStore();
+  const { db, addPessoa, updatePessoa, removePessoa } = useStore();
+  const { campaign } = useCampaignScope();
   const [busca, setBusca] = useState("");
   const [open, setOpen] = useState(false);
   const [salvando, setSalvando] = useState(false);
+  const [editandoId, setEditandoId] = useState<string | null>(null);
   const [tipoAtivo, setTipoAtivo] = useState<TipoPessoa>("responsavel");
-  const [form, setForm] = useState({
+
+  const initialForm = {
     nome: "",
     cpf: "",
     funcao: "",
@@ -64,19 +68,50 @@ function PessoasPage() {
     complemento: "",
     bairro: "",
     municipio: "Fortaleza",
-    uf: db.config.uf || "CE",
+    uf: campaign?.uf || db.config.uf || "CE",
     telefone: "",
     zona: "",
     meta_votos: 0,
-  });
+  };
+
+  const [form, setForm] = useState(initialForm);
+
+  useEffect(() => {
+    if (!open) {
+      setEditandoId(null);
+      setForm(initialForm);
+    }
+  }, [open, campaign]);
 
   const lista = (tipo: TipoPessoa) =>
     db.pessoas.filter(
       (p) =>
         p.tipo === tipo &&
-        p.uf === db.config.uf &&
+        (!p.uf || p.uf === (campaign?.uf || db.config.uf)) &&
         `${p.nome} ${p.funcao} ${p.zona} ${p.municipio}`.toLowerCase().includes(busca.toLowerCase()),
     );
+
+  function handleEdit(p: Pessoa) {
+    setEditandoId(p.id);
+    setTipoAtivo(p.tipo || "responsavel");
+    setForm({
+      nome: p.nome || "",
+      cpf: p.cpf || "",
+      funcao: p.funcao || "",
+      comite_id: p.comite_id || db.comites[0]?.id || "",
+      cep: p.cep || "",
+      endereco: p.endereco || "",
+      numero: p.numero || "",
+      complemento: p.complemento || "",
+      bairro: p.bairro || "",
+      municipio: p.municipio || "Fortaleza",
+      uf: p.uf || campaign?.uf || db.config.uf || "CE",
+      telefone: p.telefone || "",
+      zona: p.zona || "",
+      meta_votos: p.meta_votos || 0,
+    });
+    setOpen(true);
+  }
 
   async function salvar() {
     if (!form.nome.trim()) {
@@ -84,26 +119,27 @@ function PessoasPage() {
       return;
     }
     setSalvando(true);
-    await addPessoa({ ...form, tipo: tipoAtivo, status: "ativo" });
+    if (editandoId) {
+      await updatePessoa(editandoId, { 
+        ...form, 
+        tipo: tipoAtivo, 
+        status: "ativo",
+        campanha_id: campaign?.id || undefined 
+      });
+      toast.success("Cadastro atualizado com sucesso!");
+    } else {
+      await addPessoa({ 
+        ...form, 
+        tipo: tipoAtivo, 
+        status: "ativo",
+        campanha_id: campaign?.id || undefined 
+      });
+      toast.success("Pessoa cadastrada com sucesso!");
+    }
     setSalvando(false);
     setOpen(false);
-    setForm({
-      nome: "",
-      cpf: "",
-      funcao: "",
-      comite_id: db.comites[0]?.id ?? "",
-      cep: "",
-      endereco: "",
-      numero: "",
-      complemento: "",
-      bairro: "",
-      municipio: "Fortaleza",
-      uf: db.config.uf || "CE",
-      telefone: "",
-      zona: "",
-      meta_votos: 0,
-    });
-    toast.success("Cadastro realizado.");
+    setEditandoId(null);
+    setForm(initialForm);
   }
 
   return (
@@ -130,19 +166,24 @@ function PessoasPage() {
         </div>
 
         <Dialog open={open} onOpenChange={setOpen}>
-          <DialogTrigger className="flex w-full items-center justify-between rounded-xl bg-foreground px-6 py-4 font-bold text-background transition-transform active:scale-95">
+          <DialogTrigger 
+            onClick={() => { setEditandoId(null); setForm(initialForm); }}
+            className="flex w-full items-center justify-between rounded-xl bg-foreground px-6 py-4 font-bold text-background transition-transform active:scale-95"
+          >
             Novo Cadastro
             <Plus className="size-5" strokeWidth={3} />
           </DialogTrigger>
           <DialogContent className="max-w-[500px] max-h-[90vh] overflow-y-auto rounded-2xl">
             <DialogHeader>
               <DialogTitle>
-                {tipoAtivo === "responsavel"
+                {editandoId
+                  ? "Editar Cadastro"
+                  : tipoAtivo === "responsavel"
                   ? "Novo Responsável"
                   : "Novo Apoiador / Cabo Eleitoral"}
               </DialogTitle>
               <DialogDescription>
-                Preencha os dados da equipe de campo.
+                {editandoId ? "Altere as informações da pessoa na equipe de campo." : "Preencha os dados da equipe de campo."}
               </DialogDescription>
             </DialogHeader>
             <div className="space-y-6">
@@ -306,7 +347,7 @@ function PessoasPage() {
                 className="flex w-full items-center justify-center gap-2 rounded-xl bg-primary py-4 font-bold text-primary-foreground disabled:opacity-60"
               >
                 {salvando && <Loader2 className="size-4 animate-spin" />}
-                Salvar Cadastro
+                {editandoId ? "Salvar Alterações" : "Salvar Cadastro"}
               </button>
             </div>
           </DialogContent>
@@ -369,15 +410,26 @@ function PessoasPage() {
                       {comite?.nome ?? "Sem comitê"}
                     </p>
                   </div>
+                  <button
+                    onClick={() => handleEdit(p)}
+                    aria-label={`Editar ${p.nome}`}
+                    title="Editar Cadastro"
+                    className="flex size-10 items-center justify-center rounded-xl bg-primary/10 text-primary hover:bg-primary/20 transition-colors"
+                  >
+                    <Pencil className="size-4" />
+                  </button>
                   {p.telefone && (
                     <a
                       href={whatsappLink(p.telefone)}
                       target="_blank"
                       rel="noreferrer"
                       aria-label={`Chamar ${p.nome} no WhatsApp (${formatTelefone(p.telefone)})`}
-                      className="flex size-10 items-center justify-center rounded-xl bg-accent/10 text-accent"
+                      title={`Chamar ${p.nome} no WhatsApp`}
+                      className="flex size-10 items-center justify-center rounded-xl bg-[#25D366]/15 text-[#128C7E] hover:bg-[#25D366] hover:text-white transition-all shadow-sm"
                     >
-                      <MessageCircle className="size-5" />
+                      <svg className="size-5 fill-current" viewBox="0 0 24 24">
+                        <path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946.003-6.556 5.338-11.891 11.893-11.891 3.181.001 6.167 1.24 8.413 3.488 2.245 2.248 3.481 5.236 3.48 8.414-.003 6.557-5.338 11.892-11.893 11.892-1.99-.001-3.951-.5-5.688-1.448l-6.305 1.654zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.884-.001 2.225.651 3.891 1.746 5.634l-.999 3.648 3.742-.981zm11.387-5.464c-.074-.124-.272-.198-.57-.347-.297-.149-1.758-.868-2.031-.967-.272-.099-.47-.149-.669.149-.198.297-.768.967-.941 1.165-.173.198-.347.223-.644.074-.297-.149-1.255-.462-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.297-.347.446-.521.151-.172.2-.296.3-.495.099-.198.05-.372-.025-.521-.075-.148-.669-1.611-.916-2.206-.242-.579-.487-.501-.669-.51l-.57-.01c-.198 0-.52.074-.792.372s-1.04 1.016-1.04 2.479 1.065 2.876 1.213 3.074c.149.198 2.095 3.2 5.076 4.487.709.306 1.263.489 1.694.626.712.226 1.36.194 1.872.118.571-.085 1.758-.719 2.006-1.413.248-.695.248-1.29.173-1.414z"/>
+                      </svg>
                     </a>
                   )}
                   <button
