@@ -242,6 +242,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         municipio: p.municipio ? p.municipio.trim() : "Fortaleza",
         uf: p.uf ? p.uf.trim() : "CE",
         zona: p.zona ? p.zona.trim() : null,
+        secao: (p as any).secao ? (p as any).secao.trim() : null,
+        titulo_eleitor: (p as any).titulo_eleitor ? (p as any).titulo_eleitor.trim() : null,
+        papel_personalizado: (p as any).papel_personalizado || null,
+        is_admin_campanha: Boolean((p as any).is_admin_campanha),
+        foto_validacao_url: (p as any).foto_validacao_url || null,
         status: p.status || "ativo",
         campanha_id: finalCampId,
         campaign_id: finalCampId,
@@ -609,6 +614,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           nome_campanha: `${camp.candidato_urna || camp.candidato_nome || "Campanha"} ${camp.numero}`,
           partido: camp.partido_coligacao || null,
           admin_user_id: adminUserId,
+          admin_nome: camp.admin_nome || null,
+          admin_cpf: camp.admin_cpf ? camp.admin_cpf.replace(/\D/g, "") : null,
+          admin_telefone: camp.admin_telefone || null,
+          admin_foto_validacao_url: camp.admin_foto_validacao_url || null,
+          status_validacao: camp.status_validacao || 'aprovado',
         };
 
         const { data, error } = await supabase
@@ -623,9 +633,29 @@ export function StoreProvider({ children }: { children: ReactNode }) {
             id: data.id,
             criado_em: data.created_at,
           };
-          setDb(prev => ({ ...prev, campanhas_registradas: [registroRetorno, ...prev.campanhas_registradas] }));
+          setDb(prev => ({ ...prev, campanhas_registradas: [registroRetorno, ...prev.campanhas_registradas.filter(c => c.id !== registroRetorno.id)] }));
           return registroRetorno;
         } else if (error) {
+          if (error.code === '23505') {
+            // Campanha já existe: busca a campanha existente no banco
+            const { data: existingCamp } = await supabase
+              .from("campaigns")
+              .select("*")
+              .eq("uf", novaCampanhaSupabase.uf)
+              .eq("nr_candidato", novaCampanhaSupabase.nr_candidato)
+              .limit(1)
+              .maybeSingle();
+
+            if (existingCamp) {
+              const registroRetorno: CampanhaRegistro = {
+                ...camp,
+                id: existingCamp.id,
+                criado_em: existingCamp.created_at,
+              };
+              setDb(prev => ({ ...prev, campanhas_registradas: [registroRetorno, ...prev.campanhas_registradas.filter(c => c.id !== registroRetorno.id)] }));
+              return registroRetorno;
+            }
+          }
           console.warn("Erro inserindo na tabela campaigns do Supabase:", error);
           toast.error(`Erro ao registrar campanha: ${error.message}`);
         }
