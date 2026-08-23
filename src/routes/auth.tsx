@@ -1,58 +1,113 @@
-import { createFileRoute, useNavigate } from '@tanstack/react-router';
-import { useEffect, useState } from 'react';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Target, Loader2, MessageCircle } from 'lucide-react';
-import { toast } from 'sonner';
-import { supabase } from '@/integrations/supabase/client';
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Target, Loader2, MessageCircle } from "lucide-react";
+import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
+import { activateCampaignAccess, getUserCampaignAccesses } from "@/lib/userCampaignAccess";
 
-export const Route = createFileRoute('/auth')({
+export const Route = createFileRoute("/auth")({
   component: AuthPage,
 });
 
 function AuthPage() {
   const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(false);
-  const [phone, setPhone] = useState('');
-  const [password, setPassword] = useState(() => sessionStorage.getItem('democracias_saved_password') || '');
-  const [rememberMe, setRememberMe] = useState(() => localStorage.getItem('democracias_remember_me') === 'true');
+  const [phone, setPhone] = useState("");
+  const [password, setPassword] = useState(() =>
+    typeof window !== "undefined" ? sessionStorage.getItem("democracias_saved_password") || "" : "",
+  );
+  const [rememberMe, setRememberMe] = useState(
+    () =>
+      typeof window !== "undefined" && localStorage.getItem("democracias_remember_me") === "true",
+  );
+  const routingUser = useRef(false);
+
+  const routeAuthenticatedUser = useCallback(
+    async (userId: string) => {
+      if (routingUser.current) return;
+      routingUser.current = true;
+      setIsLoading(true);
+
+      try {
+        const accesses = await getUserCampaignAccesses(userId);
+        if (accesses.length === 1) {
+          activateCampaignAccess(accesses[0]);
+          navigate({ to: "/dashboard" });
+          return;
+        }
+        if (accesses.length > 1) {
+          navigate({ to: "/selecionar-campanha" });
+          return;
+        }
+
+        toast.info("Sua conta ainda não possui uma campanha liberada.");
+        navigate({ to: "/onboarding" });
+      } catch (error) {
+        console.error("Erro ao consultar os acessos do usuário:", error);
+        toast.error(
+          "Login concluído, mas não foi possível consultar suas campanhas. Tente novamente.",
+        );
+        routingUser.current = false;
+        setIsLoading(false);
+      }
+    },
+    [navigate],
+  );
+
   useEffect(() => {
-    const next = new URLSearchParams(window.location.search).get('next') || '/onboarding';
+    let active = true;
     supabase.auth.getSession().then(({ data }) => {
-      if (data.session && window.location.hash.includes('access_token')) {
-        navigate({ to: next as '/onboarding' });
+      if (active && data.session?.user) routeAuthenticatedUser(data.session.user.id);
+    });
+
+    const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (active && session?.user) {
+        window.setTimeout(() => void routeAuthenticatedUser(session.user.id), 0);
       }
     });
-    const phone = new URLSearchParams(window.location.search).get('whatsapp');
-    if (phone) {
-      localStorage.setItem('democracias_whatsapp_validated', phone);
-      toast.success('WhatsApp validado. Você já pode continuar.');
+
+    const whatsapp = new URLSearchParams(window.location.search).get("whatsapp");
+    if (whatsapp) {
+      localStorage.setItem("democracias_whatsapp_validated", whatsapp);
+      toast.success("WhatsApp validado. Você já pode continuar.");
     }
-  }, []);
+
+    return () => {
+      active = false;
+      authListener.subscription.unsubscribe();
+    };
+  }, [routeAuthenticatedUser]);
 
   // isLogin removido: a rota agora é exclusivamente para Login de usuários convidados ou aprovados.
 
   const handleWhatsAppAuth = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!phone || !password) {
-      toast.error('Preencha todos os campos!');
+      toast.error("Preencha todos os campos!");
       return;
     }
 
     setIsLoading(true);
-    
-    try {
-      const email = `${phone.replace(/\D/g, '')}@whatsapp.democracias.org`;
-      const { error } = await supabase.auth.signInWithPassword({ email, password });
-      if (error) throw error;
-      toast.success('Login efetuado com sucesso!');
-      navigate({ to: '/onboarding' });
 
+    try {
+      const email = `${phone.replace(/\D/g, "")}@whatsapp.democracias.org`;
+      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+      if (error) throw error;
+      if (!data.user) throw new Error("Usuário autenticado não encontrado.");
+
+      localStorage.setItem("democracias_remember_me", String(rememberMe));
+      if (rememberMe) sessionStorage.setItem("democracias_saved_password", password);
+      else sessionStorage.removeItem("democracias_saved_password");
+      toast.success("Login efetuado com sucesso!");
+      await routeAuthenticatedUser(data.user.id);
     } catch (err) {
       console.error(err);
-      toast.error('Ocorreu um erro na autenticação.');
+      toast.error("Ocorreu um erro na autenticação.");
+      routingUser.current = false;
     } finally {
       setIsLoading(false);
     }
@@ -62,15 +117,15 @@ function AuthPage() {
     setIsLoading(true);
     try {
       const { error } = await supabase.auth.signInWithOAuth({
-        provider: 'google',
+        provider: "google",
         options: {
-          redirectTo: `${window.location.origin}/onboarding`,
-        }
+          redirectTo: `${window.location.origin}/auth?oauth=callback`,
+        },
       });
       if (error) throw error;
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error(error);
-      toast.error(error?.message || 'Erro ao fazer login com o Google.');
+      toast.error(error instanceof Error ? error.message : "Erro ao fazer login com o Google.");
       setIsLoading(false);
     }
   };
@@ -83,18 +138,16 @@ function AuthPage() {
             <Target className="h-8 w-8" />
           </div>
           <h1 className="text-2xl font-bold tracking-tight">Democracias</h1>
-          <p className="text-primary-foreground/80 mt-2">
-            Acesso Restrito ao Painel
-          </p>
+          <p className="text-primary-foreground/80 mt-2">Acesso Restrito ao Painel</p>
         </div>
 
         <div className="p-8">
           <form onSubmit={handleWhatsAppAuth} className="space-y-6">
             <div className="space-y-2">
               <Label htmlFor="phone">Número de WhatsApp</Label>
-              <Input 
-                id="phone" 
-                placeholder="Ex: 5511999999999" 
+              <Input
+                id="phone"
+                placeholder="Ex: 5511999999999"
                 value={phone}
                 onChange={(e) => setPhone(e.target.value)}
                 disabled={isLoading}
@@ -102,10 +155,10 @@ function AuthPage() {
             </div>
             <div className="space-y-2">
               <Label htmlFor="password">Senha</Label>
-              <Input 
-                id="password" 
-                type="password" 
-                placeholder="••••••••" 
+              <Input
+                id="password"
+                type="password"
+                placeholder="••••••••"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 disabled={isLoading}
@@ -113,7 +166,11 @@ function AuthPage() {
             </div>
 
             <label className="flex items-center gap-2 text-sm text-slate-600">
-              <input type="checkbox" checked={rememberMe} onChange={e => setRememberMe(e.target.checked)} />
+              <input
+                type="checkbox"
+                checked={rememberMe}
+                onChange={(e) => setRememberMe(e.target.checked)}
+              />
               Lembrar de mim nesta sessão
             </label>
 
@@ -121,7 +178,9 @@ function AuthPage() {
               {isLoading ? (
                 <Loader2 className="h-5 w-5 animate-spin" />
               ) : (
-                <>Entrar no Sistema <MessageCircle className="ml-2 w-5 h-5"/></>
+                <>
+                  Entrar no Sistema <MessageCircle className="ml-2 w-5 h-5" />
+                </>
               )}
             </Button>
           </form>
@@ -136,10 +195,10 @@ function AuthPage() {
               </div>
             </div>
 
-            <Button 
-              type="button" 
-              variant="outline" 
-              className="w-full mt-6 h-12" 
+            <Button
+              type="button"
+              variant="outline"
+              className="w-full mt-6 h-12"
               onClick={handleGoogleAuth}
               disabled={isLoading}
             >
@@ -165,9 +224,10 @@ function AuthPage() {
               Conta Google
             </Button>
           </div>
-          
+
           <div className="mt-8 text-center text-sm text-slate-600">
-            O cadastro de novos usuários é restrito e deve ser feito internamente por um Administrador da Campanha.
+            O cadastro de novos usuários é restrito e deve ser feito internamente por um
+            Administrador da Campanha.
           </div>
         </div>
       </div>

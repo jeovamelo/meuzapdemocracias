@@ -62,6 +62,81 @@ export type Database = {
         }
         Relationships: []
       }
+      campaign_members: {
+        Row: {
+          campaign_id: string
+          created_at: string
+          role: string
+          status: string
+          user_id: string
+        }
+        Insert: {
+          campaign_id: string
+          created_at?: string
+          role?: string
+          status?: string
+          user_id: string
+        }
+        Update: {
+          campaign_id?: string
+          created_at?: string
+          role?: string
+          status?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      campaigns: {
+        Row: {
+          admin_user_id: string
+          ano_eleicao: number
+          cargo: string | null
+          created_at: string
+          id: string
+          meta_eleicao: number | null
+          meta_expectativa: number | null
+          nome_campanha: string
+          nome_candidato: string | null
+          nome_urna: string | null
+          nr_candidato: string
+          partido: string | null
+          sq_candidato: string | null
+          uf: string
+        }
+        Insert: {
+          admin_user_id: string
+          ano_eleicao: number
+          cargo?: string | null
+          created_at?: string
+          id?: string
+          meta_eleicao?: number | null
+          meta_expectativa?: number | null
+          nome_campanha: string
+          nome_candidato?: string | null
+          nome_urna?: string | null
+          nr_candidato: string
+          partido?: string | null
+          sq_candidato?: string | null
+          uf: string
+        }
+        Update: {
+          admin_user_id?: string
+          ano_eleicao?: number
+          cargo?: string | null
+          created_at?: string
+          id?: string
+          meta_eleicao?: number | null
+          meta_expectativa?: number | null
+          nome_campanha?: string
+          nome_candidato?: string | null
+          nome_urna?: string | null
+          nr_candidato?: string
+          partido?: string | null
+          sq_candidato?: string | null
+          uf?: string
+        }
+        Relationships: []
+      }
       cidade_metas: {
         Row: {
           criado_em: string | null
