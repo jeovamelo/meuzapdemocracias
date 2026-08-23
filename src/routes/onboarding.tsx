@@ -400,14 +400,19 @@ function OnboardingPage() {
                   Sim, sou Responsável / Candidato
                 </Button>
 
-                <Button 
-                  size="lg" 
-                  variant="outline" 
-                  className="h-16 text-lg font-semibold border-slate-300 text-slate-700 hover:bg-slate-50"
-                  onClick={() => handleConfirmarResponsavel(false)}
-                >
-                  Não, sou Apoiador / Membro
-                </Button>
+                <Link to="/" className="w-full">
+                  <Button 
+                    size="lg" 
+                    variant="outline" 
+                    type="button"
+                    className="w-full h-16 text-lg font-semibold border-slate-300 text-slate-700 hover:bg-slate-50"
+                    onClick={() => {
+                      toast.info('Redirecionando para a página inicial...');
+                    }}
+                  >
+                    Não, sou Apoiador / Membro
+                  </Button>
+                </Link>
               </div>
 
               {isResponsavel === false && (
