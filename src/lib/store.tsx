@@ -376,13 +376,91 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       setDb(prev => ({ ...prev, solicitacoes_adesao: [novaSolicitacao, ...prev.solicitacoes_adesao] }));
       toast.success("Solicitação de participação enviada para a equipe da campanha!");
     },
+    addPessoa: async (p) => {
+      const payload: any = {
+        nome: p.nome.trim(),
+        cpf: p.cpf ? p.cpf.replace(/\D/g, "") : null,
+        telefone: p.telefone ? p.telefone.trim() : null,
+        funcao: p.funcao || p.papel_campanha || "Apoiador(a)",
+        tipo: p.tipo || "apoiador",
+        papel_campanha: p.papel_campanha || p.funcao || null,
+        meta_votos: Number(p.meta_votos) || 0,
+        comite_id: p.comite_id || null,
+        cep: p.cep ? p.cep.trim() : null,
+        endereco: p.endereco ? p.endereco.trim() : null,
+        numero: p.numero ? p.numero.trim() : null,
+        complemento: p.complemento ? p.complemento.trim() : null,
+        bairro: p.bairro ? p.bairro.trim() : null,
+        municipio: p.municipio ? p.municipio.trim() : "Fortaleza",
+        uf: p.uf ? p.uf.trim() : "CE",
+        zona: p.zona ? p.zona.trim() : null,
+        status: p.status || "ativo",
+        campanha_id: p.campanha_id || null,
+      };
+
+      try {
+        const { data, error } = await supabase
+          .from("pessoas")
+          .insert([payload])
+          .select()
+          .single();
+
+        if (!error && data) {
+          const novaPessoa: Pessoa = data as any;
+          setDb(prev => ({
+            ...prev,
+            pessoas: [novaPessoa, ...prev.pessoas.filter(item => item.id !== novaPessoa.id)]
+          }));
+          return novaPessoa;
+        } else if (error) {
+          console.error("Erro ao inserir na tabela pessoas do Supabase:", error);
+          toast.error(`Erro ao salvar no banco: ${error.message}`);
+        }
+      } catch (err) {
+        console.error("Exceção ao inserir pessoa:", err);
+      }
+
+      // Fallback local se o banco falhar
+      const fallbackPessoa: Pessoa = {
+        ...p,
+        id: `pes_${uid()}`,
+        status: p.status || "ativo",
+        criado_em: new Date().toISOString(),
+      };
+      setDb(prev => ({ ...prev, pessoas: [fallbackPessoa, ...prev.pessoas] }));
+      return fallbackPessoa;
+    },
     updatePessoa: async (id, pessoa) => {
-      const { error } = await supabase.from("pessoas").update(pessoa).eq("id", id);
-      if (error) toast.error("Erro ao atualizar pessoa");
+      try {
+        const { error } = await supabase.from("pessoas").update(pessoa as any).eq("id", id);
+        if (error) {
+          console.error("Erro ao atualizar pessoa:", error);
+          toast.error("Erro ao atualizar pessoa no banco");
+        }
+      } catch (err) {
+        console.error("Erro ao atualizar pessoa:", err);
+      }
+
+      setDb(prev => ({
+        ...prev,
+        pessoas: prev.pessoas.map(item => item.id === id ? { ...item, ...pessoa } : item)
+      }));
     },
     removePessoa: async (id) => {
-      const { error } = await supabase.from("pessoas").delete().eq("id", id);
-      if (error) toast.error("Erro ao remover pessoa");
+      try {
+        const { error } = await supabase.from("pessoas").delete().eq("id", id);
+        if (error) {
+          console.error("Erro ao remover pessoa:", error);
+          toast.error("Erro ao remover pessoa no banco");
+        }
+      } catch (err) {
+        console.error("Erro ao remover pessoa:", err);
+      }
+
+      setDb(prev => ({
+        ...prev,
+        pessoas: prev.pessoas.filter(item => item.id !== id)
+      }));
     },
     addMaterial: async (m) => {
       const { error } = await supabase.from("materiais").insert([{ 
