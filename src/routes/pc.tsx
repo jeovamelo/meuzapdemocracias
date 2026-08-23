@@ -265,7 +265,6 @@ function PcPage() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          apikey: INSTANCE_MASTER_TOKEN,
         },
         body: JSON.stringify({
           number,
