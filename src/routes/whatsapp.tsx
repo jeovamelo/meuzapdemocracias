@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
-import { Loader2, CheckCircle2, Smartphone, ShieldCheck, RefreshCw, AlertCircle } from 'lucide-react';
+import { Loader2, CheckCircle2, Smartphone, ShieldCheck, RefreshCw, AlertCircle, Send } from 'lucide-react';
 import { useCampaignScope } from '@/hooks/useCampaignScope';
 import { EvolutionWhatsAppService } from '@/lib/evolutionWhatsAppService';
 import { supabase } from '@/integrations/supabase/client';
@@ -24,6 +24,9 @@ function WhatsAppSetupPage() {
   const [loadingInstance, setLoadingInstance] = useState(false);
   const [activeInstanceName, setActiveInstanceName] = useState<string>('');
   const [generationError, setGenerationError] = useState('');
+  const [testPhone, setTestPhone] = useState('');
+  const [testMessage, setTestMessage] = useState('');
+  const [sendingTest, setSendingTest] = useState(false);
 
   // 1. Inicializar ou substituir instância única para a campanha na Evolution API
   const inicializarInstanciaCampanha = async () => {
@@ -42,12 +45,16 @@ function WhatsAppSetupPage() {
       }
       if (res.success) {
         setActiveInstanceName(res.instanceName);
-        if (res.qrCode) {
+        if (res.connected) {
+          setStatus({ online: true, message: 'WhatsApp conectado com sucesso!', qr: null });
+        } else if (res.qrCode) {
           setStatus({
             online: false,
             message: 'Aguardando leitura do QR Code',
             qr: res.qrCode
           });
+        } else {
+          setGenerationError('A instância foi criada, mas o QR Code ainda não ficou disponível. Tente atualizar.');
         }
       }
     } catch (e) {
@@ -72,6 +79,9 @@ function WhatsAppSetupPage() {
         const stateRes = await EvolutionWhatsAppService.getInstanceStatus(activeInstanceName);
         if (active && stateRes?.instance?.state === 'open') {
           setStatus({ online: true, message: 'WhatsApp conectado com sucesso!', qr: null });
+        } else if (active && stateRes?.instance?.state === 'connecting' && !status.qr) {
+          const qr = await EvolutionWhatsAppService.getInstanceQr(activeInstanceName);
+          if (qr) setStatus({ online: false, message: 'Aguardando leitura do QR Code', qr });
         }
       } catch {
         // ignora erro transitório de polling
@@ -80,7 +90,32 @@ function WhatsAppSetupPage() {
 
     const timer = setInterval(checarStatus, 4000);
     return () => { active = false; clearInterval(timer); };
-  }, [activeInstanceName]);
+  }, [activeInstanceName, status.qr]);
+
+  const handleSendTest = async (event: React.FormEvent) => {
+    event.preventDefault();
+    const recipient = testPhone.replace(/\D/g, '');
+    if (!status.online || !activeInstanceName) {
+      toast.error('Conecte o WhatsApp da campanha antes de enviar o teste.');
+      return;
+    }
+    if (recipient.length < 10 || !testMessage.trim()) {
+      toast.error('Informe um número válido com DDD e uma mensagem.');
+      return;
+    }
+
+    setSendingTest(true);
+    try {
+      await EvolutionWhatsAppService.sendTestMessage(activeInstanceName, recipient, testMessage);
+      setTestMessage('');
+      toast.success('Mensagem de teste enviada com sucesso!');
+    } catch (error) {
+      console.error('Erro no envio de teste pela Evolution Go:', error);
+      toast.error(error instanceof Error ? error.message : 'Não foi possível enviar a mensagem de teste.');
+    } finally {
+      setSendingTest(false);
+    }
+  };
 
   const handleNext = async () => {
     if (!campaignName.trim() || whatsappNumber.replace(/\D/g, '').length < 10) {
@@ -127,6 +162,12 @@ function WhatsAppSetupPage() {
                 placeholder="(DDD) 99999-9999" 
                 inputMode="numeric" 
               />
+              {whatsappNumber && (
+                <p className="mt-2 flex items-center gap-2 text-sm font-semibold text-slate-700">
+                  <Smartphone className="h-4 w-4 text-primary" />
+                  Número oficial: {whatsappNumber.replace(/\D/g, '').startsWith('55') ? whatsappNumber.replace(/\D/g, '') : `55${whatsappNumber.replace(/\D/g, '')}`}
+                </p>
+              )}
             </div>
           </div>
 
@@ -164,6 +205,42 @@ function WhatsAppSetupPage() {
               <p className="mt-4 text-slate-600 text-sm">{status.message}</p>
             </div>
           )}
+
+          <form onSubmit={handleSendTest} className="mt-6 border-t border-slate-200 pt-6 text-left space-y-4">
+            <div>
+              <h2 className="flex items-center gap-2 font-bold text-slate-900">
+                <Send className="h-4 w-4 text-primary" /> Testar envio de mensagem
+              </h2>
+              <p className="mt-1 text-xs text-slate-500">
+                O envio será liberado assim que o QR Code for lido e a instância estiver conectada.
+              </p>
+            </div>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div>
+                <Label htmlFor="test-phone">Número de destino com DDD</Label>
+                <Input
+                  id="test-phone"
+                  value={testPhone}
+                  onChange={(event) => setTestPhone(event.target.value.replace(/\D/g, '').slice(0, 13))}
+                  placeholder="DDD + número"
+                  inputMode="numeric"
+                />
+              </div>
+              <div>
+                <Label htmlFor="test-message">Mensagem</Label>
+                <Input
+                  id="test-message"
+                  value={testMessage}
+                  onChange={(event) => setTestMessage(event.target.value)}
+                  placeholder="Digite a mensagem de teste"
+                />
+              </div>
+            </div>
+            <Button type="submit" variant="outline" className="w-full" disabled={!status.online || sendingTest}>
+              {sendingTest ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
+              {status.online ? 'Enviar mensagem de teste' : 'Aguardando conexão do WhatsApp'}
+            </Button>
+          </form>
 
           <Button className="mt-8 w-full h-12 text-md font-bold" onClick={handleNext}>
             Concluir e Ir para o Dashboard

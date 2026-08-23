@@ -34,11 +34,6 @@ export default defineConfig({
           changeOrigin: true,
           secure: false,
         },
-        '/whatsapp': {
-          target: 'https://api.democracias.org',
-          changeOrigin: true,
-          secure: false,
-        },
       },
     },
     preview: {
