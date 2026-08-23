@@ -96,15 +96,41 @@ export function useLocalidades(ufSelecionada?: string) {
 
     setLoadingCidades(true);
     try {
-      // 1. Tentar buscar da tabela cidades do Supabase
-      const { data, error } = await supabase
-        .from("cidades" as any)
-        .select("id, nome, uf")
-        .ilike("uf", ufNormalizada)
-        .order("nome");
+      // 1. Tentar buscar da tabela cidades do Supabase (por estado_id ou por coluna uf)
+      const estadoObj = estados.find((e) => e.sigla.toUpperCase() === ufNormalizada);
+      
+      let data: any[] | null = null;
+      let error: any = null;
+
+      if (estadoObj?.id) {
+        const res = await supabase
+          .from("cidades" as any)
+          .select("id, nome, estado_id")
+          .eq("estado_id", estadoObj.id)
+          .order("nome");
+        data = res.data;
+        error = res.error;
+      }
+
+      if (!data || data.length === 0 || error) {
+        const resUf = await supabase
+          .from("cidades" as any)
+          .select("id, nome")
+          .ilike("uf", ufNormalizada)
+          .order("nome");
+        if (resUf.data && resUf.data.length > 0) {
+          data = resUf.data;
+          error = resUf.error;
+        }
+      }
 
       if (!error && data && data.length > 0) {
-        const lista = data as unknown as Cidade[];
+        const lista: Cidade[] = data.map((c: any) => ({
+          id: c.id,
+          nome: c.nome,
+          uf: ufNormalizada,
+          estado_id: c.estado_id,
+        }));
         cacheCidadesPorUf[ufNormalizada] = lista;
         setCidades(lista);
         return;
