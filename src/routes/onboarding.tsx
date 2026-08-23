@@ -44,6 +44,16 @@ const ESTADOS_BR = [
   'PA', 'PB', 'PR', 'PE', 'PI', 'RJ', 'RN', 'RS', 'RO', 'RR', 'SC', 'SP', 'SE', 'TO'
 ];
 
+function calcularIdade(data?: string) {
+  if (!data) return null;
+  const partes = data.includes('/') ? data.split('/').reverse() : data.split('-');
+  const nascimento = new Date(Number(partes[0]), Number(partes[1]) - 1, Number(partes[2]));
+  if (Number.isNaN(nascimento.getTime())) return null;
+  const hoje = new Date(); let idade = hoje.getFullYear() - nascimento.getFullYear();
+  if (hoje < new Date(hoje.getFullYear(), nascimento.getMonth(), nascimento.getDate())) idade--;
+  return idade;
+}
+
 function OnboardingPage() {
   const navigate = useNavigate();
   const { setCampaign } = useCampaignScope();
@@ -71,6 +81,13 @@ function OnboardingPage() {
     nomeUrna: string;
     cargo: string;
     partido: string;
+    numeroPartido?: string;
+    tipoAgremiacao?: string;
+    nomeFederacao?: string;
+    siglaFederacao?: string;
+    dataNascimento?: string;
+    idade?: number | null;
+    numeroCandidato?: string;
     fotoUrl?: string;
     vice?: { nome: string; nomeUrna: string; fotoUrl: string };
   } | null>(null);
@@ -214,7 +231,14 @@ function OnboardingPage() {
             nome: dbCand.nm_candidato || '',
             nomeUrna: dbCand.nm_urna_candidato || '',
             cargo: dbCand.ds_cargo || cargoSelecionado,
-            partido: dbCand.sg_partido || '',
+            partido: dbCand.sg_partido || dbCand.nm_partido || '',
+            numeroPartido: dbCand.nr_partido || '',
+            tipoAgremiacao: dbCand.tp_agremiacao || '',
+            nomeFederacao: dbCand.nm_federacao || '',
+            siglaFederacao: dbCand.sg_federacao || '',
+            dataNascimento: dbCand.dt_nascimento || '',
+            idade: calcularIdade(dbCand.dt_nascimento),
+            numeroCandidato: dbCand.nr_candidato || numero,
             fotoUrl: fotoLocal(uf, dbCand.sq_candidato),
             vice,
           });
@@ -226,23 +250,8 @@ function OnboardingPage() {
         console.warn('Erro na busca Supabase TSE:', errDb);
       }
 
-      // Fallback microserviço
-      const backendUrl = window.location.hostname === 'localhost' 
-        ? `http://localhost:3001/tse/${uf}/${numero}?cargo=${encodeURIComponent(cargoSelecionado)}`
-        : `/tse/${uf}/${numero}?cargo=${encodeURIComponent(cargoSelecionado)}`;
-
-      let data: any = null;
-      try {
-        const response = await fetch(backendUrl);
-        if (response.ok) {
-          const resJson = await response.json();
-          if (resJson.success && resJson.candidate) {
-            data = resJson.candidate;
-          }
-        }
-      } catch (e) {
-        console.warn("Backend proxy fallback", e);
-      }
+      // A consulta oficial é feita exclusivamente na tabela local do Supabase.
+      const data: any = null;
 
       if (data) {
         setCandidateData({
@@ -445,7 +454,7 @@ function OnboardingPage() {
           <div className="bg-white p-8 rounded-2xl shadow-xl border border-slate-100 space-y-6">
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div className="space-y-1">
-                <Label>Estado de Atuação (UF)</Label>
+                <Label>UF</Label>
                 <Select value={uf} onValueChange={(val) => { setUf(val); setCandidateData(null); setCampanhaJaCadastrada(null); }}>
                   <SelectTrigger className="h-11">
                     <SelectValue placeholder="Selecione a UF" />
@@ -478,7 +487,7 @@ function OnboardingPage() {
                 <Label>Número do Candidato</Label>
                 <Input 
                   className="h-11"
-                  placeholder="Ex: 13, 22, 10123..."
+                  placeholder=""
                   value={numero}
                   onChange={e => { setNumero(e.target.value.replace(/\D/g, '')); setCandidateData(null); setCampanhaJaCadastrada(null); }}
                 />
@@ -562,6 +571,16 @@ function OnboardingPage() {
                       {candidateData.cargo} • Partido: {candidateData.partido || 'N/A'} • {uf}
                     </div>
                   </div>
+                </div>
+
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 rounded-xl border border-emerald-200 bg-white p-4 text-sm">
+                  <div><span className="block text-[10px] font-bold uppercase text-slate-500">Número</span><strong>{candidateData.numeroCandidato || numero}</strong></div>
+                  <div><span className="block text-[10px] font-bold uppercase text-slate-500">Cargo</span><strong>{candidateData.cargo}</strong></div>
+                  <div><span className="block text-[10px] font-bold uppercase text-slate-500">Nascimento</span><strong>{candidateData.dataNascimento || 'Não informado'}</strong></div>
+                  <div><span className="block text-[10px] font-bold uppercase text-slate-500">Idade</span><strong>{candidateData.idade ? `${candidateData.idade} anos` : 'Não informado'}</strong></div>
+                  <div><span className="block text-[10px] font-bold uppercase text-slate-500">Partido</span><strong>{candidateData.partido || 'Não informado'} {candidateData.numeroPartido ? `(${candidateData.numeroPartido})` : ''}</strong></div>
+                  <div><span className="block text-[10px] font-bold uppercase text-slate-500">Tipo de agremiação</span><strong>{candidateData.tipoAgremiacao || 'Não informado'}</strong></div>
+                  <div className="col-span-2"><span className="block text-[10px] font-bold uppercase text-slate-500">Federação</span><strong>{candidateData.nomeFederacao || 'Não informada'} {candidateData.siglaFederacao ? `(${candidateData.siglaFederacao})` : ''}</strong></div>
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
