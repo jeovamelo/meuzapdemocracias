@@ -207,23 +207,22 @@ function PcPage() {
       });
 
       const connectData = await connectRes.json().catch(() => ({}));
-      const qrBase64 = connectData?.base64 || connectData?.qrcode?.base64 || connectData?.code;
+      const qrBase64 = connectData?.base64 || connectData?.qrcode?.base64 || connectData?.code || connectData?.instance?.qrcode;
 
       if (qrBase64) {
         setSystemQrCode(qrBase64.startsWith('data:image') ? qrBase64 : `data:image/png;base64,${qrBase64}`);
         setSystemStatus('connecting');
-        toast.success('QR Code gerado! Aponte a câmera do WhatsApp para conectar.');
+        toast.success('QR Code oficial da Evolution API gerado com sucesso!');
       } else {
-        // Fallback para exibição de QR Code ilustrativo/gerador caso o endpoint retorne conectado ou string
-        setSystemQrCode(`https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=democracias_${encodeURIComponent(systemPhone)}`);
-        setSystemStatus('connecting');
-        toast.success('Instância configurada! Escaneie o QR Code para parear.');
+        // Obter status direto
+        verificarStatusInstancia();
+        toast.info('Instância pronta para pareamento na Evolution API.');
       }
 
       carregarInstancias();
     } catch (err) {
       console.warn("Erro ao registrar WhatsApp master:", err);
-      toast.info('Instância configurada no sistema.');
+      toast.error('Erro ao comunicar com a Evolution API.');
     } finally {
       setIsSavingPhone(false);
       setIsGeneratingQr(false);
