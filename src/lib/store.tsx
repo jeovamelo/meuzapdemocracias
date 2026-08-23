@@ -38,6 +38,7 @@ type Ctx = {
   registrarSaida: (s: Omit<Saida, "id" | "criado_em">) => Promise<void>;
   addSolicitacao: (s: Omit<SolicitacaoMaterial, "id" | "criado_em" | "status">) => Promise<void>;
   updateSolicitacao: (id: string, s: Partial<SolicitacaoMaterial>) => Promise<void>;
+  despacharSolicitacao: (id: string) => Promise<void>;
   updateCidadeMeta: (id: string, cm: Partial<CidadeMeta>) => Promise<void>;
   updateConfig: (config: Partial<ConfigCampanha>) => Promise<void>;
   addBoletim: (b: Omit<BoletimUrna, "id" | "data_leitura">) => Promise<void>;
@@ -456,7 +457,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
             quantidade_nova: novaQtd,
             diferenca: -item.quantidade,
             tipo: "saida",
-            observacao: `Saída registrada (Ref: ${saidaCriada.id})`
+            observacao: `Saída registrada (Ref: ${saidaCriada?.id || ""})`
           }]);
         }
       }
@@ -468,6 +469,27 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     updateSolicitacao: async (id, s) => {
       const { error } = await supabase.from("solicitacoes").update(s).eq("id", id);
       if (error) toast.error("Erro ao atualizar solicitação");
+    },
+    despacharSolicitacao: async (solicitacaoId: string) => {
+      const sol = db.solicitacoes.find(s => s.id === solicitacaoId);
+      if (!sol) return;
+
+      // 1. Atualizar status da solicitação
+      const { error } = await supabase.from("solicitacoes").update({ status: "entregue" }).eq("id", solicitacaoId);
+      if (error) {
+        toast.error("Erro ao despachar solicitação");
+        return;
+      }
+
+      // 2. Criar registro de saída e abater estoque
+      await value.registrarSaida({
+        comite_id: sol.comite_id || db.comites[0]?.id || "",
+        pessoa_id: sol.lideranca_id || "",
+        campaign_id: sol.campaign_id || undefined,
+        kits: [],
+        itens: sol.itens.map(i => ({ material_id: i.material_id, quantidade: i.quantidade })),
+      });
+      toast.success(`Solicitação de ${sol.nome} despachada e estoque baixado com sucesso!`);
     },
     updateCidadeMeta: async (id, cm) => {
       const { error } = await supabase.from("cidade_metas").update(cm).eq("id", id);
