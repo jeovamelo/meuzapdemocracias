@@ -18,6 +18,12 @@ function AuthPage() {
   const [password, setPassword] = useState(() => sessionStorage.getItem('democracias_saved_password') || '');
   const [rememberMe, setRememberMe] = useState(() => localStorage.getItem('democracias_remember_me') === 'true');
   useEffect(() => {
+    const next = new URLSearchParams(window.location.search).get('next') || '/onboarding';
+    supabase.auth.getSession().then(({ data }) => {
+      if (data.session && window.location.hash.includes('access_token')) {
+        navigate({ to: next as '/onboarding' });
+      }
+    });
     const phone = new URLSearchParams(window.location.search).get('whatsapp');
     if (phone) {
       localStorage.setItem('democracias_whatsapp_validated', phone);
