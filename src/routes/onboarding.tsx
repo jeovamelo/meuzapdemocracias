@@ -85,9 +85,16 @@ function OnboardingPage() {
     tipoAgremiacao?: string;
     nomeFederacao?: string;
     siglaFederacao?: string;
+    composicaoFederacao?: string;
+    coligacao?: string;
+    composicaoColigacao?: string;
     dataNascimento?: string;
     idade?: number | null;
     numeroCandidato?: string;
+    genero?: string;
+    grauInstrucao?: string;
+    ocupacao?: string;
+    corRaca?: string;
     fotoUrl?: string;
     vice?: { nome: string; nomeUrna: string; fotoUrl: string };
   } | null>(null);
@@ -197,26 +204,29 @@ function OnboardingPage() {
         return;
       }
 
-      // Consulta ao Banco TSE
+      // Consulta ao Banco Oficial do TSE no Supabase
       try {
+        // Formatar o cargo para busca exata ou ilike
+        const cargoQuery = cargoSelecionado.trim().toUpperCase();
+
         const { data: dbCand, error: dbError } = await (supabase as any)
           .from('tse_candidatos')
           .select('*')
           .eq('sg_uf', uf.toUpperCase().trim())
           .eq('nr_candidato', numero.trim())
-          .eq('ds_cargo', cargoSelecionado)
+          .ilike('ds_cargo', `%${cargoQuery}%`)
           .limit(1)
           .maybeSingle();
 
         if (dbCand && !dbError) {
           let vice;
-          if (cargoSelecionado === 'GOVERNADOR') {
+          if (cargoSelecionado === 'GOVERNADOR' || cargoQuery.includes('GOVERNADOR')) {
             const { data: viceCand } = await (supabase as any)
               .from('tse_candidatos')
               .select('*')
               .eq('sg_uf', uf.toUpperCase().trim())
               .eq('nr_candidato', numero.trim())
-              .eq('ds_cargo', 'VICE-GOVERNADOR')
+              .ilike('ds_cargo', '%VICE-GOVERNADOR%')
               .limit(1)
               .maybeSingle();
             if (viceCand) {
@@ -227,59 +237,46 @@ function OnboardingPage() {
               };
             }
           }
+
           setCandidateData({
             nome: dbCand.nm_candidato || '',
             nomeUrna: dbCand.nm_urna_candidato || '',
             cargo: dbCand.ds_cargo || cargoSelecionado,
-            partido: dbCand.sg_partido || dbCand.nm_partido || '',
+            partido: dbCand.sg_partido || dbCand.nm_partido || 'Não informado',
             numeroPartido: dbCand.nr_partido || '',
-            tipoAgremiacao: dbCand.tp_agremiacao || '',
+            tipoAgremiacao: dbCand.tp_agremiacao || 'Não informado',
             nomeFederacao: dbCand.nm_federacao || '',
             siglaFederacao: dbCand.sg_federacao || '',
-            dataNascimento: dbCand.dt_nascimento || '',
+            composicaoFederacao: dbCand.ds_composicao_federacao || '',
+            coligacao: dbCand.nm_coligacao || '',
+            composicaoColigacao: dbCand.ds_composicao_coligacao || '',
+            dataNascimento: dbCand.dt_nascimento || 'Não informado',
             idade: calcularIdade(dbCand.dt_nascimento),
             numeroCandidato: dbCand.nr_candidato || numero,
+            genero: dbCand.ds_genero || 'Não informado',
+            grauInstrucao: dbCand.ds_grau_instrucao || 'Não informado',
+            ocupacao: dbCand.ds_ocupacao || 'Não informado',
+            corRaca: dbCand.ds_cor_raca || 'Não informado',
             fotoUrl: fotoLocal(uf, dbCand.sq_candidato),
             vice,
           });
-          toast.success(`Candidato(a) ${dbCand.nm_urna_candidato} localizado no Banco do TSE!`);
+
+          toast.success(`Candidato(a) ${dbCand.nm_urna_candidato} validado(a) na base oficial do TSE!`);
           setIsLoadingTse(false);
           return;
+        } else {
+          toast.error(`Candidato nº ${numero} para ${cargoSelecionado} não foi encontrado na base oficial do TSE em ${uf}.`);
+          setCandidateData(null);
         }
       } catch (errDb) {
         console.warn('Erro na busca Supabase TSE:', errDb);
-      }
-
-      // A consulta oficial é feita exclusivamente na tabela local do Supabase.
-      const data: any = null;
-
-      if (data) {
-        setCandidateData({
-          nome: data.nome || '',
-          nomeUrna: data.nomeUrna || '',
-          cargo: data.cargo || cargoSelecionado,
-          partido: data.partido || '',
-          fotoUrl: fotoLocal(uf, data.sqCandidato),
-        });
-        toast.success(`Candidato(a) ${data.nomeUrna || data.nome} localizado no TSE!`);
-      } else {
-        toast.info('Candidato não encontrado no TSE. Preencha os dados manualmente.');
-        setCandidateData({
-          nome: '',
-          nomeUrna: '',
-          cargo: cargoSelecionado,
-          partido: '',
-        });
+        toast.error('Falha ao consultar a base oficial do TSE.');
+        setCandidateData(null);
       }
     } catch (err) {
       console.warn("Falha geral ao buscar", err);
-      toast.info('Preencha os dados da campanha para prosseguir.');
-      setCandidateData({
-        nome: '',
-        nomeUrna: '',
-        cargo: cargoSelecionado,
-        partido: ''
-      });
+      toast.error('Erro ao verificar campanha.');
+      setCandidateData(null);
     } finally {
       setIsLoadingTse(false);
     }
@@ -573,46 +570,78 @@ function OnboardingPage() {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 rounded-xl border border-emerald-200 bg-white p-4 text-sm">
-                  <div><span className="block text-[10px] font-bold uppercase text-slate-500">Número</span><strong>{candidateData.numeroCandidato || numero}</strong></div>
-                  <div><span className="block text-[10px] font-bold uppercase text-slate-500">Cargo</span><strong>{candidateData.cargo}</strong></div>
-                  <div><span className="block text-[10px] font-bold uppercase text-slate-500">Nascimento</span><strong>{candidateData.dataNascimento || 'Não informado'}</strong></div>
-                  <div><span className="block text-[10px] font-bold uppercase text-slate-500">Idade</span><strong>{candidateData.idade ? `${candidateData.idade} anos` : 'Não informado'}</strong></div>
-                  <div><span className="block text-[10px] font-bold uppercase text-slate-500">Partido</span><strong>{candidateData.partido || 'Não informado'} {candidateData.numeroPartido ? `(${candidateData.numeroPartido})` : ''}</strong></div>
-                  <div><span className="block text-[10px] font-bold uppercase text-slate-500">Tipo de agremiação</span><strong>{candidateData.tipoAgremiacao || 'Não informado'}</strong></div>
-                  <div className="col-span-2"><span className="block text-[10px] font-bold uppercase text-slate-500">Federação</span><strong>{candidateData.nomeFederacao || 'Não informada'} {candidateData.siglaFederacao ? `(${candidateData.siglaFederacao})` : ''}</strong></div>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 rounded-xl border border-emerald-200 bg-white p-5 text-sm shadow-sm">
                   <div>
-                    <Label>Nome Completo do Candidato</Label>
-                    <Input 
-                      className="mt-1"
-                      value={candidateData.nome}
-                      onChange={e => setCandidateData({ ...candidateData, nome: e.target.value })}
-                    />
+                    <span className="block text-[10px] font-bold uppercase tracking-wider text-slate-500">Número de Urna</span>
+                    <strong className="text-base text-slate-900">{candidateData.numeroCandidato || numero}</strong>
                   </div>
                   <div>
-                    <Label>Nome de Urna</Label>
-                    <Input 
-                      className="mt-1"
-                      value={candidateData.nomeUrna}
-                      onChange={e => setCandidateData({ ...candidateData, nomeUrna: e.target.value })}
-                    />
+                    <span className="block text-[10px] font-bold uppercase tracking-wider text-slate-500">Cargo</span>
+                    <strong className="text-base text-slate-900">{candidateData.cargo}</strong>
+                  </div>
+                  <div>
+                    <span className="block text-[10px] font-bold uppercase tracking-wider text-slate-500">Data de Nascimento</span>
+                    <strong className="text-slate-800">{candidateData.dataNascimento || 'Não informado'}</strong>
+                  </div>
+                  <div>
+                    <span className="block text-[10px] font-bold uppercase tracking-wider text-slate-500">Idade</span>
+                    <strong className="text-slate-800">{candidateData.idade ? `${candidateData.idade} anos` : 'Não informado'}</strong>
+                  </div>
+
+                  <div>
+                    <span className="block text-[10px] font-bold uppercase tracking-wider text-slate-500">Partido</span>
+                    <strong className="text-slate-800">{candidateData.partido || 'Não informado'} {candidateData.numeroPartido ? `(${candidateData.numeroPartido})` : ''}</strong>
+                  </div>
+                  <div>
+                    <span className="block text-[10px] font-bold uppercase tracking-wider text-slate-500">Tipo de Agremiação</span>
+                    <strong className="text-slate-800">{candidateData.tipoAgremiacao || 'Não informado'}</strong>
+                  </div>
+                  <div className="col-span-2">
+                    <span className="block text-[10px] font-bold uppercase tracking-wider text-slate-500">Federação / Coligação</span>
+                    <strong className="text-slate-800">{candidateData.nomeFederacao || candidateData.siglaFederacao || candidateData.coligacao || 'Partido Isolado'} {candidateData.composicaoFederacao ? `(${candidateData.composicaoFederacao})` : ''}</strong>
+                  </div>
+
+                  <div>
+                    <span className="block text-[10px] font-bold uppercase tracking-wider text-slate-500">Gênero</span>
+                    <strong className="text-slate-800">{candidateData.genero || 'Não informado'}</strong>
+                  </div>
+                  <div>
+                    <span className="block text-[10px] font-bold uppercase tracking-wider text-slate-500">Grau de Instrução</span>
+                    <strong className="text-slate-800">{candidateData.grauInstrucao || 'Não informado'}</strong>
+                  </div>
+                  <div>
+                    <span className="block text-[10px] font-bold uppercase tracking-wider text-slate-500">Cor / Raça</span>
+                    <strong className="text-slate-800">{candidateData.corRaca || 'Não informado'}</strong>
+                  </div>
+                  <div>
+                    <span className="block text-[10px] font-bold uppercase tracking-wider text-slate-500">Ocupação</span>
+                    <strong className="text-slate-800">{candidateData.ocupacao || 'Não informado'}</strong>
                   </div>
                 </div>
 
-                <div className="flex gap-3">
+                {/* DADOS NOMINAIS OFICIAIS (SOMENTE LEITURA - DADOS DO TSE) */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-slate-50 p-4 rounded-xl border border-slate-200">
+                  <div>
+                    <span className="block text-[11px] font-bold uppercase tracking-wider text-slate-500">Nome Civil Completo</span>
+                    <div className="font-semibold text-slate-900 text-sm mt-1">{candidateData.nome}</div>
+                  </div>
+                  <div>
+                    <span className="block text-[11px] font-bold uppercase tracking-wider text-slate-500">Nome de Urna</span>
+                    <div className="font-semibold text-slate-900 text-sm mt-1">{candidateData.nomeUrna}</div>
+                  </div>
+                </div>
+
+                <div className="flex gap-3 pt-2">
                   <Button 
                     variant="outline" 
                     onClick={() => { setCandidateData(null); }}
-                    className="flex-1"
+                    className="flex-1 h-12"
                   >
                     Alterar Busca
                   </Button>
                   <Button 
                     onClick={() => setEtapa(3)} 
-                    className="flex-1 h-12 text-md bg-primary hover:bg-primary/90"
+                    className="flex-1 h-12 text-md bg-primary hover:bg-primary/90 font-bold"
                   >
                     Avançar para Validação do Admin
                     <ArrowRight className="ml-2 h-4 w-4" />
