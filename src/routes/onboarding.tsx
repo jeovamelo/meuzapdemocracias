@@ -392,15 +392,15 @@ function OnboardingPage() {
       const { data: candidato, error: candidatoError } = await (supabase as any)
         .from('tse_candidatos')
         .select([
-          'nr_candidato', 'nm_candidato', 'nm_urna_candidato', 'ds_cargo',
+          'uf', 'cargo', 'nr_candidato', 'nm_candidato', 'nm_urna_candidato', 'foto_url',
           'sg_partido', 'nm_partido', 'nr_partido', 'tp_agremiacao',
           'nm_federacao', 'sg_federacao', 'ds_composicao_federacao',
           'nm_coligacao', 'ds_composicao_coligacao', 'dt_nascimento',
           'ds_genero', 'ds_grau_instrucao', 'ds_ocupacao', 'ds_cor_raca',
         ].join(','))
-        .eq('sg_uf', cleanUf)
+        .eq('uf', cleanUf)
         .eq('nr_candidato', cleanNr)
-        .ilike('ds_cargo', cargoSelecionado.trim())
+        .eq('cargo', cargoSelecionado.trim().toUpperCase())
         .limit(1)
         .maybeSingle();
 
@@ -412,7 +412,7 @@ function OnboardingPage() {
         setCandidateData({
           nome: candidato.nm_candidato || '',
           nomeUrna: candidato.nm_urna_candidato || candidato.nm_candidato || '',
-          cargo: candidato.ds_cargo || cargoSelecionado,
+          cargo: candidato.cargo || cargoSelecionado,
           partido: candidato.sg_partido || candidato.nm_partido || 'Não informado',
           numeroPartido: candidato.nr_partido || '',
           tipoAgremiacao: candidato.tp_agremiacao || 'Não informado',
@@ -427,6 +427,7 @@ function OnboardingPage() {
           grauInstrucao: candidato.ds_grau_instrucao || 'Não informado',
           ocupacao: candidato.ds_ocupacao || 'Não informado',
           corRaca: candidato.ds_cor_raca || 'Não informado',
+          fotoUrl: candidato.foto_url || '',
           dadosEleitoraisEncontrados: true,
         });
         toast.success('Dados do candidato encontrados no banco eleitoral da plataforma.');
