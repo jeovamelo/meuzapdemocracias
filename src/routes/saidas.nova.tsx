@@ -15,7 +15,8 @@ import {
   Flag, 
   Shirt,
   Sparkles,
-  ArrowRight
+  ArrowRight,
+  UserPlus
 } from "lucide-react";
 import { toast } from "sonner";
 import { useStore } from "@/lib/store";
@@ -32,6 +33,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
+import { Button } from "@/components/ui/button";
 
 export const Route = createFileRoute("/saidas/nova")({
   head: () => ({
@@ -72,12 +74,20 @@ function NovaSaida() {
   const [kits, setKits] = useState<Record<string, number>>({});
   const [avulsos, setAvulsos] = useState<Record<string, number>>({});
 
-  // ETAPA 3: DESTINATÁRIO E ENTREGADOR
+  // ETAPA 3: DESTINO, RECEBEDOR E ENTREGADOR
+  const [ufDestino, setUfDestino] = useState(campaign?.uf || db.config.uf || "CE");
+  const [cidadeDestino, setCidadeDestino] = useState("Fortaleza");
+
   const [pessoaId, setPessoaId] = useState("");
   const [nomeNovoRecebedor, setNomeNovoRecebedor] = useState("");
   const [telefoneNovoRecebedor, setTelefoneNovoRecebedor] = useState("");
   const [buscaRecebedor, setBuscaRecebedor] = useState("");
+
+  // ENTREGADOR / TRANSPORTE
   const [entregadorId, setEntregadorId] = useState("");
+  const [cadastrandoNovoEntregador, setCadastrandoNovoEntregador] = useState(false);
+  const [nomeNovoEntregador, setNomeNovoEntregador] = useState("");
+  const [telefoneNovoEntregador, setTelefoneNovoEntregador] = useState("");
 
   const [salvando, setSalvando] = useState(false);
 
@@ -121,7 +131,7 @@ function NovaSaida() {
     });
   }, [db.pessoas, campaign, buscaRecebedor]);
 
-  // Entregadores / Motoristas disponíveis
+  // Entregadores disponíveis
   const entregadores = useMemo(() => {
     return db.pessoas.filter(
       (p) => !campaign?.id || !p.campanha_id || p.campanha_id === campaign.id
@@ -160,16 +170,21 @@ function NovaSaida() {
   const podeAvancar = useMemo(() => {
     if (passo === 0) return true;
     if (passo === 1) return totalUnidades > 0;
-    if (passo === 2) return !!pessoaId || !!nomeNovoRecebedor.trim();
+    if (passo === 2) {
+      const temCidade = !!cidadeDestino.trim();
+      const temRecebedor = !!pessoaId || !!nomeNovoRecebedor.trim();
+      return temCidade && temRecebedor;
+    }
     return true;
-  }, [passo, totalUnidades, pessoaId, nomeNovoRecebedor]);
+  }, [passo, totalUnidades, cidadeDestino, pessoaId, nomeNovoRecebedor]);
 
   async function confirmarSaida() {
     setSalvando(true);
     try {
       let finalPessoaId = pessoaId;
+      let finalEntregadorId = entregadorId;
 
-      // Se for recebedor avulso, cadastra automaticamente na equipe
+      // Se informou recebedor avulso, cadastra automaticamente
       if (!finalPessoaId && nomeNovoRecebedor.trim()) {
         const novaPessoa = await addPessoa({
           nome: nomeNovoRecebedor.trim(),
@@ -178,18 +193,33 @@ function NovaSaida() {
           funcao: "Apoiador(a) / Retirada",
           campanha_id: campaign?.id || undefined,
           comite_id: comiteId || undefined,
-          uf: filtroUf,
-          municipio: filtroCidade,
+          uf: ufDestino,
+          municipio: cidadeDestino,
           status: "ativo",
         });
         if (novaPessoa?.id) finalPessoaId = novaPessoa.id;
+      }
+
+      // Se informou novo entregador rápido, cadastra na hora
+      if (cadastrandoNovoEntregador && nomeNovoEntregador.trim()) {
+        const novoEntregador = await addPessoa({
+          nome: nomeNovoEntregador.trim(),
+          telefone: telefoneNovoEntregador.trim() || undefined,
+          tipo: "responsavel",
+          funcao: "Entregador(a) / Transporte",
+          campanha_id: campaign?.id || undefined,
+          uf: ufDestino,
+          municipio: cidadeDestino,
+          status: "ativo",
+        });
+        if (novoEntregador?.id) finalEntregadorId = novoEntregador.id;
       }
 
       await registrarSaida({
         numero_pedido: numeroPedidoGerado,
         comite_id: comiteId || db.comites[0]?.id || "",
         pessoa_id: finalPessoaId || "",
-        entregador_id: entregadorId || undefined,
+        entregador_id: finalEntregadorId || undefined,
         campaign_id: campaign?.id || undefined,
         kits: Object.entries(kits)
           .filter(([, q]) => q > 0)
@@ -270,12 +300,15 @@ function NovaSaida() {
 
             <div className="space-y-4 rounded-2xl border border-border bg-surface p-4 shadow-sm">
               <div className="space-y-2">
-                <Label className="text-xs font-bold">Estado e Município de Origem / Destino</Label>
+                <Label className="text-xs font-bold">Estado e Município de Origem</Label>
                 <EstadoCidadeSelect
                   uf={filtroUf}
                   cidade={filtroCidade}
                   onUfChange={(uf) => setFiltroUf(uf)}
-                  onCidadeChange={(cidade) => setFiltroCidade(cidade)}
+                  onCidadeChange={(cidade) => {
+                    setFiltroCidade(cidade);
+                    setCidadeDestino(cidade);
+                  }}
                 />
               </div>
 
@@ -445,9 +478,24 @@ function NovaSaida() {
           </div>
         )}
 
-        {/* ETAPA 3: DESTINO E ENTREGADOR */}
+        {/* ETAPA 3: DESTINO, RECEBEDOR E ENTREGADOR */}
         {passo === 2 && (
           <div className="space-y-4">
+            {/* DESTINO OBRIGATÓRIO */}
+            <div className="space-y-3 rounded-2xl border border-border bg-surface p-4 shadow-sm">
+              <Label className="text-xs font-bold flex items-center gap-1.5">
+                <MapPin className="size-4 text-primary" /> Município / Cidade de Destino <span className="text-critical">*</span>
+              </Label>
+              <EstadoCidadeSelect
+                uf={ufDestino}
+                cidade={cidadeDestino}
+                onUfChange={(uf) => setUfDestino(uf)}
+                onCidadeChange={(cidade) => setCidadeDestino(cidade)}
+                showLabels={false}
+              />
+            </div>
+
+            {/* QUEM ESTÁ RECEBENDO */}
             <div className="space-y-3 rounded-2xl border border-border bg-surface p-4 shadow-sm">
               <Label className="text-xs font-bold flex items-center gap-1.5">
                 <User className="size-4 text-primary" /> Quem está recebendo o material? <span className="text-critical">*</span>
@@ -459,23 +507,25 @@ function NovaSaida() {
                   value={buscaRecebedor}
                   onChange={(e) => setBuscaRecebedor(e.target.value)}
                   placeholder="Buscar apoiador ou líder cadastrado..."
-                  className="h-10 pl-9 bg-background"
+                  className="h-10 pl-9 bg-background text-xs"
                 />
               </div>
 
-              <div className="space-y-1.5 max-h-[160px] overflow-y-auto">
-                {pessoasCampanha.slice(0, 10).map((p) => (
+              <div className="space-y-1.5 max-h-[150px] overflow-y-auto">
+                {pessoasCampanha.slice(0, 8).map((p) => (
                   <button
                     key={p.id}
                     onClick={() => {
                       setPessoaId(p.id);
                       setNomeNovoRecebedor("");
+                      if (p.municipio) setCidadeDestino(p.municipio);
+                      if (p.uf) setUfDestino(p.uf);
                     }}
                     className={`flex w-full items-center justify-between rounded-xl border p-2.5 text-left text-xs transition-all ${
                       pessoaId === p.id ? "border-2 border-primary bg-primary/5 font-bold" : "border-border bg-background"
                     }`}
                   >
-                    <span>{p.nome} ({p.funcao || "Apoiador"})</span>
+                    <span>{p.nome} ({p.funcao || "Apoiador"}{p.municipio ? ` - ${p.municipio}` : ""})</span>
                     {pessoaId === p.id && <Check className="size-3.5 text-primary" />}
                   </button>
                 ))}
@@ -503,24 +553,58 @@ function NovaSaida() {
               </div>
             </div>
 
-            {/* ENTREGADOR / TRANSPORTE */}
+            {/* ENTREGADOR / TRANSPORTE COM CADASTRO RÁPIDO */}
             <div className="space-y-3 rounded-2xl border border-border bg-surface p-4 shadow-sm">
-              <Label className="text-xs font-bold flex items-center gap-1.5">
-                <Truck className="size-4 text-primary" /> Responsável pelo Transporte / Entregador (Opcional)
-              </Label>
-              <Select value={entregadorId} onValueChange={setEntregadorId}>
-                <SelectTrigger className="bg-background text-xs">
-                  <SelectValue placeholder="Selecione o entregador (opcional)..." />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="">Nenhum / Retirada no Balcão</SelectItem>
-                  {entregadores.map((e) => (
-                    <SelectItem key={e.id} value={e.id}>
-                      {e.nome} {e.funcao ? `(${e.funcao})` : ""}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <div className="flex items-center justify-between">
+                <Label className="text-xs font-bold flex items-center gap-1.5">
+                  <Truck className="size-4 text-primary" /> Responsável pelo Transporte / Entregador
+                </Label>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setCadastrandoNovoEntregador(!cadastrandoNovoEntregador);
+                    if (!cadastrandoNovoEntregador) setEntregadorId("");
+                  }}
+                  className="text-xs font-bold text-primary hover:underline flex items-center gap-1"
+                >
+                  <UserPlus className="size-3.5" />
+                  {cadastrandoNovoEntregador ? "Selecionar Existente" : "+ Novo Entregador"}
+                </button>
+              </div>
+
+              {cadastrandoNovoEntregador ? (
+                <div className="rounded-xl border border-primary/20 bg-primary/5 p-3 space-y-2 animate-slide-up">
+                  <p className="text-[11px] font-bold text-primary">Cadastro Rápido de Entregador:</p>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    <Input
+                      value={nomeNovoEntregador}
+                      onChange={(e) => setNomeNovoEntregador(e.target.value)}
+                      placeholder="Nome completo do entregador..."
+                      className="bg-background text-xs"
+                    />
+                    <Input
+                      value={telefoneNovoEntregador}
+                      onChange={(e) => setTelefoneNovoEntregador(e.target.value)}
+                      placeholder="WhatsApp (85999999999)..."
+                      className="bg-background text-xs"
+                    />
+                  </div>
+                </div>
+              ) : (
+                <Select value={entregadorId} onValueChange={setEntregadorId}>
+                  <SelectTrigger className="bg-background text-xs">
+                    <SelectValue placeholder="Selecione o entregador (opcional)..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="">Nenhum / Retirada no Balcão</SelectItem>
+                    {entregadores.map((e) => (
+                      <SelectItem key={e.id} value={e.id}>
+                        {e.nome} {e.funcao ? `(${e.funcao})` : ""}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
             </div>
           </div>
         )}
@@ -548,13 +632,19 @@ function NovaSaida() {
                   <span className="font-bold">{comiteSelecionado?.nome || "Sede Geral"} ({filtroCidade}/{filtroUf})</span>
                 </div>
                 <div className="flex justify-between border-b border-border/50 pb-2">
+                  <span className="text-muted-foreground">Destino:</span>
+                  <span className="font-bold text-primary">{cidadeDestino}/{ufDestino}</span>
+                </div>
+                <div className="flex justify-between border-b border-border/50 pb-2">
                   <span className="text-muted-foreground">Recebedor:</span>
                   <span className="font-bold">{pessoaSelecionada?.nome || nomeNovoRecebedor || "Não informado"}</span>
                 </div>
-                {entregadorSelecionado && (
+                {(entregadorSelecionado || (cadastrandoNovoEntregador && nomeNovoEntregador)) && (
                   <div className="flex justify-between border-b border-border/50 pb-2">
                     <span className="text-muted-foreground">Transporte por:</span>
-                    <span className="font-bold">{entregadorSelecionado.nome}</span>
+                    <span className="font-bold">
+                      {cadastrandoNovoEntregador ? nomeNovoEntregador : entregadorSelecionado?.nome}
+                    </span>
                   </div>
                 )}
                 <div className="flex justify-between">
