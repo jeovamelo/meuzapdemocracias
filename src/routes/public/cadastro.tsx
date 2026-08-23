@@ -360,11 +360,14 @@ function PublicCadastro() {
         return;
       }
 
+      const isApoiador = papelCampanha === "Apoiador(a) / Eleitor(a) Simpatizante" || papelCampanha === "Eleitor e Outros";
+      const tipoFinal: "responsavel" | "apoiador" = isApoiador ? "apoiador" : "responsavel";
+
       const pessoaMembro = await addPessoa({
         nome,
         cpf,
         telefone,
-        tipo: "membro_campanha",
+        tipo: tipoFinal,
         papel_campanha: papelCampanha,
         papel_personalizado: papelCampanha === "Eleitor e Outros" ? papelPersonalizado : undefined,
         campanha_id: campanhaSelecionada.id,

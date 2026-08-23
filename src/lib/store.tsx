@@ -216,6 +216,22 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       try {
         const { data, error } = await supabase.from("pessoas").insert([novaPessoa]).select().single();
         if (error) throw error;
+
+        // Se for Responsável e tiver campanha vinculada, refletir em campaign_members
+        const campId = novaPessoa.campanha_id || (novaPessoa as any).campaign_id;
+        if (novaPessoa.tipo === 'responsavel' && campId) {
+          try {
+            await supabase.from("campaign_members").insert([{
+              campaign_id: campId,
+              user_id: data?.id || novaPessoa.id,
+              role: novaPessoa.papel_campanha || 'responsavel',
+              status: novaPessoa.status || 'ativo'
+            } as any]);
+          } catch (mErr) {
+            console.warn("Vínculo em campaign_members:", mErr);
+          }
+        }
+
         return (data || novaPessoa) as Pessoa;
       } catch (err) {
         console.warn("Erro ao salvar pessoa no Supabase, salvando localmente:", err);
