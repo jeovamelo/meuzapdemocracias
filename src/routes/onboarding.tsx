@@ -35,25 +35,10 @@ export const Route = createFileRoute('/onboarding')({
   component: OnboardingPage,
 });
 
-function fotoLocal(uf: string, sqCandidato: string | number | null | undefined) {
-  if (!sqCandidato) return '';
-  return `https://api.democracias.org/tse/foto/2026/${uf.toUpperCase()}/${String(sqCandidato)}`;
-}
-
 const ESTADOS_BR = [
   'AC', 'AL', 'AP', 'AM', 'BA', 'CE', 'DF', 'ES', 'GO', 'MA', 'MT', 'MS', 'MG',
   'PA', 'PB', 'PR', 'PE', 'PI', 'RJ', 'RN', 'RS', 'RO', 'RR', 'SC', 'SP', 'SE', 'TO'
 ];
-
-function calcularIdade(data?: string) {
-  if (!data) return null;
-  const partes = data.includes('/') ? data.split('/').reverse() : data.split('-');
-  const nascimento = new Date(Number(partes[0]), Number(partes[1]) - 1, Number(partes[2]));
-  if (Number.isNaN(nascimento.getTime())) return null;
-  const hoje = new Date(); let idade = hoje.getFullYear() - nascimento.getFullYear();
-  if (hoje < new Date(hoje.getFullYear(), nascimento.getMonth(), nascimento.getDate())) idade--;
-  return idade;
-}
 
 function OnboardingPage() {
   const navigate = useNavigate();
@@ -380,7 +365,7 @@ function OnboardingPage() {
     }
   };
 
-  // 2. Busca Oficial no TSE com Unicidade de Campanha
+  // 2. A unicidade é verificada exclusivamente em `campaigns` no Supabase.
   const handleBuscarCandidatoTse = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!uf || !cargoSelecionado || !numero) {
@@ -395,112 +380,25 @@ function OnboardingPage() {
     try {
       const cleanUf = uf.trim().toUpperCase();
       const cleanNr = numero.trim();
-      const cargoQuery = cargoSelecionado.toUpperCase();
-
-      // Verificar Unicidade no Banco Local / VPS
-      const existente = await verificarCampanhaExiste(cleanUf, cleanNr, cargoQuery);
+      const existente = await verificarCampanhaExiste(cleanUf, cleanNr, cargoSelecionado);
       if (existente) {
         setCampanhaJaCadastrada(existente);
-        setIsLoadingTse(false);
         return;
       }
 
-      // Consulta no Banco TSE
-      try {
-        let cand: any = null;
-
-        const { data: dbCand, error: dbError } = await (supabase as any)
-          .from('tse_candidatos')
-          .select('*')
-          .eq('sg_uf', cleanUf)
-          .eq('nr_candidato', cleanNr)
-          .ilike('ds_cargo', `%${cargoQuery}%`)
-          .limit(1)
-          .maybeSingle();
-
-        if (dbCand && !dbError) {
-          cand = dbCand;
-        } else {
-          try {
-            const vpsUrl = `https://api.democracias.org/rest/v1/tse_candidatos?select=*&sg_uf=eq.${encodeURIComponent(cleanUf)}&nr_candidato=eq.${encodeURIComponent(cleanNr)}&ds_cargo=ilike.*${encodeURIComponent(cargoQuery)}*`;
-            const apiKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyAgCiAgICAicm9sZSI6ICJhbm9uIiwKICAgICJpc3MiOiAic3VwYWJhc2UtZGVtbyIsCiAgICAiaWF0IjogMTY0MTc2OTIwMCwKICAgICJleHAiOiAxNzk5NTM1NjAwCn0.dc_X5iR_VP_qT0zsiyj_I_OZ2T9FtRU2BBNWN8Bu4GE';
-            const res = await fetch(vpsUrl, {
-              headers: {
-                'apikey': apiKey,
-                'Authorization': `Bearer ${apiKey}`
-              }
-            });
-            if (res.ok) {
-              const resData = await res.json();
-              if (Array.isArray(resData) && resData.length > 0) {
-                cand = resData[0];
-              }
-            }
-          } catch (eRest) {
-            console.warn("Fallback REST error:", eRest);
-          }
-        }
-
-        if (cand) {
-          let vice;
-          if (cargoSelecionado === 'GOVERNADOR' || cargoQuery.includes('GOVERNADOR')) {
-            try {
-              const { data: viceCand } = await (supabase as any)
-                .from('tse_candidatos')
-                .select('*')
-                .eq('sg_uf', cleanUf)
-                .eq('nr_candidato', cleanNr)
-                .ilike('ds_cargo', '%VICE-GOVERNADOR%')
-                .limit(1)
-                .maybeSingle();
-              if (viceCand) {
-                vice = {
-                  nome: viceCand.nm_candidato || '',
-                  nomeUrna: viceCand.nm_urna_candidato || '',
-                  fotoUrl: fotoLocal(uf, viceCand.sq_candidato)
-                };
-              }
-            } catch { }
-          }
-
-          setCandidateData({
-            nome: cand.nm_candidato || '',
-            nomeUrna: cand.nm_urna_candidato || '',
-            cargo: cand.ds_cargo || cargoSelecionado,
-            partido: cand.sg_partido || cand.nm_partido || 'Não informado',
-            numeroPartido: cand.nr_partido || '',
-            tipoAgremiacao: cand.tp_agremiacao || 'Não informado',
-            nomeFederacao: cand.nm_federacao || '',
-            siglaFederacao: cand.sg_federacao || '',
-            composicaoFederacao: cand.ds_composicao_federacao || '',
-            coligacao: cand.nm_coligacao || '',
-            composicaoColigacao: cand.ds_composicao_coligacao || '',
-            dataNascimento: cand.dt_nascimento || 'Não informado',
-            idade: calcularIdade(cand.dt_nascimento),
-            numeroCandidato: cand.nr_candidato || numero,
-            genero: cand.ds_genero || 'Não informado',
-            grauInstrucao: cand.ds_grau_instrucao || 'Não informado',
-            ocupacao: cand.ds_ocupacao || 'Não informado',
-            corRaca: cand.ds_cor_raca || 'Não informado',
-            fotoUrl: fotoLocal(uf, cand.sq_candidato),
-            vice,
-          });
-
-          toast.success(`Candidato(a) ${cand.nm_urna_candidato} validado(a) na base oficial do TSE!`);
-          setIsLoadingTse(false);
-          return;
-        } else {
-          toast.error(`Candidato nº ${numero} para ${cargoSelecionado} não foi encontrado na base oficial do TSE em ${uf}.`);
-          setCandidateData(null);
-        }
-      } catch (errDb) {
-        console.warn('Erro na busca Supabase TSE:', errDb);
-        toast.error('Falha ao consultar a base oficial do TSE.');
-        setCandidateData(null);
-      }
+      // Não existe registro com a mesma UF, cargo e número em `campaigns`.
+      // Não há consulta a TSE, endpoints externos ou bases legadas nesta etapa.
+      setCandidateData({
+        nome: `Campanha ${cleanNr}`,
+        nomeUrna: `Campanha ${cleanNr}`,
+        cargo: cargoSelecionado,
+        partido: 'A informar',
+        numeroCandidato: cleanNr,
+      });
+      toast.success('Campanha disponível para cadastro. Você pode avançar para a próxima etapa.');
     } catch (err) {
-      console.warn("Falha geral ao buscar", err);
-      toast.error('Erro ao verificar campanha.');
+      console.warn('Falha ao verificar a unicidade da campanha:', err);
+      toast.error('Não foi possível consultar as campanhas. Tente novamente.');
       setCandidateData(null);
     } finally {
       setIsLoadingTse(false);
@@ -716,7 +614,7 @@ function OnboardingPage() {
           </div>
         )}
 
-        {/* ETAPA 2: BUSCA OFICIAL TSE E UNICIDADE */}
+        {/* ETAPA 2: UNICIDADE DA CAMPANHA */}
         {etapa === 2 && (
           <div className="bg-white p-8 rounded-2xl shadow-xl border border-slate-100 space-y-6">
             <form onSubmit={handleBuscarCandidatoTse} className="space-y-4">
@@ -825,7 +723,7 @@ function OnboardingPage() {
 
                   <div className="flex-1">
                     <div className="text-xs font-bold uppercase tracking-wider text-emerald-800">
-                      Campanha Elegível para Cadastro Único
+                      Campanha disponível para cadastro
                     </div>
                     <div className="text-lg font-bold text-emerald-950">
                       {candidateData.nomeUrna || candidateData.nome}

@@ -221,11 +221,16 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           .eq("nr_candidato", cleanNr);
         
         if (cargo) {
-          query = query.ilike("cargo", `%${cargo.trim()}%`);
+          // Comparação exata, mas sem diferenciação entre maiúsculas/minúsculas.
+          query = query.ilike("cargo", cargo.trim());
         }
 
         const { data, error } = await query.limit(1).maybeSingle();
-        if (data && !error) {
+        if (error) {
+          throw error;
+        }
+
+        if (data) {
           return {
             id: data.id,
             uf: data.uf,
@@ -248,7 +253,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         return null;
       } catch (e) {
         console.warn("Erro ao consultar campaigns no Supabase:", e);
-        return null;
+        throw e;
       }
     },
     addCampanhaRegistro: async (camp) => {
