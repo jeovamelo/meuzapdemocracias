@@ -23,10 +23,21 @@ import {
   Layers,
   Radio,
   Clock,
-  Sparkles
+  Sparkles,
+  FolderKanban,
+  Trash2,
+  CalendarDays
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 
 export const Route = createFileRoute('/pc')({
   component: PcPage,
@@ -41,6 +52,17 @@ interface WhatsAppInstanceItem {
   updatedAt?: string;
 }
 
+interface CampaignItem {
+  id: string;
+  nome_candidato: string | null;
+  nome_urna: string | null;
+  nr_candidato: string | null;
+  cargo: string | null;
+  uf: string | null;
+  partido: string | null;
+  created_at: string | null;
+}
+
 function PcPage() {
   // Autenticação Administrativa Obrigatória para /pc
   const [isAuthenticated, setIsAuthenticated] = useState(() => {
@@ -51,7 +73,7 @@ function PcPage() {
   const [loginError, setLoginError] = useState('');
   const [isLoggingIn, setIsLoggingIn] = useState(false);
 
-  const [activeTab, setActiveTab] = useState<'geral' | 'evolution' | 'infra'>('geral');
+  const [activeTab, setActiveTab] = useState<'geral' | 'evolution' | 'campaigns' | 'infra'>('geral');
   
   // WhatsApp Geral do Sistema
   const [systemPhone, setSystemPhone] = useState('');
@@ -68,6 +90,12 @@ function PcPage() {
   // Listagem de Instâncias da Evolution API
   const [instances, setInstances] = useState<WhatsAppInstanceItem[]>([]);
   const [loadingInstances, setLoadingInstances] = useState(false);
+
+  // Campanhas: a exclusão é feita por uma função transacional no banco.
+  const [campaigns, setCampaigns] = useState<CampaignItem[]>([]);
+  const [loadingCampaigns, setLoadingCampaigns] = useState(false);
+  const [campaignPendingDeletion, setCampaignPendingDeletion] = useState<CampaignItem | null>(null);
+  const [isDeletingCampaign, setIsDeletingCampaign] = useState(false);
 
   const handleAdminLogin = (e: React.FormEvent) => {
     e.preventDefault();
@@ -95,6 +123,46 @@ function PcPage() {
     setIsAuthenticated(sessionStorage.getItem('democracias_pc_auth') === 'true');
     setSystemPhone(localStorage.getItem('democracias_system_phone') || '');
   }, []);
+
+  const carregarCampanhas = async () => {
+    setLoadingCampaigns(true);
+    try {
+      const { data, error } = await supabase
+        .from('campaigns')
+        .select('id, nome_candidato, nome_urna, nr_candidato, cargo, uf, partido, created_at')
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      setCampaigns((data || []) as CampaignItem[]);
+    } catch (error) {
+      console.error('Erro ao carregar campanhas:', error);
+      toast.error('Não foi possível carregar as campanhas cadastradas.');
+    } finally {
+      setLoadingCampaigns(false);
+    }
+  };
+
+  const excluirCampanha = async () => {
+    if (!campaignPendingDeletion) return;
+
+    setIsDeletingCampaign(true);
+    try {
+      const { error } = await (supabase as any).rpc('delete_campaign_completely', {
+        p_campaign_id: campaignPendingDeletion.id,
+      });
+
+      if (error) throw error;
+
+      setCampaigns((current) => current.filter((campaign) => campaign.id !== campaignPendingDeletion.id));
+      toast.success('Campanha e todos os dados vinculados foram excluídos.');
+      setCampaignPendingDeletion(null);
+    } catch (error) {
+      console.error('Erro ao excluir campanha:', error);
+      toast.error('Não foi possível excluir a campanha. Verifique sua sessão administrativa e tente novamente.');
+    } finally {
+      setIsDeletingCampaign(false);
+    }
+  };
 
   // 1. Carregar Instâncias do Evolution Go
   const carregarInstancias = async () => {
@@ -154,6 +222,12 @@ function PcPage() {
     const interval = setInterval(carregarInstancias, 12000);
     return () => clearInterval(interval);
   }, []);
+
+  useEffect(() => {
+    if (isAuthenticated && activeTab === 'campaigns') {
+      carregarCampanhas();
+    }
+  }, [isAuthenticated, activeTab]);
 
   // 2. Instância Única Padrão do Sistema: 'sistema-geral-democracias'
   const INSTANCE_MASTER = 'sistema-geral-democracias';
@@ -408,6 +482,21 @@ function PcPage() {
         >
           <Database className="h-4 w-4 text-blue-600" />
           Infraestrutura e Supabase
+        </button>
+
+        <button
+          onClick={() => setActiveTab('campaigns')}
+          className={`px-5 py-3 font-bold text-sm border-b-2 transition-all flex items-center gap-2 ${
+            activeTab === 'campaigns'
+              ? 'border-violet-600 text-violet-700 bg-violet-50 rounded-t-lg'
+              : 'border-transparent text-slate-600 hover:text-slate-900'
+          }`}
+        >
+          <FolderKanban className="h-4 w-4 text-violet-600" />
+          Campanhas
+          <span className="text-[11px] bg-violet-100 text-violet-800 font-extrabold px-2 py-0.5 rounded-full ml-1">
+            {campaigns.length}
+          </span>
         </button>
       </div>
 
@@ -665,7 +754,118 @@ function PcPage() {
           </div>
         )}
 
+        {/* ABA 4: GESTÃO DE CAMPANHAS */}
+        {activeTab === 'campaigns' && (
+          <div className="space-y-6">
+            <div className="bg-white p-6 sm:p-8 rounded-2xl border border-slate-200 shadow-sm space-y-6">
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between border-b pb-4">
+                <div>
+                  <h2 className="text-xl font-extrabold text-slate-900 flex items-center gap-2">
+                    <FolderKanban className="h-6 w-6 text-violet-600" />
+                    Campanhas cadastradas
+                  </h2>
+                  <p className="text-sm text-slate-500 mt-1 max-w-2xl">
+                    Gerencie as campanhas da plataforma. A exclusão remove também todos os registros que possuem vínculo com a campanha.
+                  </p>
+                </div>
+                <Button type="button" variant="outline" onClick={carregarCampanhas} disabled={loadingCampaigns} className="shrink-0">
+                  <RefreshCw className={`mr-2 h-4 w-4 ${loadingCampaigns ? 'animate-spin' : ''}`} />
+                  Atualizar lista
+                </Button>
+              </div>
+
+              {loadingCampaigns ? (
+                <div className="py-16 text-center text-sm font-semibold text-slate-500">
+                  <Loader2 className="mx-auto mb-3 h-6 w-6 animate-spin text-violet-600" />
+                  Carregando campanhas...
+                </div>
+              ) : campaigns.length === 0 ? (
+                <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50 py-14 text-center">
+                  <FolderKanban className="mx-auto mb-3 h-8 w-8 text-slate-400" />
+                  <p className="font-bold text-slate-700">Nenhuma campanha cadastrada.</p>
+                  <p className="mt-1 text-sm text-slate-500">As campanhas criadas no onboarding aparecerão aqui.</p>
+                </div>
+              ) : (
+                <div className="overflow-x-auto rounded-xl border border-slate-200">
+                  <table className="w-full min-w-[760px] text-left text-sm">
+                    <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
+                      <tr>
+                        <th className="px-4 py-3 font-bold">Candidato</th>
+                        <th className="px-4 py-3 font-bold">Número</th>
+                        <th className="px-4 py-3 font-bold">Cargo / UF</th>
+                        <th className="px-4 py-3 font-bold">Partido</th>
+                        <th className="px-4 py-3 font-bold">Criação</th>
+                        <th className="px-4 py-3 text-right font-bold">Ações</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {campaigns.map((campaign) => (
+                        <tr key={campaign.id} className="bg-white hover:bg-slate-50/70">
+                          <td className="px-4 py-4">
+                            <p className="font-bold text-slate-900">{campaign.nome_candidato || campaign.nome_urna || 'Candidato não informado'}</p>
+                            {campaign.nome_urna && campaign.nome_urna !== campaign.nome_candidato && (
+                              <p className="mt-0.5 text-xs text-slate-500">Nome de urna: {campaign.nome_urna}</p>
+                            )}
+                          </td>
+                          <td className="px-4 py-4 font-mono font-semibold text-slate-700">{campaign.nr_candidato || '—'}</td>
+                          <td className="px-4 py-4">
+                            <p className="font-semibold text-slate-700">{campaign.cargo || '—'}</p>
+                            <p className="mt-0.5 text-xs text-slate-500">{campaign.uf || 'UF não informada'}</p>
+                          </td>
+                          <td className="px-4 py-4 text-slate-700">{campaign.partido || '—'}</td>
+                          <td className="px-4 py-4 text-xs text-slate-500">
+                            <span className="inline-flex items-center gap-1.5">
+                              <CalendarDays className="h-3.5 w-3.5" />
+                              {campaign.created_at ? new Date(campaign.created_at).toLocaleDateString('pt-BR') : '—'}
+                            </span>
+                          </td>
+                          <td className="px-4 py-4 text-right">
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={() => setCampaignPendingDeletion(campaign)}
+                              className="border-rose-200 text-rose-700 hover:bg-rose-50 hover:text-rose-800"
+                            >
+                              <Trash2 className="mr-1.5 h-4 w-4" />
+                              Excluir
+                            </Button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
       </div>
+
+      <Dialog open={Boolean(campaignPendingDeletion)} onOpenChange={(open) => !open && !isDeletingCampaign && setCampaignPendingDeletion(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-rose-700">
+              <AlertTriangle className="h-5 w-5" />
+              Excluir campanha definitivamente?
+            </DialogTitle>
+            <DialogDescription className="pt-2 leading-6">
+              Você está prestes a excluir <strong>{campaignPendingDeletion?.nome_candidato || campaignPendingDeletion?.nome_urna || 'esta campanha'}</strong>.
+              Esta ação remove a campanha, membros, instâncias e filas de WhatsApp, solicitações e demais dados vinculados. Não é possível desfazer.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button type="button" variant="outline" disabled={isDeletingCampaign} onClick={() => setCampaignPendingDeletion(null)}>
+              Cancelar
+            </Button>
+            <Button type="button" disabled={isDeletingCampaign} onClick={excluirCampanha} className="bg-rose-600 hover:bg-rose-700">
+              {isDeletingCampaign ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Trash2 className="mr-2 h-4 w-4" />}
+              Excluir definitivamente
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
