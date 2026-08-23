@@ -100,6 +100,19 @@ function PcPage() {
     }, 600);
   };
 
+  const handleSaveGoogleAuth = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSaving(true);
+    try {
+      setGoogleAuth({ clientId, clientSecret });
+      toast.success('Credenciais do Google Auth salvas com sucesso!');
+    } catch {
+      toast.error('Erro ao salvar credenciais do Google.');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   const handleTestDisparo = async () => {
     if (!phone) {
       toast.error('Configure um número primeiro.');
