@@ -42,6 +42,15 @@ interface WhatsAppInstanceItem {
 }
 
 function PcPage() {
+  // Autenticação Administrativa Obrigatória para /pc
+  const [isAuthenticated, setIsAuthenticated] = useState(() => {
+    return sessionStorage.getItem('democracias_pc_auth') === 'true';
+  });
+  const [loginUser, setLoginUser] = useState('');
+  const [loginPass, setLoginPass] = useState('');
+  const [loginError, setLoginError] = useState('');
+  const [isLoggingIn, setIsLoggingIn] = useState(false);
+
   const [activeTab, setActiveTab] = useState<'geral' | 'evolution' | 'infra'>('geral');
   
   // WhatsApp Geral do Sistema
@@ -54,6 +63,28 @@ function PcPage() {
   // Listagem de Instâncias da Evolution API
   const [instances, setInstances] = useState<WhatsAppInstanceItem[]>([]);
   const [loadingInstances, setLoadingInstances] = useState(false);
+
+  const handleAdminLogin = (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsLoggingIn(true);
+    setLoginError('');
+
+    if (loginUser.trim() === 'jeovaabreu' && loginPass === 'tk90xz39@123E') {
+      sessionStorage.setItem('democracias_pc_auth', 'true');
+      setIsAuthenticated(true);
+      toast.success('Acesso administrativo autorizado com sucesso!');
+    } else {
+      setLoginError('Usuário ou senha de administrador incorretos.');
+      toast.error('Credenciais inválidas.');
+    }
+    setIsLoggingIn(false);
+  };
+
+  const handleLogout = () => {
+    sessionStorage.removeItem('democracias_pc_auth');
+    setIsAuthenticated(false);
+    toast.info('Sessão administrativa encerrada.');
+  };
 
   // 1. Carregar Instâncias da Evolution API
   const carregarInstancias = async () => {
@@ -199,6 +230,69 @@ function PcPage() {
     }
   };
 
+  // SE NÃO ESTIVER AUTENTICADO: RENDERIZAR TELA DE LOGIN ADMINISTRATIVO EXCLUSIVA
+  if (!isAuthenticated) {
+    return (
+      <div className="min-h-[80vh] flex items-center justify-center px-4 py-12">
+        <div className="max-w-md w-full bg-white p-8 rounded-3xl border border-slate-200 shadow-xl space-y-6">
+          <div className="text-center space-y-2">
+            <div className="w-16 h-16 bg-primary/10 text-primary rounded-2xl flex items-center justify-center mx-auto mb-3 shadow-inner">
+              <ShieldCheck className="h-8 w-8" />
+            </div>
+            <h2 className="text-2xl font-black text-slate-900 tracking-tight">Painel de Controle Global</h2>
+            <p className="text-xs text-slate-500 max-w-xs mx-auto">
+              Área restrita de infraestrutura e administração master da plataforma Democracias.
+            </p>
+          </div>
+
+          {loginError && (
+            <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl flex items-center gap-2 text-xs font-bold text-rose-700">
+              <AlertTriangle className="h-4 w-4 shrink-0" />
+              {loginError}
+            </div>
+          )}
+
+          <form onSubmit={handleAdminLogin} className="space-y-4">
+            <div className="space-y-1.5">
+              <Label className="text-xs font-bold uppercase tracking-wider text-slate-700">Usuário Administrador</Label>
+              <Input
+                placeholder="Informe seu usuário"
+                value={loginUser}
+                onChange={e => setLoginUser(e.target.value)}
+                className="h-12 text-sm"
+                required
+                autoFocus
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <Label className="text-xs font-bold uppercase tracking-wider text-slate-700">Senha de Acesso</Label>
+              <Input
+                type="password"
+                placeholder="••••••••••••"
+                value={loginPass}
+                onChange={e => setLoginPass(e.target.value)}
+                className="h-12 text-sm"
+                required
+              />
+            </div>
+
+            <Button type="submit" disabled={isLoggingIn} className="w-full h-12 text-base font-bold bg-primary hover:bg-primary/90 mt-2 shadow-md">
+              {isLoggingIn ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <ShieldCheck className="mr-2 h-5 w-5" />}
+              Entrar no Painel Master
+            </Button>
+          </form>
+
+          <div className="pt-2 text-center">
+            <a href="/" className="text-xs font-semibold text-slate-400 hover:text-slate-600 transition-colors">
+              ← Voltar para a Página Inicial
+            </a>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="mx-auto w-full md:max-w-screen-xl pb-24 px-4 sm:px-6">
       <PageHeader
@@ -206,7 +300,10 @@ function PcPage() {
         title="Painel de Controle do Sistema"
         description="Central de infraestrutura, instâncias da Evolution API e WhatsApp Geral da plataforma."
         right={
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-3">
+            <Button variant="outline" size="sm" onClick={handleLogout} className="text-xs font-bold text-rose-600 border-rose-200 hover:bg-rose-50">
+              Sair do Painel
+            </Button>
             <div className="flex size-10 items-center justify-center rounded-full border border-primary/30 bg-primary/10 text-primary font-bold shadow-sm">
               <ShieldCheck className="size-5" />
             </div>
