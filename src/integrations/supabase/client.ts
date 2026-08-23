@@ -100,6 +100,7 @@ function createSupabaseClient() {
       storage: sharedPreviewStorage(),
       persistSession: true,
       autoRefreshToken: true,
+      detectSessionInUrl: true,
     }
   });
 }

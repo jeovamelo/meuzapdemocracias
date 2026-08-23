@@ -616,17 +616,22 @@ function OnboardingPage() {
         provider: 'google',
         options: {
           redirectTo: `${window.location.origin}/onboarding`,
-          skipBrowserRedirect: false,
+          skipBrowserRedirect: true,
         },
       });
       if (error) throw error;
-      if (data?.url) {
-        window.location.assign(data.url);
-      }
-    } catch (error) {
-      console.error(error);
+      if (!data?.url) throw new Error('URL de autenticação do Google indisponível');
+
+      window.location.assign(data.url);
+    } catch (error: any) {
+      console.error('Erro Google OAuth:', error);
       setGoogleCarregando(false);
-      toast.error('Não foi possível iniciar a autenticação Google.');
+      const msg = error?.message || '';
+      if (msg.includes('flow state') || msg.includes('500') || msg.includes('unexpected_failure')) {
+        toast.error('Provedor Google ainda não configurado no servidor. Utilize a Validação via WhatsApp.');
+      } else {
+        toast.error('Não foi possível iniciar a autenticação Google. Tente a opção WhatsApp.');
+      }
     }
   };
 
@@ -756,7 +761,7 @@ function OnboardingPage() {
               <div className="space-y-1">
                 <Label>Número<span className="text-rose-500">*</span></Label>
                 <Input
-                  placeholder="Ex: 13, 22, 45, 10123"
+                  placeholder=""
                   value={numero}
                   onChange={(e) => {
                     setNumero(e.target.value.replace(/\D/g, ''));
@@ -930,8 +935,8 @@ function OnboardingPage() {
               <div
                 onClick={() => setAuthMethod('google')}
                 className={`p-5 rounded-2xl border-2 cursor-pointer transition-all flex flex-col justify-between ${authMethod === 'google'
-                    ? 'border-primary bg-primary/5 shadow-md ring-2 ring-primary/20'
-                    : 'border-slate-200 hover:border-slate-300 hover:bg-slate-50/60'
+                  ? 'border-primary bg-primary/5 shadow-md ring-2 ring-primary/20'
+                  : 'border-slate-200 hover:border-slate-300 hover:bg-slate-50/60'
                   }`}
               >
                 <div className="space-y-3">
@@ -986,8 +991,8 @@ function OnboardingPage() {
               <div
                 onClick={() => setAuthMethod('whatsapp')}
                 className={`p-5 rounded-2xl border-2 cursor-pointer transition-all flex flex-col justify-between ${authMethod === 'whatsapp'
-                    ? 'border-emerald-500 bg-emerald-50/40 shadow-md ring-2 ring-emerald-500/20'
-                    : 'border-slate-200 hover:border-slate-300 hover:bg-slate-50/60'
+                  ? 'border-emerald-500 bg-emerald-50/40 shadow-md ring-2 ring-emerald-500/20'
+                  : 'border-slate-200 hover:border-slate-300 hover:bg-slate-50/60'
                   }`}
               >
                 <div className="space-y-3">
