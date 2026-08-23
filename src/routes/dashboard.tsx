@@ -1,29 +1,21 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { Plus, UserPlus, AlertTriangle, FileText, Flag, Shirt, Send, BarChart3, PieChart as PieChartIcon, Map, Package, Search, ShieldCheck, Target, TrendingUp, Info, Loader2, QrCode, Settings2 } from "lucide-react";
+import {
+  Plus,
+  AlertTriangle,
+  FileText,
+  Flag,
+  Shirt,
+  Send,
+  BarChart3,
+  PieChart as PieChartIcon,
+  Package,
+  QrCode,
+  Settings2,
+} from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
 import { useStore } from "@/lib/store";
 import { formatNumero, isCritico, isHoje, pad2, type Material } from "@/lib/db";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useState, useEffect } from "react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { 
-  Dialog, 
-  DialogContent, 
-  DialogHeader, 
-  DialogTitle, 
-  DialogDescription,
-  DialogFooter
-} from "@/components/ui/dialog";
-import { 
-  Select, 
-  SelectContent, 
-  SelectItem, 
-  SelectTrigger, 
-  SelectValue 
-} from "@/components/ui/select";
-import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import {
@@ -52,8 +44,7 @@ export const Route = createFileRoute("/dashboard")({
       { property: "og:title", content: "Painel Central — Gestão Ceará" },
       {
         property: "og:description",
-        content:
-          "Dashboard administrativo para controle estadual de logística de campanha.",
+        content: "Dashboard administrativo para controle estadual de logística de campanha.",
       },
     ],
   }),
@@ -63,7 +54,12 @@ export const Route = createFileRoute("/dashboard")({
 const iconePorCategoria = (m: Material) => {
   if (m.categoria.includes("Adesivo")) return FileText;
   if (m.categoria.includes("Bandeira")) return Flag;
-  if (m.categoria.includes("Santinho") || m.categoria === "Santão" || m.categoria === "Revista dobrada") return FileText;
+  if (
+    m.categoria.includes("Santinho") ||
+    m.categoria === "Santão" ||
+    m.categoria === "Revista dobrada"
+  )
+    return FileText;
   if (m.categoria.includes("Banner")) return Flag;
   if (m.categoria.includes("Vestuário") || m.categoria === "Bóton") return Shirt;
   return Package;
@@ -72,58 +68,7 @@ const iconePorCategoria = (m: Material) => {
 const COLORS = ["var(--primary)", "var(--accent)", "#10b981", "#8b5cf6", "#f43f5e"];
 
 function Dashboard() {
-  const { db, ready, updateConfig } = useStore();
-  const [showConfig, setShowConfig] = useState(false);
-  const [loadingTse, setLoadingTse] = useState(false);
-  const [configForm, setConfigForm] = useState({
-    uf: db.config.uf || "CE",
-    numero: db.config.numero || "",
-    candidato_nome: db.config.candidato_nome || "",
-    candidato_urna: db.config.candidato_urna || "",
-    cargo: db.config.cargo || "",
-    partido_coligacao: db.config.partido_coligacao || "",
-    meta_eleicao: db.config.meta_eleicao || undefined,
-    meta_expectativa: db.config.meta_expectativa || undefined,
-    total_secoes: undefined,
-  });
-
-  useEffect(() => {
-    if (ready && !db.config.configurada) {
-      setShowConfig(true);
-    }
-  }, [ready, db.config.configurada]);
-
-  const buscarNoTse = async () => {
-    if (!configForm.uf || !configForm.numero) {
-      toast.error("Preencha UF e Número do Candidato");
-      return;
-    }
-
-    setLoadingTse(true);
-    // Simulação de busca no TSE
-    await new Promise((r) => setTimeout(r, 1500));
-    
-    // Mock de dados baseados em números conhecidos ou genéricos
-    const mockData = {
-      candidato_nome: "MISSIAS DIAS DE SOUZA",
-      candidato_urna: "MISSIAS DIAS",
-      cargo: "Deputado Estadual",
-      partido_coligacao: "PT / Federação Brasil da Esperança (PT/PC do B/PV)",
-    };
-
-    setConfigForm(prev => ({ ...prev, ...mockData }));
-    setLoadingTse(false);
-    toast.success("Dados localizados na base do TSE!");
-  };
-
-  const salvarConfiguracao = async () => {
-    await updateConfig({
-      ...configForm,
-      configurada: true
-    });
-    setShowConfig(false);
-    toast.success("Campanha configurada com sucesso!");
-  };
+  const { db, ready } = useStore();
 
   const comitesAtivos = db.comites.filter((c) => c.ativo).length;
   const apoiadores = db.pessoas.length;
@@ -137,24 +82,25 @@ function Dashboard() {
 
   // Dados para Gráfico por Município (filtrados pela UF da campanha)
   const dadosPorMunicipio = db.comites
-    .filter(c => c.uf === ufCampanha || !c.uf) // Mostra os da UF ou os sem UF (migração)
-    .reduce((acc: any[], comite) => {
+    .filter((c) => c.uf === ufCampanha || !c.uf) // Mostra os da UF ou os sem UF (migração)
+    .reduce<{ name: string; total: number }[]>((acc, comite) => {
       const totalSaidas = db.saidas
         .filter((s) => s.comite_id === comite.id)
         .reduce((t, s) => t + s.itens.reduce((sum, i) => sum + i.quantidade, 0), 0);
-      
-      const index = acc.findIndex(d => d.name === comite.municipio);
+
+      const index = acc.findIndex((d) => d.name === comite.municipio);
       if (index > -1) {
         acc[index].total += totalSaidas;
       } else {
         acc.push({ name: comite.municipio, total: totalSaidas });
       }
       return acc;
-    }, []).sort((a, b) => b.total - a.total);
+    }, [])
+    .sort((a, b) => b.total - a.total);
 
   // Dados para Gráfico por Categoria
-  const dadosPorCategoria = db.materiais.reduce((acc: any[], m) => {
-    const index = acc.findIndex(d => d.name === m.categoria);
+  const dadosPorCategoria = db.materiais.reduce<{ name: string; value: number }[]>((acc, m) => {
+    const index = acc.findIndex((d) => d.name === m.categoria);
     if (index > -1) {
       acc[index].value += m.estoque;
     } else {
@@ -167,12 +113,11 @@ function Dashboard() {
     <div className="mx-auto w-full md:max-w-screen-xl relative -+">
       <div className="sr-only">
         Atualize as listagens de **Responsáveis** e **Apoiadores** com o recurso de edição direta:
-
-1. **Botão de Edição (Lápis):**
-
-   - Adicione um **ícone de lápis (botão de editar)** em cada card ou linha nas abas de Responsáveis e Apoiadores, posicionado ao lado dos botões de ação atuais.
-
-   - Ao clicar no lápis, abra o modal correspondente de cadastro/edição preenchido com todos os dados existentes da pessoa selecionada, permitindo atualizar nome, WhatsApp, endereço, função ou votos de forma rápida e salvar as alterações.
+        1. **Botão de Edição (Lápis):** - Adicione um **ícone de lápis (botão de editar)** em cada
+        card ou linha nas abas de Responsáveis e Apoiadores, posicionado ao lado dos botões de ação
+        atuais. - Ao clicar no lápis, abra o modal correspondente de cadastro/edição preenchido com
+        todos os dados existentes da pessoa selecionada, permitindo atualizar nome, WhatsApp,
+        endereço, função ou votos de forma rápida e salvar as alterações.
       </div>
 
       <PageHeader
@@ -180,8 +125,15 @@ function Dashboard() {
         title={`Gestão ${db.config.uf || "Estadual"}`}
         right={
           <div className="flex items-center gap-2">
-            <span className="hidden font-mono text-xs text-muted-foreground md:inline">{db.config.uf || "BR"}-LOG V2.0</span>
-            <Link to="/pc" className="flex size-10 items-center justify-center rounded-full border border-border bg-surface text-muted-foreground hover:bg-muted/50 transition-colors">
+            <span className="hidden font-mono text-xs text-muted-foreground md:inline">
+              {db.config.uf || "BR"}-LOG V2.0
+            </span>
+            <Link
+              to="/whatsapp"
+              aria-label="Configurações do WhatsApp da campanha"
+              title="Configurações do WhatsApp da campanha"
+              className="flex size-10 items-center justify-center rounded-full border border-border bg-surface text-muted-foreground hover:bg-muted/50 transition-colors"
+            >
               <Settings2 className="size-4" />
             </Link>
             <div className="flex size-10 items-center justify-center rounded-full border border-border bg-surface font-mono text-xs font-bold">
@@ -194,11 +146,7 @@ function Dashboard() {
       <div className="grid grid-cols-2 gap-3 px-5 py-6 md:grid-cols-4 md:gap-6">
         <Kpi label="Comitês Ativos" value={pad2(comitesAtivos)} />
         <Kpi label="Apoiadores" value={String(apoiadores)} />
-        <Kpi
-          label="Itens Críticos"
-          value={pad2(criticos.length)}
-          tone="critical"
-        />
+        <Kpi label="Itens Críticos" value={pad2(criticos.length)} tone="critical" />
         <Kpi label="Kits Hoje" value={pad2(kitsHoje)} tone="primary" />
       </div>
 
@@ -216,22 +164,26 @@ function Dashboard() {
               <BarChart data={dadosPorMunicipio} layout="vertical">
                 <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="rgba(0,0,0,0.05)" />
                 <XAxis type="number" hide />
-                <YAxis 
-                  dataKey="name" 
-                  type="category" 
-                  width={100} 
+                <YAxis
+                  dataKey="name"
+                  type="category"
+                  width={100}
                   tick={{ fontSize: 10, fontWeight: 700 }}
                   axisLine={false}
                   tickLine={false}
                 />
-                <Tooltip 
-                  cursor={{ fill: 'rgba(0,0,0,0.02)' }}
+                <Tooltip
+                  cursor={{ fill: "rgba(0,0,0,0.02)" }}
                   content={({ active, payload }) => {
                     if (active && payload && payload.length) {
                       return (
                         <div className="rounded-lg border border-border bg-background p-3 shadow-xl">
-                          <p className="text-[10px] font-bold uppercase text-muted-foreground">{payload?.[0]?.payload?.name || ""}</p>
-                          <p className="font-mono text-sm font-bold">{formatNumero((payload?.[0]?.value || 0) as number)} itens</p>
+                          <p className="text-[10px] font-bold uppercase text-muted-foreground">
+                            {payload?.[0]?.payload?.name || ""}
+                          </p>
+                          <p className="font-mono text-sm font-bold">
+                            {formatNumero((payload?.[0]?.value || 0) as number)} itens
+                          </p>
                         </div>
                       );
                     }
@@ -264,13 +216,17 @@ function Dashboard() {
                     <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length] || "#ccc"} />
                   ))}
                 </Pie>
-                <Tooltip 
+                <Tooltip
                   content={({ active, payload }) => {
                     if (active && payload && payload.length) {
                       return (
                         <div className="rounded-lg border border-border bg-background p-3 shadow-xl">
-                          <p className="text-[10px] font-bold uppercase text-muted-foreground">{payload?.[0]?.name || ""}</p>
-                          <p className="font-mono text-sm font-bold">{formatNumero((payload?.[0]?.value || 0) as number)} unid.</p>
+                          <p className="text-[10px] font-bold uppercase text-muted-foreground">
+                            {payload?.[0]?.name || ""}
+                          </p>
+                          <p className="font-mono text-sm font-bold">
+                            {formatNumero((payload?.[0]?.value || 0) as number)} unid.
+                          </p>
                         </div>
                       );
                     }
@@ -282,8 +238,13 @@ function Dashboard() {
             <div className="mt-4 grid grid-cols-2 gap-2">
               {dadosPorCategoria.map((d, i) => (
                 <div key={d.name} className="flex items-center gap-2">
-                  <div className="size-2 rounded-full" style={{ backgroundColor: COLORS[i % COLORS.length] }} />
-                  <span className="text-[10px] font-bold uppercase text-muted-foreground truncate">{d.name}</span>
+                  <div
+                    className="size-2 rounded-full"
+                    style={{ backgroundColor: COLORS[i % COLORS.length] }}
+                  />
+                  <span className="text-[10px] font-bold uppercase text-muted-foreground truncate">
+                    {d.name}
+                  </span>
                 </div>
               ))}
             </div>
@@ -322,22 +283,32 @@ function Dashboard() {
                     className="flex items-center justify-between border-b border-border/60 p-4 last:border-0 hover:bg-muted/5 transition-colors"
                   >
                     <div className="flex items-center gap-3">
-                      <div className={`flex size-8 items-center justify-center rounded ${
-                        m.tipo === 'ajuste_inventario' ? 'bg-accent/10 text-accent' :
-                        m.diferenca > 0 ? 'bg-green-100 text-green-600' : 'bg-critical/10 text-critical'
-                      }`}>
+                      <div
+                        className={`flex size-8 items-center justify-center rounded ${
+                          m.tipo === "ajuste_inventario"
+                            ? "bg-accent/10 text-accent"
+                            : m.diferenca > 0
+                              ? "bg-green-100 text-green-600"
+                              : "bg-critical/10 text-critical"
+                        }`}
+                      >
                         <Icon className="size-4" />
                       </div>
                       <div>
                         <p className="font-bold text-xs leading-tight">{material?.nome ?? "—"}</p>
-                        <p className="text-[10px] text-muted-foreground uppercase">{m.tipo.replace('_', ' ')}</p>
+                        <p className="text-[10px] text-muted-foreground uppercase">
+                          {m.tipo.replace("_", " ")}
+                        </p>
                       </div>
                     </div>
                     <div className="text-right">
-                      <p className={`font-mono text-sm font-bold ${
-                        m.diferenca > 0 ? 'text-green-600' : 'text-critical'
-                      }`}>
-                        {m.diferenca > 0 ? "+" : ""}{m.diferenca}
+                      <p
+                        className={`font-mono text-sm font-bold ${
+                          m.diferenca > 0 ? "text-green-600" : "text-critical"
+                        }`}
+                      >
+                        {m.diferenca > 0 ? "+" : ""}
+                        {m.diferenca}
                       </p>
                       <p className="text-[10px] uppercase text-muted-foreground">
                         Saldo: {m.quantidade_nova}
@@ -405,7 +376,7 @@ function Dashboard() {
           <QrCode className="size-6 md:size-5" />
           <span className="hidden md:inline font-bold">Leitor BU</span>
         </Link>
-        
+
         <Link
           to="/public/cadastro"
           className="flex h-14 w-14 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-2xl transition-transform active:scale-[0.98] md:h-16 md:w-auto md:rounded-xl md:px-6 md:gap-3"
@@ -414,71 +385,6 @@ function Dashboard() {
           <span className="hidden md:inline font-bold">Link Apoiador</span>
         </Link>
       </div>
-      
-      <Dialog open={showConfig} onOpenChange={setShowConfig}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="text-2xl font-black uppercase tracking-tight flex items-center gap-2">
-              <ShieldCheck className="size-6 text-primary" />
-              Configurar Campanha 2026
-            </DialogTitle>
-            <DialogDescription>
-              Os dados do candidato já foram definidos. Informe apenas as metas estratégicas da campanha.
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="space-y-8 py-4">
-            <section className="space-y-4">
-              <div className="flex items-center gap-2">
-                <div className="size-6 rounded-full bg-accent/10 flex items-center justify-center text-[10px] font-bold text-accent">02</div>
-                <h3 className="font-bold uppercase text-xs tracking-wider">Planejamento Estratégico</h3>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-1.5">
-                  <div className="flex items-center justify-between">
-                    <Label className="text-[10px] font-bold uppercase text-muted-foreground">Meta para Eleição</Label>
-                    <Info className="size-3 text-muted-foreground" />
-                  </div>
-                  <Input 
-                    type="number"
-                    value={configForm.meta_eleicao ?? ''}
-                    onChange={e => setConfigForm({...configForm, meta_eleicao: Number(e.target.value)})}
-                    placeholder="Qtd Votos"
-                    className="h-12 border-2 font-mono font-bold"
-                  />
-                  <p className="text-[9px] text-muted-foreground leading-tight italic">Mínimo necessário para ser eleito (Quociente)</p>
-                </div>
-                <div className="space-y-1.5">
-                  <div className="flex items-center justify-between">
-                    <Label className="text-[10px] font-bold uppercase text-muted-foreground">Expectativa Total</Label>
-                    <TrendingUp className="size-3 text-muted-foreground" />
-                  </div>
-                  <Input 
-                    type="number"
-                    value={configForm.meta_expectativa ?? ''}
-                    onChange={e => setConfigForm({...configForm, meta_expectativa: Number(e.target.value)})}
-                    placeholder="Qtd Votos"
-                    className="h-12 border-2 font-mono font-bold"
-                  />
-                  <p className="text-[9px] text-muted-foreground leading-tight italic">Meta agressiva de votos esperados</p>
-                </div>
-              </div>
-            </section>
-          </div>
-
-          <DialogFooter className="pt-4 border-t border-border">
-            <Button 
-              className="h-14 w-full text-lg font-black uppercase gap-2"
-              onClick={salvarConfiguracao}
-              disabled={!configForm.meta_eleicao || !configForm.meta_expectativa}
-            >
-              Finalizar Cadastro da Campanha
-              <ShieldCheck className="size-5" />
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }
@@ -498,8 +404,7 @@ function Kpi({
       : tone === "primary"
         ? "bg-primary/5 border-primary/20"
         : "bg-surface border-border";
-  const text =
-    tone === "critical" ? "text-critical" : tone === "primary" ? "text-primary" : "";
+  const text = tone === "critical" ? "text-critical" : tone === "primary" ? "text-primary" : "";
   const labelColor =
     tone === "critical"
       ? "text-critical"
@@ -509,10 +414,14 @@ function Kpi({
 
   return (
     <div className={`rounded-2xl border p-4 md:p-6 ${box}`}>
-      <span className={`text-[10px] md:text-[11px] font-semibold uppercase ${labelColor}`}>{label}</span>
+      <span className={`text-[10px] md:text-[11px] font-semibold uppercase ${labelColor}`}>
+        {label}
+      </span>
       <div className={`mt-1 font-mono text-3xl md:text-5xl font-bold ${text}`}>{value}</div>
     </div>
   );
 }
 
-{/* agoara crie o banco de dados com que tenhamos sistema real */}
+{
+  /* agoara crie o banco de dados com que tenhamos sistema real */
+}
