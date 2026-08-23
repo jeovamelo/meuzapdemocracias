@@ -44,7 +44,7 @@ interface WhatsAppInstanceItem {
 function PcPage() {
   // Autenticação Administrativa Obrigatória para /pc
   const [isAuthenticated, setIsAuthenticated] = useState(() => {
-    return sessionStorage.getItem('democracias_pc_auth') === 'true';
+    return false;
   });
   const [loginUser, setLoginUser] = useState('');
   const [loginPass, setLoginPass] = useState('');
@@ -54,11 +54,16 @@ function PcPage() {
   const [activeTab, setActiveTab] = useState<'geral' | 'evolution' | 'infra'>('geral');
   
   // WhatsApp Geral do Sistema
-  const [systemPhone, setSystemPhone] = useState(() => localStorage.getItem('democracias_system_phone') || '');
+  const [systemPhone, setSystemPhone] = useState('');
   const [isSavingPhone, setIsSavingPhone] = useState(false);
   const [isGeneratingQr, setIsGeneratingQr] = useState(false);
   const [systemQrCode, setSystemQrCode] = useState<string | null>(null);
   const [systemStatus, setSystemStatus] = useState<'connected' | 'connecting' | 'disconnected'>('disconnected');
+
+  // Teste controlado de envio de mensagem pela instância geral.
+  const [testPhone, setTestPhone] = useState('');
+  const [testMessage, setTestMessage] = useState('');
+  const [isSendingTest, setIsSendingTest] = useState(false);
 
   // Listagem de Instâncias da Evolution API
   const [instances, setInstances] = useState<WhatsAppInstanceItem[]>([]);
@@ -86,6 +91,11 @@ function PcPage() {
     toast.info('Sessão administrativa encerrada.');
   };
 
+  useEffect(() => {
+    setIsAuthenticated(sessionStorage.getItem('democracias_pc_auth') === 'true');
+    setSystemPhone(localStorage.getItem('democracias_system_phone') || '');
+  }, []);
+
   // 1. Carregar Instâncias do Evolution Go
   const carregarInstancias = async () => {
     setLoadingInstances(true);
@@ -93,7 +103,7 @@ function PcPage() {
       // Buscar no endpoint /instance/all do Evolution Go
       const res = await fetch('https://api.democracias.org/evolution/instance/all', {
         headers: {
-          'apikey': 'democracias_global_evolution_key_2026'
+          'apikey': INSTANCE_MASTER_TOKEN
         }
       });
       if (res.ok) {
@@ -190,7 +200,7 @@ function PcPage() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'apikey': 'democracias_global_evolution_key_2026'
+          'apikey': INSTANCE_MASTER_TOKEN
         },
         body: JSON.stringify({
           name: INSTANCE_MASTER,
@@ -238,6 +248,43 @@ function PcPage() {
     } finally {
       setIsSavingPhone(false);
       setIsGeneratingQr(false);
+    }
+  };
+
+  const handleSendTestMessage = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const number = testPhone.replace(/\D/g, '');
+    if (number.length < 10 || !testMessage.trim()) {
+      toast.error('Informe um número válido com DDD e uma mensagem.');
+      return;
+    }
+
+    setIsSendingTest(true);
+    try {
+      const response = await fetch('https://api.democracias.org/evolution/send/text', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          apikey: INSTANCE_MASTER_TOKEN,
+        },
+        body: JSON.stringify({
+          number,
+          text: testMessage.trim(),
+        }),
+      });
+
+      if (!response.ok) {
+        const detail = await response.text().catch(() => '');
+        throw new Error(detail || `HTTP ${response.status}`);
+      }
+
+      setTestMessage('');
+      toast.success('Mensagem de teste enviada com sucesso.');
+    } catch (error) {
+      console.error('Erro no teste de mensagem Evolution Go:', error);
+      toast.error('Não foi possível enviar a mensagem de teste. Verifique o número e o status do WhatsApp.');
+    } finally {
+      setIsSendingTest(false);
     }
   };
 
@@ -442,6 +489,46 @@ function PcPage() {
                   <p className="text-xs text-slate-500">Abra o WhatsApp &gt; Aparelhos Conectados &gt; Conectar um aparelho.</p>
                 </div>
               )}
+
+              <form onSubmit={handleSendTestMessage} className="border-t pt-6 space-y-4">
+                <div>
+                  <h3 className="text-lg font-extrabold text-slate-900 flex items-center gap-2">
+                    <Send className="h-5 w-5 text-primary" /> Testar envio de mensagem
+                  </h3>
+                  <p className="text-xs text-slate-500 mt-1">
+                    Envie uma mensagem de teste pela instância geral já conectada.
+                  </p>
+                </div>
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label htmlFor="testPhone" className="font-bold text-sm text-slate-800">Número com DDD</Label>
+                    <Input
+                      id="testPhone"
+                      inputMode="numeric"
+                      placeholder="5511999999999"
+                      value={testPhone}
+                      onChange={e => setTestPhone(e.target.value)}
+                      className="h-12 font-mono"
+                      required
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="testMessage" className="font-bold text-sm text-slate-800">Mensagem</Label>
+                    <Input
+                      id="testMessage"
+                      placeholder="Mensagem de teste"
+                      value={testMessage}
+                      onChange={e => setTestMessage(e.target.value)}
+                      className="h-12"
+                      required
+                    />
+                  </div>
+                </div>
+                <Button type="submit" disabled={isSendingTest} variant="outline" className="h-11 font-bold">
+                  {isSendingTest ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
+                  Enviar mensagem de teste
+                </Button>
+              </form>
             </div>
           </div>
         )}
