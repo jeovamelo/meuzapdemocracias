@@ -3,13 +3,19 @@ import path from 'node:path';
 import cors from 'cors';
 import { searchTseCandidate } from './tse';
 import { createClient } from '@supabase/supabase-js';
+import WebSocket from 'ws';
 
 const app = express();
 const PORT = process.env.PORT || 3001;
 
 const supabaseUrl = process.env.SUPABASE_URL || 'https://cwhwpwqoqrmvrwqouung.supabase.co';
 const supabaseKey = process.env.SUPABASE_PUBLISHABLE_KEY || 'sb_publishable_J09JcIO5AFTx8f6ucbqWBQ_C4w2uS2O';
-const supabase = createClient(supabaseUrl, supabaseKey);
+const supabase = createClient(supabaseUrl, supabaseKey, {
+  auth: { persistSession: false },
+  realtime: {
+    transport: WebSocket as any,
+  }
+});
 
 const EVOLUTION_API_URL = process.env.EVOLUTION_API_URL || 'http://evolution-api:8080';
 const EVOLUTION_API_KEY = process.env.EVOLUTION_API_KEY || 'democracias_global_evolution_key_2026';
