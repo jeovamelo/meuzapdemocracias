@@ -24,7 +24,8 @@ import {
   CircleDot
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
-import { MapaBrasilSvg, EstadoVotosData, CidadeVotosData } from './MapaBrasilSvg';
+import type { EstadoVotosData, CidadeVotosData } from './MapaBrasilSvg';
+import { MapaEleitoralInterativo } from './MapaEleitoralInterativo';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -815,7 +816,7 @@ export const PainelPesquisaEleitoral: React.FC = () => {
 
         {/* MAPA DE CALOR INTERATIVO */}
         <div className="pt-2">
-          <MapaBrasilSvg
+          <MapaEleitoralInterativo
             dadosEstados={dadosGeograficosEstados.mapaUfs}
             dadosCidades={detalhamentoCidades}
             ufSelecionada={ufFiltro}

@@ -15,6 +15,8 @@ export interface CidadeVotosData {
   uf: string;
   bairro?: string;
   cep?: string;
+  latitude?: number;
+  longitude?: number;
   votos: number;
   percentual?: number;
 }
