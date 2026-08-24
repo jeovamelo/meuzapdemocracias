@@ -26,7 +26,9 @@ import {
   Sparkles,
   FolderKanban,
   Trash2,
-  CalendarDays
+  CalendarDays,
+  BarChart3,
+  TrendingUp
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
@@ -39,6 +41,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { formatHora, formatDataCompleta } from '@/lib/date';
+import { PainelPesquisaEleitoral } from '@/components/PainelPesquisaEleitoral';
 
 export const Route = createFileRoute('/pc')({
   component: PcPage,
@@ -74,7 +77,7 @@ function PcPage() {
   const [loginError, setLoginError] = useState('');
   const [isLoggingIn, setIsLoggingIn] = useState(false);
 
-  const [activeTab, setActiveTab] = useState<'geral' | 'evolution' | 'campaigns' | 'infra'>('geral');
+  const [activeTab, setActiveTab] = useState<'geral' | 'evolution' | 'campaigns' | 'infra' | 'pesquisa'>('geral');
   
   // WhatsApp Geral do Sistema
   const [systemPhone, setSystemPhone] = useState('');
@@ -499,6 +502,21 @@ function PcPage() {
             {campaigns.length}
           </span>
         </button>
+
+        <button
+          onClick={() => setActiveTab('pesquisa')}
+          className={`px-5 py-3 font-bold text-sm border-b-2 transition-all flex items-center gap-2 ${
+            activeTab === 'pesquisa'
+              ? 'border-orange-500 text-orange-600 bg-orange-50 rounded-t-lg'
+              : 'border-transparent text-slate-600 hover:text-slate-900'
+          }`}
+        >
+          <BarChart3 className="h-4 w-4 text-orange-500" />
+          Pesquisa
+          <span className="text-[11px] bg-orange-100 text-orange-800 font-extrabold px-2 py-0.5 rounded-full ml-1">
+            Inteligência
+          </span>
+        </button>
       </div>
 
       <div className="mt-8 max-w-5xl space-y-8">
@@ -840,6 +858,11 @@ function PcPage() {
               )}
             </div>
           </div>
+        )}
+
+        {/* ABA 5: PESQUISA ELEITORAL & HEATMAP */}
+        {activeTab === 'pesquisa' && (
+          <PainelPesquisaEleitoral />
         )}
 
       </div>

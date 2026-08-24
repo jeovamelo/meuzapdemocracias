@@ -331,15 +331,17 @@ export function App() {
       console.warn('Erro ao buscar candidato por número no banco:', err);
     }
 
-    // Voto nominal com número digitado caso não esteja indexado
+    // Caso o número digitado não conste na base de candidatos oficiais do cargo,
+    // é tratado rigorosamente como VOTO NULO para não computar candidatos errados nem distorcer percentuais.
     return {
-      id: `cand_${numLimpo}`,
-      nome: `Candidato(a) Nº ${numLimpo}`,
-      nomeUrna: `Candidato ${numLimpo}`,
+      id: `nulo_${numLimpo}`,
+      nome: `Número ${numLimpo} (Não registrado)`,
+      nomeUrna: `Voto Nulo (Nº ${numLimpo})`,
       numero: numLimpo,
       cargo: cargoBuscado,
-      partido: 'Voto Nominal / Legenda',
+      partido: 'NÃO REGISTRADO',
       uf: respostas.uf,
+      isBrancoNulo: true,
     };
   };
 
@@ -425,12 +427,16 @@ export function App() {
       const cand = await buscarCandidatoPorNumero(textoLimpo, 'Deputado Estadual');
       setCandidatoTemp(cand);
 
-      await adicionarMensagemBot(`Localizamos o candidato abaixo. Confirma seu voto para Deputado Estadual?`);
+      if (cand.partido === 'NÃO REGISTRADO') {
+        await adicionarMensagemBot(`⚠️ O número ${textoLimpo} não foi localizado entre os candidatos oficiais a Deputado Estadual em ${respostas.uf}. Este voto será registrado como VOTO NULO. Confirma?`);
+      } else {
+        await adicionarMensagemBot(`Localizamos o candidato abaixo. Confirma seu voto para Deputado Estadual?`);
+      }
       setEtapa('confirm_dep_estadual');
       return;
     }
 
-    // VOTO DEPUTADO FEDERAL POR NÚMERO
+    // VOTO DEP. FEDERAL (DEP. A) POR NÚMERO
     if (etapa === 'voto_dep_federal') {
       const userMsg: Mensagem = {
         id: Math.random().toString(36).substring(2, 9),
@@ -441,10 +447,14 @@ export function App() {
       setMensagens((prev) => [...prev, userMsg]);
       setInputText('');
 
-      const cand = await buscarCandidatoPorNumero(textoLimpo, 'Deputado Federal');
+      const cand = await buscarCandidatoPorNumero(textoLimpo, 'Dep. Federal (Dep. A)');
       setCandidatoTemp(cand);
 
-      await adicionarMensagemBot(`Localizamos o candidato abaixo. Confirma seu voto para Deputado Federal?`);
+      if (cand.partido === 'NÃO REGISTRADO') {
+        await adicionarMensagemBot(`⚠️ O número ${textoLimpo} não foi localizado entre os candidatos oficiais a Dep. Federal (Dep. A) em ${respostas.uf}. Este voto será registrado como VOTO NULO. Confirma?`);
+      } else {
+        await adicionarMensagemBot(`Localizamos o candidato abaixo. Confirma seu voto para Dep. Federal (Dep. A)?`);
+      }
       setEtapa('confirm_dep_federal');
       return;
     }
@@ -460,10 +470,14 @@ export function App() {
       setMensagens((prev) => [...prev, userMsg]);
       setInputText('');
 
-      const cand = await buscarCandidatoPorNumero(textoLimpo, 'Senador (1ª Vaga)');
+      const cand = await buscarCandidatoPorNumero(textoLimpo, 'Senador(a) (1ª Vaga)');
       setCandidatoTemp(cand);
 
-      await adicionarMensagemBot(`Confirma seu voto para 1º Senador?`);
+      if (cand.partido === 'NÃO REGISTRADO') {
+        await adicionarMensagemBot(`⚠️ O número ${textoLimpo} não foi localizado para Senador(a). Será registrado como VOTO NULO. Confirma?`);
+      } else {
+        await adicionarMensagemBot(`Confirma seu voto para Senador(a) (1ª Vaga)?`);
+      }
       setEtapa('confirm_senador_1');
       return;
     }
@@ -479,10 +493,14 @@ export function App() {
       setMensagens((prev) => [...prev, userMsg]);
       setInputText('');
 
-      const cand = await buscarCandidatoPorNumero(textoLimpo, 'Senador (2ª Vaga)');
+      const cand = await buscarCandidatoPorNumero(textoLimpo, 'Senador(a) (2ª Vaga)');
       setCandidatoTemp(cand);
 
-      await adicionarMensagemBot(`Confirma seu voto para 2º Senador?`);
+      if (cand.partido === 'NÃO REGISTRADO') {
+        await adicionarMensagemBot(`⚠️ O número ${textoLimpo} não foi localizado para Senador(a). Será registrado como VOTO NULO. Confirma?`);
+      } else {
+        await adicionarMensagemBot(`Confirma seu voto para Senador(a) (2ª Vaga)?`);
+      }
       setEtapa('confirm_senador_2');
       return;
     }
@@ -501,7 +519,11 @@ export function App() {
       const cand = await buscarCandidatoPorNumero(textoLimpo, 'Governador');
       setCandidatoTemp(cand);
 
-      await adicionarMensagemBot(`Confirma seu voto para Governador?`);
+      if (cand.partido === 'NÃO REGISTRADO') {
+        await adicionarMensagemBot(`⚠️ O número ${textoLimpo} não foi localizado para Governador(a) em ${respostas.uf}. Será registrado como VOTO NULO. Confirma?`);
+      } else {
+        await adicionarMensagemBot(`Confirma seu voto para Governador(a)?`);
+      }
       setEtapa('confirm_governador');
       return;
     }
@@ -520,7 +542,11 @@ export function App() {
       const cand = await buscarCandidatoPorNumero(textoLimpo, 'Presidente');
       setCandidatoTemp(cand);
 
-      await adicionarMensagemBot(`Confirma seu voto para Presidente da República?`);
+      if (cand.partido === 'NÃO REGISTRADO') {
+        await adicionarMensagemBot(`⚠️ O número ${textoLimpo} não foi localizado para Presidente. Será registrado como VOTO NULO. Confirma?`);
+      } else {
+        await adicionarMensagemBot(`Confirma seu voto para Presidente?`);
+      }
       setEtapa('confirm_presidente');
       return;
     }
@@ -715,6 +741,31 @@ export function App() {
         if (porToken?.id) pesquisaExistenteId = porToken.id;
       }
 
+      const extrairVotoParaDb = (cand?: Candidato | null) => {
+        if (!cand || cand.isBrancoNulo || cand.partido === 'NÃO REGISTRADO' || cand.numero === 'BRANCO' || cand.numero === 'NULO') {
+          const isBranco = cand?.numero === 'BRANCO' || cand?.nomeUrna?.toLowerCase().includes('branco');
+          return {
+            numero: isBranco ? 'BRANCO' : 'NULO',
+            nome: isBranco ? 'Voto em Branco' : 'Voto Nulo',
+            foto: null,
+            partido: isBranco ? 'BRANCO' : 'NULO',
+          };
+        }
+        return {
+          numero: cand.numero || null,
+          nome: cand.nomeUrna || null,
+          foto: cand.fotoUrl || null,
+          partido: cand.partido || null,
+        };
+      };
+
+      const vEst = extrairVotoParaDb(respostasFinais.votos.deputado_estadual);
+      const vFed = extrairVotoParaDb(respostasFinais.votos.deputado_federal);
+      const vSen1 = extrairVotoParaDb(respostasFinais.votos.senador_1);
+      const vSen2 = extrairVotoParaDb(respostasFinais.votos.senador_2);
+      const vGov = extrairVotoParaDb(respostasFinais.votos.governador);
+      const vPres = extrairVotoParaDb(respostasFinais.votos.presidente);
+
       const payloadPesquisa = {
         respondente_token: token,
         nome: respostasFinais.nome.trim(),
@@ -722,30 +773,30 @@ export function App() {
         uf: respostasFinais.uf,
         municipio: respostasFinais.municipio,
         bairro: respostasFinais.bairro,
-        dep_estadual_numero: respostasFinais.votos.deputado_estadual?.numero || null,
-        dep_estadual_nome: respostasFinais.votos.deputado_estadual?.nomeUrna || null,
-        dep_estadual_foto: respostasFinais.votos.deputado_estadual?.fotoUrl || null,
-        dep_estadual_partido: respostasFinais.votos.deputado_estadual?.partido || null,
-        dep_federal_numero: respostasFinais.votos.deputado_federal?.numero || null,
-        dep_federal_nome: respostasFinais.votos.deputado_federal?.nomeUrna || null,
-        dep_federal_foto: respostasFinais.votos.deputado_federal?.fotoUrl || null,
-        dep_federal_partido: respostasFinais.votos.deputado_federal?.partido || null,
-        senador1_numero: respostasFinais.votos.senador_1?.numero || null,
-        senador1_nome: respostasFinais.votos.senador_1?.nomeUrna || null,
-        senador1_foto: respostasFinais.votos.senador_1?.fotoUrl || null,
-        senador1_partido: respostasFinais.votos.senador_1?.partido || null,
-        senador2_numero: respostasFinais.votos.senador_2?.numero || null,
-        senador2_nome: respostasFinais.votos.senador_2?.nomeUrna || null,
-        senador2_foto: respostasFinais.votos.senador_2?.fotoUrl || null,
-        senador2_partido: respostasFinais.votos.senador_2?.partido || null,
-        governador_numero: respostasFinais.votos.governador?.numero || null,
-        governador_nome: respostasFinais.votos.governador?.nomeUrna || null,
-        governador_foto: respostasFinais.votos.governador?.fotoUrl || null,
-        governador_partido: respostasFinais.votos.governador?.partido || null,
-        presidente_numero: respostasFinais.votos.presidente?.numero || null,
-        presidente_nome: respostasFinais.votos.presidente?.nomeUrna || null,
-        presidente_foto: respostasFinais.votos.presidente?.fotoUrl || null,
-        presidente_partido: respostasFinais.votos.presidente?.partido || null,
+        dep_estadual_numero: vEst.numero,
+        dep_estadual_nome: vEst.nome,
+        dep_estadual_foto: vEst.foto,
+        dep_estadual_partido: vEst.partido,
+        dep_federal_numero: vFed.numero,
+        dep_federal_nome: vFed.nome,
+        dep_federal_foto: vFed.foto,
+        dep_federal_partido: vFed.partido,
+        senador1_numero: vSen1.numero,
+        senador1_nome: vSen1.nome,
+        senador1_foto: vSen1.foto,
+        senador1_partido: vSen1.partido,
+        senador2_numero: vSen2.numero,
+        senador2_nome: vSen2.nome,
+        senador2_foto: vSen2.foto,
+        senador2_partido: vSen2.partido,
+        governador_numero: vGov.numero,
+        governador_nome: vGov.nome,
+        governador_foto: vGov.foto,
+        governador_partido: vGov.partido,
+        presidente_numero: vPres.numero,
+        presidente_nome: vPres.nome,
+        presidente_foto: vPres.foto,
+        presidente_partido: vPres.partido,
         origem_url: 'chat.democracias.org',
         whatsapp: respostasFinais.whatsapp || null,
         telefone: respostasFinais.whatsapp || null,
@@ -866,7 +917,7 @@ export function App() {
                 onClick={() =>
                   handleVotoBrancoNulo(
                     'BRANCO',
-                    etapa === 'voto_dep_estadual' ? 'Deputado Estadual' : 'Deputado Federal',
+                    etapa === 'voto_dep_estadual' ? 'Deputado Estadual' : 'Dep. Federal (Dep. A)',
                     etapa === 'voto_dep_estadual' ? 'confirm_dep_estadual' : 'confirm_dep_federal'
                   )
                 }
@@ -880,7 +931,7 @@ export function App() {
                 onClick={() =>
                   handleVotoBrancoNulo(
                     'NULO',
-                    etapa === 'voto_dep_estadual' ? 'Deputado Estadual' : 'Deputado Federal',
+                    etapa === 'voto_dep_estadual' ? 'Deputado Estadual' : 'Dep. Federal (Dep. A)',
                     etapa === 'voto_dep_estadual' ? 'confirm_dep_estadual' : 'confirm_dep_federal'
                   )
                 }
@@ -894,13 +945,13 @@ export function App() {
           {/* ETAPA CONFIRMAÇÃO: DEP FEDERAL */}
           {etapa === 'confirm_dep_federal' && candidatoTemp && !digitando && (
             <div className="space-y-3 my-3 animate-message">
-              <CandidateCard candidato={candidatoTemp} tituloCargo="Deputada ou Deputado Federal" modoConfirmacao />
+              <CandidateCard candidato={candidatoTemp} tituloCargo="Dep. Federal (Dep. A)" modoConfirmacao />
               <div className="grid grid-cols-2 gap-2.5">
                 <button
                   onClick={() =>
                     handleConfirmarVoto(
                       'deputado_federal',
-                      '2️⃣ Agora digite o NÚMERO da sua candidata ou candidato a DEPUTADA OU DEPUTADO ESTADUAL (5 dígitos) ou escolha Branco / Nulo:',
+                      '2️⃣ Agora digite o NÚMERO da sua candidata ou candidato a DEPUTADO ESTADUAL (5 dígitos) ou escolha Branco / Nulo:',
                       'voto_dep_estadual'
                     )
                   }
@@ -912,7 +963,7 @@ export function App() {
                   onClick={() =>
                     handleCorrigirVoto(
                       'voto_dep_federal',
-                      'Digite novamente o número da sua Deputada ou Deputado Federal (4 dígitos):'
+                      'Digite novamente o número da sua escolha para Dep. Federal (Dep. A) (4 dígitos):'
                     )
                   }
                   className="h-11 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 font-bold text-xs flex items-center justify-center gap-1.5"
@@ -926,13 +977,13 @@ export function App() {
           {/* ETAPA CONFIRMAÇÃO: DEP ESTADUAL */}
           {etapa === 'confirm_dep_estadual' && candidatoTemp && !digitando && (
             <div className="space-y-3 my-3 animate-message">
-              <CandidateCard candidato={candidatoTemp} tituloCargo="Deputada ou Deputado Estadual" modoConfirmacao />
+              <CandidateCard candidato={candidatoTemp} tituloCargo="Deputado Estadual" modoConfirmacao />
               <div className="grid grid-cols-2 gap-2.5">
                 <button
                   onClick={() =>
                     handleConfirmarVoto(
                       'deputado_estadual',
-                      '3️⃣ Escolha para SENADORA OU SENADOR (1ª vaga - 3 dígitos). Apresentamos as opções por ordem de número abaixo:',
+                      '3️⃣ Escolha para SENADOR(A) (1ª vaga - 3 dígitos). Apresentamos as opções por ordem de número abaixo:',
                       'voto_senador_1'
                     )
                   }
@@ -944,7 +995,7 @@ export function App() {
                   onClick={() =>
                     handleCorrigirVoto(
                       'voto_dep_estadual',
-                      'Digite novamente o número da sua Deputada ou Deputado Estadual (5 dígitos):'
+                      'Digite novamente o número da sua escolha para Deputado Estadual (5 dígitos):'
                     )
                   }
                   className="h-11 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 font-bold text-xs flex items-center justify-center gap-1.5"
@@ -1100,13 +1151,13 @@ export function App() {
           {/* ETAPA CONFIRMAÇÃO: GOVERNADOR */}
           {etapa === 'confirm_governador' && candidatoTemp && !digitando && (
             <div className="space-y-3 my-3 animate-message">
-              <CandidateCard candidato={candidatoTemp} tituloCargo="Governador" modoConfirmacao />
+              <CandidateCard candidato={candidatoTemp} tituloCargo="Governador(a)" modoConfirmacao />
               <div className="grid grid-cols-2 gap-2.5">
                 <button
                   onClick={() =>
                     handleConfirmarVoto(
                       'governador',
-                      '6️⃣ Por fim, escolha a sua candidata ou candidato a PRESIDENTE DA REPÚBLICA (2 dígitos):',
+                      '6️⃣ Por fim, escolha a sua candidata ou candidato a PRESIDENTE (2 dígitos):',
                       'voto_presidente'
                     )
                   }
@@ -1118,7 +1169,7 @@ export function App() {
                   onClick={() =>
                     handleCorrigirVoto(
                       'voto_governador',
-                      'Selecione novamente o seu candidato a Governador:'
+                      'Selecione novamente o seu candidato a Governador(a):'
                     )
                   }
                   className="h-11 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 font-bold text-xs flex items-center justify-center gap-1.5"
@@ -1133,7 +1184,7 @@ export function App() {
           {etapa === 'voto_presidente' && !digitando && (
             <div className="my-3">
               <MajoritarySelect
-                cargoTitulo="Presidente da República"
+                cargoTitulo="Presidente"
                 candidatos={candidatosPresidente}
                 onSelecionar={async (cand) => {
                   setCandidatoTemp(cand);
@@ -1144,7 +1195,7 @@ export function App() {
                     timestamp: getHoraAtual(),
                   };
                   setMensagens((prev) => [...prev, userMsg]);
-                  await adicionarMensagemBot(`Confirma seu voto para PRESIDENTE DA REPÚBLICA em ${cand.nomeUrna} (${cand.numero}${cand.partido ? ` - ${cand.partido}` : ''})?`);
+                  await adicionarMensagemBot(`Confirma seu voto para PRESIDENTE em ${cand.nomeUrna} (${cand.numero}${cand.partido ? ` - ${cand.partido}` : ''})?`);
                   setEtapa('confirm_presidente');
                 }}
                 onVotoBranco={() => handleVotoBrancoNulo('BRANCO', 'Presidente', 'confirm_presidente')}

@@ -33,8 +33,8 @@ export async function gerarColinhaJpg(respostas: RespostaUsuario): Promise<{ blo
   const { votos, uf, municipio, bairro } = respostas;
 
   const itens: { cargo: string; cand?: Candidato | null; digitos: string; ordem: string }[] = [
-    { cargo: 'Deputado(a) Federal', cand: votos.deputado_federal, digitos: '4 dígitos', ordem: '1º' },
-    { cargo: 'Deputado(a) Estadual', cand: votos.deputado_estadual, digitos: '5 dígitos', ordem: '2º' },
+    { cargo: 'Dep. Federal (Dep. A)', cand: votos.deputado_federal, digitos: '4 dígitos', ordem: '1º' },
+    { cargo: 'Deputado Estadual', cand: votos.deputado_estadual, digitos: '5 dígitos', ordem: '2º' },
     { cargo: 'Senador(a) — 1ª Vaga', cand: votos.senador_1, digitos: '3 dígitos', ordem: '3º' },
     { cargo: 'Senador(a) — 2ª Vaga', cand: votos.senador_2, digitos: '3 dígitos', ordem: '4º' },
     { cargo: 'Governador(a)', cand: votos.governador, digitos: '2 dígitos', ordem: '5º' },
