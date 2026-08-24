@@ -742,7 +742,7 @@ export const PainelPesquisaEleitoral: React.FC = () => {
                     if (cargoFiltro !== 'todos' && c.cargoKey !== cargoFiltro) return false;
                     if (buscaTexto) {
                       const t = buscaTexto.toLowerCase();
-                      return c.nomeUrna.toLowerCase().includes(t) || c.numero.includes(t) || c.partido.toLowerCase().includes(t);
+                      return (c.nomeUrna || '').toLowerCase().includes(t) || (c.numero || '').includes(t) || (c.partido || '').toLowerCase().includes(t);
                     }
                     return true;
                   })
