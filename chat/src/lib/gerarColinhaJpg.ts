@@ -23,9 +23,20 @@ export async function gerarColinhaJpg(respostas: RespostaUsuario): Promise<{ blo
     { cargo: 'Presidente', cand: votos.presidente, digitos: '2 dígitos', ordem: '6º' },
   ];
 
+  // Helper para resolver URL da foto local / estática / Supabase
+  const getFotoUrl = (cand?: Candidato | null) => {
+    if (!cand || cand.isBrancoNulo || cand.numero === 'BRANCO' || cand.numero === 'NULO') return '';
+    if (cand.fotoUrl) return cand.fotoUrl;
+    if (cand.sq_candidato) {
+      const ufUpper = (cand.uf || (cand.cargo === 'Presidente' ? 'BR' : uf || 'CE')).toUpperCase();
+      return `/candidatos/F${ufUpper}${cand.sq_candidato}_div.jpg`;
+    }
+    return '';
+  };
+
   // Pré-carregar todas as fotos dos candidatos em paralelo
   const fotosCarregadas = await Promise.all(
-    itens.map((item) => carregarImagem(item.cand?.fotoUrl))
+    itens.map((item) => carregarImagem(getFotoUrl(item.cand)))
   );
 
   const width = 960;

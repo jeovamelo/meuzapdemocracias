@@ -138,6 +138,9 @@ export const ColinhaResumo: React.FC<Props> = ({ respostas, onResponderNovamente
           {itensColinha.map(({ cargo, cand, ordem }) => {
             const isBranco = cand?.numero === 'BRANCO' || (cand?.isBrancoNulo && cand?.nomeUrna.includes('Branco'));
             const isNulo = cand?.numero === 'NULO' || (cand?.isBrancoNulo && cand?.nomeUrna.includes('Nulo'));
+            const fotoSrc = !isBranco && !isNulo
+              ? cand?.fotoUrl || (cand?.sq_candidato ? `/candidatos/F${(cand.uf || (cand.cargo === 'Presidente' ? 'BR' : uf || 'CE')).toUpperCase()}${cand.sq_candidato}_div.jpg` : '')
+              : '';
 
             return (
               <div
@@ -150,10 +153,10 @@ export const ColinhaResumo: React.FC<Props> = ({ respostas, onResponderNovamente
                     <CircleDot className="size-6 text-slate-400" />
                   ) : isNulo ? (
                     <Ban className="size-6 text-rose-400" />
-                  ) : cand?.fotoUrl ? (
+                  ) : fotoSrc ? (
                     <img
-                      src={cand.fotoUrl}
-                      alt={cand.nomeUrna}
+                      src={fotoSrc}
+                      alt={cand?.nomeUrna || 'Candidato'}
                       loading="eager"
                       className="size-full object-cover"
                       onError={(e) => {
@@ -170,7 +173,7 @@ export const ColinhaResumo: React.FC<Props> = ({ respostas, onResponderNovamente
 
                   <div
                     className={`photo-fallback size-full items-center justify-center bg-slate-900 text-slate-400 font-black text-xs ${
-                      cand?.fotoUrl && !isBranco && !isNulo ? 'hidden' : 'flex'
+                      fotoSrc && !isBranco && !isNulo ? 'hidden' : 'flex'
                     }`}
                   >
                     {cand?.nomeUrna && !isBranco && !isNulo ? (

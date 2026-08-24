@@ -6,6 +6,7 @@ export interface Candidato {
   cargo: string;
   partido?: string;
   uf: string;
+  sq_candidato?: string;
   fotoUrl?: string;
   campaign_id?: string;
   isBrancoNulo?: boolean;

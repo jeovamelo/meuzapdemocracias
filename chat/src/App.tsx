@@ -120,13 +120,14 @@ export function App() {
 
   // Gerar URL oficial da foto do acervo interno / TSE / Campanha
   const buildFotoCandidato = (c: any, ufPadrao: string) => {
+    if (c.foto_url && c.foto_url.startsWith('/candidatos/')) return c.foto_url;
     if (c.foto_candidato_url) return c.foto_candidato_url;
-    if (c.foto_url) return c.foto_url;
     const cleanSq = String(c.sq_candidato ?? '').replace(/\D/g, '');
     if (cleanSq) {
       const uf = (c.sg_uf || c.uf || ufPadrao || 'CE').toUpperCase();
       return `/candidatos/F${uf}${cleanSq}_div.jpg`;
     }
+    if (c.foto_url) return c.foto_url;
     return '';
   };
 
@@ -177,6 +178,7 @@ export function App() {
             cargo: 'Governador',
             partido: t.sg_partido || t.nm_partido || '',
             uf: t.sg_uf || ufUpper,
+            sq_candidato: t.sq_candidato ? String(t.sq_candidato) : undefined,
             fotoUrl: campVinculada?.foto_candidato_url || buildFotoCandidato(t, ufUpper),
             campaign_id: campVinculada?.id,
           };
@@ -195,6 +197,7 @@ export function App() {
             cargo: 'Senador',
             partido: t.sg_partido || t.nm_partido || '',
             uf: t.sg_uf || ufUpper,
+            sq_candidato: t.sq_candidato ? String(t.sq_candidato) : undefined,
             fotoUrl: campVinculada?.foto_candidato_url || buildFotoCandidato(t, ufUpper),
             campaign_id: campVinculada?.id,
           };
@@ -211,6 +214,7 @@ export function App() {
           cargo: 'Presidente',
           partido: t.sg_partido || t.nm_partido || '',
           uf: 'BR',
+          sq_candidato: t.sq_candidato ? String(t.sq_candidato) : undefined,
           fotoUrl: campVinculada?.foto_candidato_url || buildFotoCandidato(t, 'BR'),
           campaign_id: campVinculada?.id,
         };
@@ -269,6 +273,7 @@ export function App() {
           cargo: dbTse.ds_cargo || cargoBuscado,
           partido: dbTse.sg_partido || dbTse.nm_partido || '',
           uf: dbTse.sg_uf || respostas.uf,
+          sq_candidato: dbTse.sq_candidato ? String(dbTse.sq_candidato) : undefined,
           fotoUrl: dbCamp?.foto_candidato_url || buildFotoCandidato(dbTse, respostas.uf),
           campaign_id: dbCamp?.id,
         };
