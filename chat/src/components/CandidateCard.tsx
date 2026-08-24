@@ -50,16 +50,11 @@ export const CandidateCard: React.FC<Props> = ({
                   className="size-full object-cover"
                   onError={(e) => {
                     const img = e.currentTarget;
-                    const src = img.src || '';
-                    if (!src.includes('democracias.org') && candidato.fotoUrl?.startsWith('/candidatos/')) {
-                      img.src = `https://democracias.org${candidato.fotoUrl}`;
-                    } else {
-                      img.style.display = 'none';
-                      const parent = img.parentElement;
-                      if (parent) {
-                        const fallback = parent.querySelector('.photo-fallback');
-                        if (fallback) (fallback as HTMLElement).style.display = 'flex';
-                      }
+                    img.style.display = 'none';
+                    const parent = img.parentElement;
+                    if (parent) {
+                      const fallback = parent.querySelector('.photo-fallback');
+                      if (fallback) (fallback as HTMLElement).style.display = 'flex';
                     }
                   }}
                 />
