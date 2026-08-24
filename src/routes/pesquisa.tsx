@@ -45,13 +45,13 @@ class PesquisaErrorBoundary extends React.Component<
           <h3 className="text-lg font-black">
             Atualizando visualização de pesquisa...
           </h3>
-          <p className="text-xs text-slate-400">
-            Os dados foram atualizados. Clique abaixo para recarregar o painel e os mapas.
+          <p className="text-xs text-slate-400 font-mono">
+            {this.state.error?.message || 'Os dados foram atualizados. Clique abaixo para recarregar o painel e os mapas.'}
           </p>
           <div className="flex justify-center gap-3 pt-2">
             <Button 
-              onClick={() => this.setState({ hasError: false })} 
-              className="bg-orange-500 hover:bg-orange-600 text-white font-bold"
+              onClick={() => this.setState({ hasError: false, error: null })} 
+              className="bg-orange-500 hover:bg-orange-600 text-white font-bold cursor-pointer"
             >
               <RefreshCw className="mr-2 size-4" /> Recarregar Painel
             </Button>

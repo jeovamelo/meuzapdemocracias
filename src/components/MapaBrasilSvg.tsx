@@ -20,11 +20,11 @@ export interface CidadeVotosData {
 }
 
 interface Props {
-  dadosEstados: Record<string, EstadoVotosData>;
+  dadosEstados?: Record<string, EstadoVotosData>;
   dadosCidades?: CidadeVotosData[];
-  ufSelecionada: string | null;
+  ufSelecionada?: string | null;
   cidadeSelecionada?: string | null;
-  onSelectUf: (uf: string | null) => void;
+  onSelectUf?: (uf: string | null) => void;
   onSelectCidade?: (cidade: string | null) => void;
   corBase?: string;
   maxVotos?: number;
@@ -61,15 +61,15 @@ const ESTADOS_INFO: Record<string, { nome: string; regiao: string; x: number; y:
 };
 
 export const MapaBrasilSvg: React.FC<Props> = ({
-  dadosEstados,
+  dadosEstados = {},
   dadosCidades = [],
-  ufSelecionada,
-  cidadeSelecionada,
-  onSelectUf,
-  onSelectCidade,
+  ufSelecionada = null,
+  cidadeSelecionada = null,
+  onSelectUf = () => {},
+  onSelectCidade = () => {},
   maxVotos = 1,
 }) => {
-  const [zoomLevel, setZoomLevel] = useState<number>(1); // 1 = Nacional, 1.5 = Estadual, 2.2 = Detalhado
+  const [zoomLevel, setZoomLevel] = useState<number>(1);
 
   const getCorHeatmap = (votos: number, max: number) => {
     if (!votos || votos === 0) return '#1e293b'; // slate-800
@@ -86,18 +86,14 @@ export const MapaBrasilSvg: React.FC<Props> = ({
   const handleResetZoom = () => {
     setZoomLevel(1);
     onSelectUf(null);
-    if (onSelectCidade) onSelectCidade(null);
+    onSelectCidade(null);
   };
 
   // Cidades da UF selecionada
   const cidadesDaUf = React.useMemo(() => {
-    if (!ufSelecionada) return [];
-    return dadosCidades.filter((c) => c.uf.toUpperCase() === ufSelecionada.toUpperCase());
+    if (!ufSelecionada || !Array.isArray(dadosCidades)) return [];
+    return dadosCidades.filter((c) => (c?.uf || '').toUpperCase() === ufSelecionada.toUpperCase());
   }, [dadosCidades, ufSelecionada]);
-
-  const maxVotosCidades = React.useMemo(() => {
-    return Math.max(1, ...cidadesDaUf.map((c) => c.votos));
-  }, [cidadesDaUf]);
 
   return (
     <div className="relative w-full bg-slate-950 rounded-3xl border border-slate-800 p-4 sm:p-6 overflow-hidden shadow-2xl flex flex-col items-center select-none">
@@ -163,9 +159,9 @@ export const MapaBrasilSvg: React.FC<Props> = ({
 
           {/* RENDERIZAÇÃO DOS 27 ESTADOS */}
           {Object.entries(ESTADOS_INFO).map(([sigla, info]) => {
-            const estadoData = dadosEstados[sigla] || { votos: 0, percentual: 0 };
+            const estadoData = (dadosEstados && dadosEstados[sigla]) || { votos: 0, percentual: 0 };
             const isSelected = ufSelecionada === sigla;
-            const corFundo = getCorHeatmap(estadoData.votos, maxVotos);
+            const corFundo = getCorHeatmap(estadoData.votos || 0, maxVotos);
 
             return (
               <g
@@ -173,7 +169,7 @@ export const MapaBrasilSvg: React.FC<Props> = ({
                 onClick={() => {
                   if (isSelected) {
                     onSelectUf(null);
-                    if (onSelectCidade) onSelectCidade(null);
+                    onSelectCidade(null);
                   } else {
                     onSelectUf(sigla);
                     setZoomLevel(1.3);
@@ -188,7 +184,7 @@ export const MapaBrasilSvg: React.FC<Props> = ({
                   height={info.h}
                   rx={12}
                   fill={isSelected ? '#ea580c' : corFundo}
-                  stroke={isSelected ? '#ffffff' : estadoData.votos > 0 ? '#fb923c' : '#334155'}
+                  stroke={isSelected ? '#ffffff' : (estadoData.votos || 0) > 0 ? '#fb923c' : '#334155'}
                   strokeWidth={isSelected ? 3 : 1}
                   className="transition-all duration-200 group-hover:stroke-white group-hover:brightness-125 shadow-md"
                 />
@@ -196,7 +192,7 @@ export const MapaBrasilSvg: React.FC<Props> = ({
                 {/* SIGLA DA UF */}
                 <text
                   x={info.x + info.w / 2}
-                  y={info.y + info.h / 2 - (estadoData.votos > 0 ? 5 : 0)}
+                  y={info.y + info.h / 2 - ((estadoData.votos || 0) > 0 ? 5 : 0)}
                   textAnchor="middle"
                   dominantBaseline="central"
                   fill="#ffffff"
@@ -205,7 +201,7 @@ export const MapaBrasilSvg: React.FC<Props> = ({
                   {sigla}
                 </text>
 
-                {estadoData.votos > 0 && (
+                {(estadoData.votos || 0) > 0 && (
                   <text
                     x={info.x + info.w / 2}
                     y={info.y + info.h / 2 + 11}
@@ -219,7 +215,7 @@ export const MapaBrasilSvg: React.FC<Props> = ({
                 )}
 
                 <title>
-                  {`${info.nome} (${sigla}) - ${estadoData.votos} votos (${(estadoData.percentual || 0).toFixed(1)}%)`}
+                  {`${info.nome} (${sigla}) - ${estadoData.votos || 0} votos (${((estadoData.percentual || 0)).toFixed(1)}%)`}
                 </title>
               </g>
             );
@@ -267,7 +263,7 @@ export const MapaBrasilSvg: React.FC<Props> = ({
                 <button
                   key={`${cid.cidade}_${cid.bairro}_${i}`}
                   type="button"
-                  onClick={() => onSelectCidade && onSelectCidade(isCidSelected ? null : cid.cidade)}
+                  onClick={() => onSelectCidade(isCidSelected ? null : cid.cidade)}
                   className={`p-2.5 rounded-xl border text-left transition-all cursor-pointer flex items-center justify-between ${
                     isCidSelected
                       ? 'bg-orange-500/20 border-orange-500/50 text-white'
