@@ -43,32 +43,35 @@ function LandingPage() {
             e monitorar a preferência eleitoral com precisão. Em tempo real e do seu celular.
           </p>
 
-          {/* BOTÕES PRINCIPAIS DE AÇÃO COM CORES E CONTRASTE DEFINIDOS */}
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-4 flex-wrap mb-4">
-            {/* 1. RESULTADO DA PESQUISA / ENQUETE (LARANJA VIBRANTE) */}
+          {/* BOTÕES PRINCIPAIS DE AÇÃO COM CORES E CONTRASTE GARANTIDOS */}
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-4 flex-wrap mb-6">
+            {/* 1. RESULTADO DA PESQUISA (LARANJA VIBRANTE + TEXTO BRANCO) */}
             <a
               href="https://chat.democracias.org/resultado"
-              className="w-full sm:w-auto h-14 px-8 rounded-xl bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white font-black text-lg shadow-lg flex items-center justify-center gap-2.5 transition-all active:scale-95 border border-orange-400/40"
+              style={{ backgroundColor: '#f97316', color: '#ffffff' }}
+              className="w-full sm:w-auto h-14 px-8 rounded-xl font-extrabold text-lg shadow-lg flex items-center justify-center gap-2.5 transition-all hover:opacity-95 active:scale-95 border border-orange-400"
             >
               <BarChart3 className="size-5 text-white" />
-              <span>Resultado da Pesquisa</span>
+              <span className="text-white font-black text-lg">Resultado da Pesquisa</span>
             </a>
 
-            {/* 2. PARTICIPAR DA ENQUETE (ESCURO / ASSISTENTE) */}
+            {/* 2. PARTICIPAR DA ENQUETE (ESCURO + TEXTO BRANCO) */}
             <a
               href="https://chat.democracias.org"
-              className="w-full sm:w-auto h-14 px-8 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-lg shadow-md flex items-center justify-center gap-2 transition-all active:scale-95"
+              style={{ backgroundColor: '#0f172a', color: '#ffffff' }}
+              className="w-full sm:w-auto h-14 px-8 rounded-xl font-extrabold text-lg shadow-md flex items-center justify-center gap-2 transition-all hover:bg-slate-800 active:scale-95 border border-slate-700"
             >
-              <span>Participar da Enquete</span>
+              <span className="text-white font-black text-lg">Participar da Enquete</span>
             </a>
 
-            {/* 3. CADASTRAR CAMPANHA (ADMIN) (AZUL INSTITUCIONAL) */}
+            {/* 3. CADASTRAR CAMPANHA (ADMIN) (AZUL INSTITUCIONAL + TEXTO BRANCO) */}
             <Link to="/onboarding" className="w-full sm:w-auto">
               <button
                 type="button"
-                className="w-full sm:w-auto h-14 px-8 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-lg shadow-md flex items-center justify-center transition-all active:scale-95 border border-blue-500/40"
+                style={{ backgroundColor: '#2563eb', color: '#ffffff' }}
+                className="w-full sm:w-auto h-14 px-8 rounded-xl font-extrabold text-lg shadow-md flex items-center justify-center transition-all hover:bg-blue-700 active:scale-95 border border-blue-400 cursor-pointer"
               >
-                Cadastrar Campanha (Admin)
+                <span className="text-white font-black text-lg">Cadastrar Campanha (Admin)</span>
               </button>
             </Link>
           </div>
