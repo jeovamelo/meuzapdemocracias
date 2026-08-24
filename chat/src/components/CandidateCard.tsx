@@ -40,40 +40,43 @@ export const CandidateCard: React.FC<Props> = ({
             <CircleDot className="size-7 text-slate-300" />
           ) : isNulo ? (
             <Ban className="size-7 text-rose-400" />
-          ) : candidato.fotoUrl ? (
-            <img
-              src={candidato.fotoUrl}
-              alt={candidato.nomeUrna}
-              className="size-full object-cover"
-              onError={(e) => {
-                const img = e.currentTarget;
-                const currentSrc = img.getAttribute('src') || '';
-                
-                // Fallback 1: se for caminho relativo /candidatos/..., tentar a rota absoluta da plataforma principal
-                if (currentSrc.startsWith('/candidatos/')) {
-                  img.src = `https://democracias.org${currentSrc}`;
-                  return;
-                }
-                
-                // Se falhar em todos, oculta e exibe o fallback
-                img.style.display = 'none';
-                const parent = img.parentElement;
-                if (parent) {
-                  const fallback = parent.querySelector('.photo-fallback');
-                  if (fallback) (fallback as HTMLElement).style.display = 'flex';
-                }
-              }}
-            />
-          ) : null}
+          ) : (
+            <>
+              {candidato.fotoUrl ? (
+                <img
+                  src={candidato.fotoUrl}
+                  alt={candidato.nomeUrna}
+                  loading="eager"
+                  className="size-full object-cover"
+                  onError={(e) => {
+                    const img = e.currentTarget;
+                    const src = img.src || '';
+                    if (!src.includes('democracias.org') && candidato.fotoUrl?.startsWith('/candidatos/')) {
+                      img.src = `https://democracias.org${candidato.fotoUrl}`;
+                    } else {
+                      img.style.display = 'none';
+                      const parent = img.parentElement;
+                      if (parent) {
+                        const fallback = parent.querySelector('.photo-fallback');
+                        if (fallback) (fallback as HTMLElement).style.display = 'flex';
+                      }
+                    }
+                  }}
+                />
+              ) : null}
 
-          {!isBranco && !isNulo && (
-            <div
-              className={`photo-fallback size-full items-center justify-center bg-slate-900 text-slate-500 ${
-                candidato.fotoUrl ? 'hidden' : 'flex'
-              }`}
-            >
-              <User className="size-7" />
-            </div>
+              <div
+                className={`photo-fallback size-full items-center justify-center bg-slate-900 text-slate-400 font-black text-xs ${
+                  candidato.fotoUrl ? 'hidden' : 'flex'
+                }`}
+              >
+                {candidato.nomeUrna ? (
+                  <span>{candidato.nomeUrna.slice(0, 2).toUpperCase()}</span>
+                ) : (
+                  <User className="size-7" />
+                )}
+              </div>
+            </>
           )}
 
           {!isBranco && !isNulo && candidato.uf && (
