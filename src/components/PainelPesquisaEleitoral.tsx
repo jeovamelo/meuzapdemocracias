@@ -56,11 +56,20 @@ interface CandidatoOpcao {
   totalVotos: number;
 }
 
+// O painel recebe registros que podem ter sido preenchidos por fontes e versões
+// diferentes do formulário. Normalizamos os valores antes de filtrar para que
+// um campo nulo ou numérico nunca interrompa a renderização do mapa inteiro.
+const texto = (value: unknown) => (value == null ? '' : String(value));
+const maiusculo = (value: unknown) => texto(value).toUpperCase();
+const minusculo = (value: unknown) => texto(value).toLowerCase().trim();
+const linhas = (value: unknown): any[] => Array.isArray(value) ? value : [];
+
 export const PainelPesquisaEleitoral: React.FC = () => {
   const [pesquisas, setPesquisas] = useState<any[]>([]);
   const [candidatosTse, setCandidatosTse] = useState<any[]>([]);
   const [campanhas, setCampanhas] = useState<any[]>([]);
   const [carregando, setCarregando] = useState(true);
+  const [erroCarregamento, setErroCarregamento] = useState<string | null>(null);
 
   // Filtros Globais e Escopo
   const [escopo, setEscopo] = useState<EscopoGeografico>('nacional');
@@ -80,27 +89,35 @@ export const PainelPesquisaEleitoral: React.FC = () => {
   // Carregar dados do Supabase
   const carregarDados = async () => {
     setCarregando(true);
+    setErroCarregamento(null);
     try {
-      const { data: dataPesquisas } = await supabase
-        .from('pesquisas_chat')
-        .select('*')
-        .order('criado_em', { ascending: false });
+      const [pesquisasResult, candidatosResult, campanhasResult] = await Promise.all([
+        supabase.from('pesquisas_chat').select('*').order('criado_em', { ascending: false }),
+        supabase.from('tse_candidatos').select('*'),
+        supabase.from('campaigns').select('*'),
+      ]);
 
-      setPesquisas(dataPesquisas || []);
+      const erros = [pesquisasResult.error, candidatosResult.error, campanhasResult.error]
+        .filter(Boolean)
+        .map((error) => error!.message);
 
-      const { data: dataTse } = await supabase
-        .from('tse_candidatos')
-        .select('*');
+      // Cada fonte é independente: se uma estiver indisponível, o painel ainda
+      // renderiza com as demais, sem deixar a página em branco.
+      setPesquisas(linhas(pesquisasResult.data));
+      setCandidatosTse(linhas(candidatosResult.data));
+      setCampanhas(linhas(campanhasResult.data));
 
-      setCandidatosTse(dataTse || []);
-
-      const { data: dataCamp } = await supabase
-        .from('campaigns')
-        .select('*');
-
-      setCampanhas(dataCamp || []);
+      if (erros.length > 0) {
+        const message = erros.join(' • ');
+        console.error('Falha parcial ao carregar dados da pesquisa:', message);
+        setErroCarregamento(message);
+      }
     } catch (e) {
       console.error('Erro ao carregar dados da pesquisa:', e);
+      setPesquisas([]);
+      setCandidatosTse([]);
+      setCampanhas([]);
+      setErroCarregamento(e instanceof Error ? e.message : 'Não foi possível acessar os dados da pesquisa.');
     } finally {
       setCarregando(false);
     }
@@ -132,13 +149,13 @@ export const PainelPesquisaEleitoral: React.FC = () => {
   // Filtragem por Escopo Geográfico (Nacional / Estadual / Municipal)
   const pesquisasFiltradas = useMemo(() => {
     return pesquisasAmostragem.filter((p) => {
-      const pUf = (p.uf || '').toUpperCase();
-      const pCid = (p.municipio || '').toLowerCase().trim();
+      const pUf = maiusculo(p.uf);
+      const pCid = minusculo(p.municipio);
 
-      if (escopo === 'estadual' && ufFiltro && pUf !== ufFiltro.toUpperCase()) return false;
+      if (escopo === 'estadual' && ufFiltro && pUf !== maiusculo(ufFiltro)) return false;
       if (escopo === 'municipal') {
-        if (ufFiltro && pUf !== ufFiltro.toUpperCase()) return false;
-        if (cidadeFiltro && pCid !== cidadeFiltro.toLowerCase().trim()) return false;
+        if (ufFiltro && pUf !== maiusculo(ufFiltro)) return false;
+        if (cidadeFiltro && pCid !== minusculo(cidadeFiltro)) return false;
       }
       return true;
     });
@@ -150,7 +167,7 @@ export const PainelPesquisaEleitoral: React.FC = () => {
     pesquisasAmostragem.forEach((p) => {
       [p.presidente_partido, p.governador_partido, p.senador1_partido, p.senador2_partido, p.dep_federal_partido, p.dep_estadual_partido].forEach((pt) => {
         if (pt && pt !== 'NULO' && pt !== 'BRANCO' && pt !== 'NÃO REGISTRADO') {
-          setPartidos.add(pt.toUpperCase());
+          setPartidos.add(maiusculo(pt));
         }
       });
     });
@@ -170,30 +187,30 @@ export const PainelPesquisaEleitoral: React.FC = () => {
       cargoLabel: string,
       ufPesquisa: string
     ) => {
-      const numLimpo = (numero || '').trim();
+      const numLimpo = texto(numero).trim();
       if (!numLimpo || numLimpo === 'BRANCO' || numLimpo === 'NULO') return;
 
       // Validação TSE
       let tseMatch: any = null;
       if (cargoKey === 'presidente') {
-        tseMatch = candidatosTse.find((c) => (c.ds_cargo || '').toUpperCase() === 'PRESIDENTE' && String(c.nr_candidato) === numLimpo);
+        tseMatch = candidatosTse.find((c) => maiusculo(c.ds_cargo) === 'PRESIDENTE' && texto(c.nr_candidato) === numLimpo);
       } else if (cargoKey === 'governador') {
-        tseMatch = candidatosTse.find((c) => (c.ds_cargo || '').toUpperCase() === 'GOVERNADOR' && String(c.nr_candidato) === numLimpo && (c.sg_uf || '').toUpperCase() === ufPesquisa.toUpperCase());
+        tseMatch = candidatosTse.find((c) => maiusculo(c.ds_cargo) === 'GOVERNADOR' && texto(c.nr_candidato) === numLimpo && maiusculo(c.sg_uf) === maiusculo(ufPesquisa));
       } else if (cargoKey === 'senador') {
-        tseMatch = candidatosTse.find((c) => (c.ds_cargo || '').toUpperCase() === 'SENADOR' && String(c.nr_candidato) === numLimpo && (c.sg_uf || '').toUpperCase() === ufPesquisa.toUpperCase());
+        tseMatch = candidatosTse.find((c) => maiusculo(c.ds_cargo) === 'SENADOR' && texto(c.nr_candidato) === numLimpo && maiusculo(c.sg_uf) === maiusculo(ufPesquisa));
       } else if (cargoKey === 'dep_federal') {
-        tseMatch = candidatosTse.find((c) => (c.ds_cargo || '').toUpperCase() === 'DEPUTADO FEDERAL' && String(c.nr_candidato) === numLimpo && (c.sg_uf || '').toUpperCase() === ufPesquisa.toUpperCase());
+        tseMatch = candidatosTse.find((c) => maiusculo(c.ds_cargo) === 'DEPUTADO FEDERAL' && texto(c.nr_candidato) === numLimpo && maiusculo(c.sg_uf) === maiusculo(ufPesquisa));
       } else if (cargoKey === 'dep_estadual') {
-        tseMatch = candidatosTse.find((c) => ['DEPUTADO ESTADUAL', 'DEPUTADO DISTRITAL'].includes((c.ds_cargo || '').toUpperCase()) && String(c.nr_candidato) === numLimpo && (c.sg_uf || '').toUpperCase() === ufPesquisa.toUpperCase());
+        tseMatch = candidatosTse.find((c) => ['DEPUTADO ESTADUAL', 'DEPUTADO DISTRITAL'].includes(maiusculo(c.ds_cargo)) && texto(c.nr_candidato) === numLimpo && maiusculo(c.sg_uf) === maiusculo(ufPesquisa));
       }
 
       // Validação Campanha
       const campMatch = campanhas.find((c) => {
-        if (String(c.nr_candidato) !== numLimpo) return false;
-        const cCargo = (c.cargo || '').toUpperCase();
-        const cUf = (c.uf || '').toUpperCase();
+        if (texto(c.nr_candidato) !== numLimpo) return false;
+        const cCargo = maiusculo(c.cargo);
+        const cUf = maiusculo(c.uf);
         if (cargoKey === 'presidente') return cCargo.includes('PRESIDENTE');
-        if (cUf !== ufPesquisa.toUpperCase()) return false;
+        if (cUf !== maiusculo(ufPesquisa)) return false;
         if (cargoKey === 'governador') return cCargo.includes('GOVERNADOR');
         if (cargoKey === 'senador') return cCargo.includes('SENADOR');
         if (cargoKey === 'dep_federal') return cCargo.includes('FEDERAL');
@@ -203,7 +220,7 @@ export const PainelPesquisaEleitoral: React.FC = () => {
 
       if (!tseMatch && !campMatch) return;
 
-      const candUf = cargoKey === 'presidente' ? 'BR' : (tseMatch?.sg_uf || campMatch?.uf || ufPesquisa).toUpperCase();
+      const candUf = cargoKey === 'presidente' ? 'BR' : maiusculo(tseMatch?.sg_uf || campMatch?.uf || ufPesquisa);
       const chave = `${cargoKey}_${candUf}_${numLimpo}`;
 
       if (!mapaCands.has(chave)) {
@@ -225,7 +242,7 @@ export const PainelPesquisaEleitoral: React.FC = () => {
     };
 
     pesquisasFiltradas.forEach((p) => {
-      const uf = (p.uf || 'CE').toUpperCase();
+      const uf = maiusculo(p.uf || 'CE');
       if (p.presidente_numero) registrarVoto(p.presidente_numero, p.presidente_nome, p.presidente_partido, p.presidente_foto, 'presidente', 'Presidente', 'BR');
       if (p.governador_numero) registrarVoto(p.governador_numero, p.governador_nome, p.governador_partido, p.governador_foto, 'governador', 'Governador', uf);
       if (p.senador1_numero) registrarVoto(p.senador1_numero, p.senador1_nome, p.senador1_partido, p.senador1_foto, 'senador', 'Senador', uf);
@@ -310,7 +327,7 @@ export const PainelPesquisaEleitoral: React.FC = () => {
     let totalVotosConsiderados = 0;
 
     pesquisasFiltradas.forEach((p) => {
-      const uf = (p.uf || '').toUpperCase();
+      const uf = maiusculo(p.uf);
       if (!mapaUfs[uf]) return;
 
       mapaUfs[uf].totalVotosEstado += 1;
@@ -325,14 +342,14 @@ export const PainelPesquisaEleitoral: React.FC = () => {
         else if (candidatoAtivo.cargoKey === 'dep_federal' && p.dep_federal_numero === num && uf === candidatoAtivo.uf) votou = true;
         else if (candidatoAtivo.cargoKey === 'dep_estadual' && p.dep_estadual_numero === num && uf === candidatoAtivo.uf) votou = true;
       } else if (camadaTipo === 'partido' && partidoSelecionado !== 'todos') {
-        const pt = partidoSelecionado.toUpperCase();
+        const pt = maiusculo(partidoSelecionado);
         if (
-          p.presidente_partido?.toUpperCase() === pt ||
-          p.governador_partido?.toUpperCase() === pt ||
-          p.senador1_partido?.toUpperCase() === pt ||
-          p.senador2_partido?.toUpperCase() === pt ||
-          p.dep_federal_partido?.toUpperCase() === pt ||
-          p.dep_estadual_partido?.toUpperCase() === pt
+          maiusculo(p.presidente_partido) === pt ||
+          maiusculo(p.governador_partido) === pt ||
+          maiusculo(p.senador1_partido) === pt ||
+          maiusculo(p.senador2_partido) === pt ||
+          maiusculo(p.dep_federal_partido) === pt ||
+          maiusculo(p.dep_estadual_partido) === pt
         ) {
           votou = true;
         }
@@ -360,7 +377,7 @@ export const PainelPesquisaEleitoral: React.FC = () => {
     const mapaCidades: Record<string, CidadeVotosData> = {};
 
     pesquisasFiltradas.forEach((p) => {
-      const uf = (p.uf || '').toUpperCase();
+      const uf = maiusculo(p.uf);
       const cidade = p.municipio || 'Não informada';
       const bairro = p.bairro || 'Geral';
       const cep = p.cep || '';
@@ -374,14 +391,14 @@ export const PainelPesquisaEleitoral: React.FC = () => {
         else if (candidatoAtivo.cargoKey === 'dep_federal' && p.dep_federal_numero === num && uf === candidatoAtivo.uf) votou = true;
         else if (candidatoAtivo.cargoKey === 'dep_estadual' && p.dep_estadual_numero === num && uf === candidatoAtivo.uf) votou = true;
       } else if (camadaTipo === 'partido' && partidoSelecionado !== 'todos') {
-        const pt = partidoSelecionado.toUpperCase();
+        const pt = maiusculo(partidoSelecionado);
         if (
-          p.presidente_partido?.toUpperCase() === pt ||
-          p.governador_partido?.toUpperCase() === pt ||
-          p.senador1_partido?.toUpperCase() === pt ||
-          p.senador2_partido?.toUpperCase() === pt ||
-          p.dep_federal_partido?.toUpperCase() === pt ||
-          p.dep_estadual_partido?.toUpperCase() === pt
+          maiusculo(p.presidente_partido) === pt ||
+          maiusculo(p.governador_partido) === pt ||
+          maiusculo(p.senador1_partido) === pt ||
+          maiusculo(p.senador2_partido) === pt ||
+          maiusculo(p.dep_federal_partido) === pt ||
+          maiusculo(p.dep_estadual_partido) === pt
         ) {
           votou = true;
         }
@@ -407,7 +424,7 @@ export const PainelPesquisaEleitoral: React.FC = () => {
   const listaCidadesDisponiveis = useMemo(() => {
     const setCidades = new Set<string>();
     pesquisasAmostragem.forEach((p) => {
-      if (ufFiltro && (p.uf || '').toUpperCase() !== ufFiltro.toUpperCase()) return;
+      if (ufFiltro && maiusculo(p.uf) !== maiusculo(ufFiltro)) return;
       if (p.municipio && p.municipio !== 'Não informado') {
         setCidades.add(p.municipio);
       }
@@ -422,6 +439,18 @@ export const PainelPesquisaEleitoral: React.FC = () => {
   return (
     <div className="space-y-6 animate-fadeIn">
       
+      {erroCarregamento && (
+        <div role="alert" className="flex flex-col gap-3 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-amber-950 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <p className="text-sm font-extrabold">Alguns dados da pesquisa não puderam ser atualizados.</p>
+            <p className="mt-0.5 text-xs text-amber-800">{erroCarregamento}</p>
+          </div>
+          <Button type="button" variant="outline" onClick={carregarDados} disabled={carregando} className="shrink-0 border-amber-300 bg-white">
+            <RefreshCw className={`mr-2 size-4 ${carregando ? 'animate-spin' : ''}`} /> Tentar novamente
+          </Button>
+        </div>
+      )}
+
       {/* CABEÇALHO DO PAINEL DE PESQUISA */}
       <div className="bg-gradient-to-r from-slate-900 via-slate-950 to-slate-900 border border-slate-800 p-6 rounded-3xl shadow-xl text-white space-y-4">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -742,7 +771,7 @@ export const PainelPesquisaEleitoral: React.FC = () => {
                     if (cargoFiltro !== 'todos' && c.cargoKey !== cargoFiltro) return false;
                     if (buscaTexto) {
                       const t = buscaTexto.toLowerCase();
-                      return (c.nomeUrna || '').toLowerCase().includes(t) || (c.numero || '').includes(t) || (c.partido || '').toLowerCase().includes(t);
+                      return minusculo(c.nomeUrna).includes(t) || texto(c.numero).includes(t) || minusculo(c.partido).includes(t);
                     }
                     return true;
                   })

@@ -16,6 +16,7 @@ import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as MateriaisRouteImport } from './routes/materiais'
 import { Route as OnboardingRouteImport } from './routes/onboarding'
 import { Route as PcRouteImport } from './routes/pc'
+import { Route as PesquisaRouteImport } from './routes/pesquisa'
 import { Route as PessoasRouteImport } from './routes/pessoas'
 import { Route as PotencialRouteImport } from './routes/potencial'
 import { Route as ResultadoRouteImport } from './routes/resultado'
@@ -62,6 +63,11 @@ const OnboardingRoute = OnboardingRouteImport.update({
 const PcRoute = PcRouteImport.update({
   id: '/pc',
   path: '/pc',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PesquisaRoute = PesquisaRouteImport.update({
+  id: '/pesquisa',
+  path: '/pesquisa',
   getParentRoute: () => rootRouteImport,
 } as any)
 const PessoasRoute = PessoasRouteImport.update({
@@ -133,6 +139,7 @@ export interface FileRoutesByFullPath {
   '/materiais': typeof MateriaisRoute
   '/onboarding': typeof OnboardingRoute
   '/pc': typeof PcRoute
+  '/pesquisa': typeof PesquisaRoute
   '/pessoas': typeof PessoasRoute
   '/potencial': typeof PotencialRoute
   '/resultado': typeof ResultadoRoute
@@ -154,6 +161,7 @@ export interface FileRoutesByTo {
   '/materiais': typeof MateriaisRoute
   '/onboarding': typeof OnboardingRoute
   '/pc': typeof PcRoute
+  '/pesquisa': typeof PesquisaRoute
   '/pessoas': typeof PessoasRoute
   '/potencial': typeof PotencialRoute
   '/resultado': typeof ResultadoRoute
@@ -175,6 +183,7 @@ export interface FileRoutesById {
   '/materiais': typeof MateriaisRoute
   '/onboarding': typeof OnboardingRoute
   '/pc': typeof PcRoute
+  '/pesquisa': typeof PesquisaRoute
   '/pessoas': typeof PessoasRoute
   '/potencial': typeof PotencialRoute
   '/resultado': typeof ResultadoRoute
@@ -198,6 +207,7 @@ export interface FileRouteTypes {
     | '/materiais'
     | '/onboarding'
     | '/pc'
+    | '/pesquisa'
     | '/pessoas'
     | '/potencial'
     | '/resultado'
@@ -219,6 +229,7 @@ export interface FileRouteTypes {
     | '/materiais'
     | '/onboarding'
     | '/pc'
+    | '/pesquisa'
     | '/pessoas'
     | '/potencial'
     | '/resultado'
@@ -239,6 +250,7 @@ export interface FileRouteTypes {
     | '/materiais'
     | '/onboarding'
     | '/pc'
+    | '/pesquisa'
     | '/pessoas'
     | '/potencial'
     | '/resultado'
@@ -261,6 +273,7 @@ export interface RootRouteChildren {
   MateriaisRoute: typeof MateriaisRoute
   OnboardingRoute: typeof OnboardingRoute
   PcRoute: typeof PcRoute
+  PesquisaRoute: typeof PesquisaRoute
   PessoasRoute: typeof PessoasRoute
   PotencialRoute: typeof PotencialRoute
   ResultadoRoute: typeof ResultadoRoute
@@ -322,6 +335,13 @@ declare module '@tanstack/react-router' {
       path: '/pc'
       fullPath: '/pc'
       preLoaderRoute: typeof PcRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/pesquisa': {
+      id: '/pesquisa'
+      path: '/pesquisa'
+      fullPath: '/pesquisa'
+      preLoaderRoute: typeof PesquisaRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/pessoas': {
@@ -432,6 +452,7 @@ const rootRouteChildren: RootRouteChildren = {
   MateriaisRoute: MateriaisRoute,
   OnboardingRoute: OnboardingRoute,
   PcRoute: PcRoute,
+  PesquisaRoute: PesquisaRoute,
   PessoasRoute: PessoasRoute,
   PotencialRoute: PotencialRoute,
   ResultadoRoute: ResultadoRoute,

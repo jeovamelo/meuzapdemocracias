@@ -42,18 +42,16 @@ class PesquisaErrorBoundary extends React.Component<
           <div className="size-14 mx-auto rounded-2xl bg-orange-500/10 border border-orange-500/20 flex items-center justify-center text-orange-500">
             <AlertTriangle className="size-7" />
           </div>
-          <h3 className="text-lg font-black">
-            Atualizando visualização de pesquisa...
-          </h3>
+          <h3 className="text-lg font-black">Não foi possível renderizar o painel de pesquisa.</h3>
           <p className="text-xs text-slate-400 font-mono">
-            {this.state.error?.message || 'Os dados foram atualizados. Clique abaixo para recarregar o painel e os mapas.'}
+            {this.state.error?.message || 'Ocorreu uma falha inesperada ao preparar os dados e o mapa.'}
           </p>
           <div className="flex justify-center gap-3 pt-2">
             <Button 
-              onClick={() => this.setState({ hasError: false, error: null })} 
+              onClick={() => window.location.reload()}
               className="bg-orange-500 hover:bg-orange-600 text-white font-bold cursor-pointer"
             >
-              <RefreshCw className="mr-2 size-4" /> Recarregar Painel
+              <RefreshCw className="mr-2 size-4" /> Recarregar painel
             </Button>
             <Link to="/pc">
               <Button variant="outline" className="border-slate-700 text-slate-300">Voltar ao PC</Button>
