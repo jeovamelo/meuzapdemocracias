@@ -315,7 +315,7 @@ export function App() {
 
       setRespostas((prev) => ({ ...prev, nome: textoLimpo }));
       await adicionarMensagemBot(`Muito prazer, ${textoLimpo.split(' ')[0]}! 👍`);
-      await adicionarMensagemBot('Informe o seu CPF (Opcional — clique em Avançar se preferir não informar):');
+      await adicionarMensagemBot('Por favor, informe o seu CPF:\n\n🔒 O CPF é obrigatório para certificar seu voto oficial e evitar duplicidade de registros.\n\nCaso opte por não informar, sua manifestação será contabilizada no máximo como expectativa para as campanhas.');
       setEtapa('cpf');
       return;
     }
@@ -324,8 +324,8 @@ export function App() {
       if (textoLimpo) {
         const cpfValido = validarCpf(textoLimpo);
         if (!cpfValido) {
-          toast.error('CPF inválido! Verifique os dígitos ou clique em "Prefiro não informar".');
-          await adicionarMensagemBot('⚠️ O CPF digitado é inválido. Por favor, confira os 11 dígitos ou clique em "Prefiro não informar CPF" para avançar:');
+          toast.error('CPF inválido! Verifique os 11 dígitos ou avance como expectativa.');
+          await adicionarMensagemBot('⚠️ O CPF digitado é inválido. Por favor, confira os 11 dígitos para evitar duplicidade ou clique no botão abaixo para avançar apenas como expectativa:');
           return;
         }
       }
@@ -1140,7 +1140,7 @@ export function App() {
                     etapa === 'nome'
                       ? 'Digite seu nome completo...'
                       : etapa === 'cpf'
-                      ? '000.000.000-00 (Opcional)'
+                      ? '000.000.000-00 (Obrigatório p/ evitar duplicidade)'
                       : etapa === 'voto_dep_estadual'
                       ? 'Digite o número do Dep. Estadual (5 dígitos)...'
                       : etapa === 'voto_dep_federal'
@@ -1172,7 +1172,7 @@ export function App() {
                     onClick={handlePularCpf}
                     className="text-xs font-bold text-slate-400 hover:text-orange-400 transition-colors py-1 flex items-center gap-1"
                   >
-                    Prefiro não informar CPF <ChevronRight className="size-3.5" />
+                    Avançar sem CPF (Contabilizar apenas como expectativa) <ChevronRight className="size-3.5" />
                   </button>
                 </div>
               )}
