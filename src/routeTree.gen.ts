@@ -18,6 +18,7 @@ import { Route as OnboardingRouteImport } from './routes/onboarding'
 import { Route as PcRouteImport } from './routes/pc'
 import { Route as PessoasRouteImport } from './routes/pessoas'
 import { Route as PotencialRouteImport } from './routes/potencial'
+import { Route as ResultadoRouteImport } from './routes/resultado'
 import { Route as SaidasRouteImport } from './routes/saidas'
 import { Route as SelecionarCampanhaRouteImport } from './routes/selecionar-campanha'
 import { Route as WhatsappRouteImport } from './routes/whatsapp'
@@ -71,6 +72,11 @@ const PessoasRoute = PessoasRouteImport.update({
 const PotencialRoute = PotencialRouteImport.update({
   id: '/potencial',
   path: '/potencial',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ResultadoRoute = ResultadoRouteImport.update({
+  id: '/resultado',
+  path: '/resultado',
   getParentRoute: () => rootRouteImport,
 } as any)
 const SaidasRoute = SaidasRouteImport.update({
@@ -129,6 +135,7 @@ export interface FileRoutesByFullPath {
   '/pc': typeof PcRoute
   '/pessoas': typeof PessoasRoute
   '/potencial': typeof PotencialRoute
+  '/resultado': typeof ResultadoRoute
   '/saidas': typeof SaidasRouteWithChildren
   '/selecionar-campanha': typeof SelecionarCampanhaRoute
   '/whatsapp': typeof WhatsappRoute
@@ -149,6 +156,7 @@ export interface FileRoutesByTo {
   '/pc': typeof PcRoute
   '/pessoas': typeof PessoasRoute
   '/potencial': typeof PotencialRoute
+  '/resultado': typeof ResultadoRoute
   '/selecionar-campanha': typeof SelecionarCampanhaRoute
   '/whatsapp': typeof WhatsappRoute
   '/whatsapp-validado': typeof WhatsappValidadoRoute
@@ -169,6 +177,7 @@ export interface FileRoutesById {
   '/pc': typeof PcRoute
   '/pessoas': typeof PessoasRoute
   '/potencial': typeof PotencialRoute
+  '/resultado': typeof ResultadoRoute
   '/saidas': typeof SaidasRouteWithChildren
   '/selecionar-campanha': typeof SelecionarCampanhaRoute
   '/whatsapp': typeof WhatsappRoute
@@ -191,6 +200,7 @@ export interface FileRouteTypes {
     | '/pc'
     | '/pessoas'
     | '/potencial'
+    | '/resultado'
     | '/saidas'
     | '/selecionar-campanha'
     | '/whatsapp'
@@ -211,6 +221,7 @@ export interface FileRouteTypes {
     | '/pc'
     | '/pessoas'
     | '/potencial'
+    | '/resultado'
     | '/selecionar-campanha'
     | '/whatsapp'
     | '/whatsapp-validado'
@@ -230,6 +241,7 @@ export interface FileRouteTypes {
     | '/pc'
     | '/pessoas'
     | '/potencial'
+    | '/resultado'
     | '/saidas'
     | '/selecionar-campanha'
     | '/whatsapp'
@@ -251,6 +263,7 @@ export interface RootRouteChildren {
   PcRoute: typeof PcRoute
   PessoasRoute: typeof PessoasRoute
   PotencialRoute: typeof PotencialRoute
+  ResultadoRoute: typeof ResultadoRoute
   SaidasRoute: typeof SaidasRouteWithChildren
   SelecionarCampanhaRoute: typeof SelecionarCampanhaRoute
   WhatsappRoute: typeof WhatsappRoute
@@ -323,6 +336,13 @@ declare module '@tanstack/react-router' {
       path: '/potencial'
       fullPath: '/potencial'
       preLoaderRoute: typeof PotencialRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/resultado': {
+      id: '/resultado'
+      path: '/resultado'
+      fullPath: '/resultado'
+      preLoaderRoute: typeof ResultadoRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/saidas': {
@@ -414,6 +434,7 @@ const rootRouteChildren: RootRouteChildren = {
   PcRoute: PcRoute,
   PessoasRoute: PessoasRoute,
   PotencialRoute: PotencialRoute,
+  ResultadoRoute: ResultadoRoute,
   SaidasRoute: SaidasRouteWithChildren,
   SelecionarCampanhaRoute: SelecionarCampanhaRoute,
   WhatsappRoute: WhatsappRoute,
