@@ -10,14 +10,18 @@ export const ChatHeader: React.FC<Props> = ({ candidatoAtivo }) => {
     <header className="sticky top-0 z-30 w-full border-b border-slate-800 bg-slate-900/95 backdrop-blur-md px-4 py-2.5 shadow-lg">
       <div className="mx-auto flex max-w-xl items-center justify-between">
         <div className="flex items-center gap-3">
+          {/* CONTAINER COM FUNDO BRANCO PARA DESTACAR A LOGO */}
           <div className="relative flex items-center justify-center shrink-0">
-            <img
-              src="/democraciaslogo.png"
-              alt="Democracias"
-              className="h-10 sm:h-11 w-auto object-contain drop-shadow-md transition-transform hover:scale-105"
-            />
+            <div className="bg-white px-2.5 py-1 rounded-xl shadow-md border border-white/20 flex items-center justify-center">
+              <img
+                src="/democraciaslogo.png"
+                alt="Democracias"
+                className="h-7 sm:h-8 w-auto object-contain transition-transform hover:scale-105"
+              />
+            </div>
             <span className="absolute -bottom-0.5 -right-0.5 size-2.5 rounded-full bg-emerald-500 ring-2 ring-slate-900 animate-pulse" />
           </div>
+
           <div>
             <div className="flex items-center gap-1.5">
               <span className="text-sm font-black tracking-tight text-white">Democracias</span>
