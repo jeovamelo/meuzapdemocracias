@@ -14,7 +14,8 @@ import type { Candidato } from '../types';
 
 interface Props {
   cargoNome: string;
-  uf: string;
+  uf?: string;
+  ufInicial?: string;
   candidatos: Candidato[];
   onSelecionarCandidato: (candidato: Candidato) => void;
   onFechar: () => void;
@@ -23,10 +24,12 @@ interface Props {
 export const ModalConsultaCandidatos: React.FC<Props> = ({
   cargoNome,
   uf,
+  ufInicial,
   candidatos,
   onSelecionarCandidato,
   onFechar,
 }) => {
+  const ufExibir = uf || ufInicial || 'BR';
   const [busca, setBusca] = useState('');
 
   // Ordenar candidatos rigorosamente em ordem alfabética por nome de urna / nome
@@ -71,7 +74,7 @@ export const ModalConsultaCandidatos: React.FC<Props> = ({
                   Candidatos a {cargoNome}
                 </h3>
                 <span className="text-[10px] font-mono font-bold bg-orange-500/20 text-orange-400 px-2 py-0.5 rounded-full border border-orange-500/30 shrink-0">
-                  {uf}
+                  {ufExibir}
                 </span>
               </div>
               <p className="text-xs text-slate-400 truncate">
