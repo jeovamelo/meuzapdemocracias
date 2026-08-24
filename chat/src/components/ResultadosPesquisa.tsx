@@ -137,7 +137,24 @@ export const ResultadosPesquisa: React.FC<Props> = ({ respostas, onVoltarParaCol
         };
       }
 
-      const camp = campanhas.find((c) => String(c.nr_candidato) === num && (cargoKey === 'presidente' || (c.uf || '').toUpperCase() === ufAlvo.toUpperCase()));
+      // 2. Busca na base de campanhas cadastradas no sistema com correspondência ESTRITA de cargo e UF
+      const camp = campanhas.find((c) => {
+        if (String(c.nr_candidato) !== num) return false;
+        const cCargo = (c.cargo || '').toUpperCase();
+        const cUf = (c.uf || '').toUpperCase();
+
+        if (cargoKey === 'presidente') {
+          return cCargo.includes('PRESIDENTE');
+        }
+        if (cUf !== ufAlvo.toUpperCase()) return false;
+
+        if (cargoKey === 'governador') return cCargo.includes('GOVERNADOR');
+        if (cargoKey === 'senador') return cCargo.includes('SENADOR');
+        if (cargoKey === 'dep_federal') return cCargo.includes('FEDERAL');
+        if (cargoKey === 'dep_estadual') return cCargo.includes('ESTADUAL') || cCargo.includes('DISTRITAL');
+        return false;
+      });
+
       if (camp) {
         return {
           numero: num,
@@ -243,7 +260,7 @@ export const ResultadosPesquisa: React.FC<Props> = ({ respostas, onVoltarParaCol
     const gov = processarCargo(
       pesquisasEstado.map((p) => ({ numero: p.governador_numero, nome: p.governador_nome })),
       'governador',
-      'Governador(a)',
+      'Governador',
       uf.toUpperCase(),
       votos.governador?.numero
     );
@@ -253,7 +270,7 @@ export const ResultadosPesquisa: React.FC<Props> = ({ respostas, onVoltarParaCol
     const sen = processarCargo(
       [...votosSen1, ...votosSen2],
       'senador',
-      'Senador(a)',
+      'Senador',
       uf.toUpperCase(),
       votos.senador_1?.numero || votos.senador_2?.numero
     );
@@ -261,7 +278,7 @@ export const ResultadosPesquisa: React.FC<Props> = ({ respostas, onVoltarParaCol
     const fed = processarCargo(
       pesquisasEstado.map((p) => ({ numero: p.dep_federal_numero, nome: p.dep_federal_nome })),
       'dep_federal',
-      'Dep. Federal (Dep. A)',
+      'Dep. Federal',
       uf.toUpperCase(),
       votos.deputado_federal?.numero
     );
@@ -297,9 +314,9 @@ export const ResultadosPesquisa: React.FC<Props> = ({ respostas, onVoltarParaCol
 
   const tabs: { id: CargoTab; label: string; subtitulo: string; icon: string }[] = [
     { id: 'presidente', label: 'Presidente', subtitulo: 'Nacional', icon: '🇧🇷' },
-    { id: 'governador', label: 'Governador(a)', subtitulo: `${uf}`, icon: '🏛️' },
-    { id: 'senador', label: 'Senador(a)', subtitulo: `${uf}`, icon: '🏛️' },
-    { id: 'dep_federal', label: 'Dep. Federal (Dep. A)', subtitulo: `${uf}`, icon: '📋' },
+    { id: 'governador', label: 'Governador', subtitulo: `${uf}`, icon: '🏛️' },
+    { id: 'senador', label: 'Senador', subtitulo: `${uf}`, icon: '🏛️' },
+    { id: 'dep_federal', label: 'Dep. Federal', subtitulo: `${uf}`, icon: '📋' },
     { id: 'dep_estadual', label: 'Deputado Estadual', subtitulo: `${uf}`, icon: '📋' },
   ];
 

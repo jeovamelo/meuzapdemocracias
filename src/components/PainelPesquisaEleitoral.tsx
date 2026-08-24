@@ -146,10 +146,25 @@ export const PainelPesquisaEleitoral: React.FC = () => {
         tseMatch = candidatosTse.find((c) => ['DEPUTADO ESTADUAL', 'DEPUTADO DISTRITAL'].includes((c.ds_cargo || '').toUpperCase()) && String(c.nr_candidato) === numLimpo && (c.sg_uf || '').toUpperCase() === ufPesquisa.toUpperCase());
       }
 
-      // Validação na base de campanhas
-      const campMatch = campanhas.find((c) => String(c.nr_candidato) === numLimpo && (cargoKey === 'presidente' || (c.uf || '').toUpperCase() === ufPesquisa.toUpperCase()));
+      // Validação estrita na base de campanhas
+      const campMatch = campanhas.find((c) => {
+        if (String(c.nr_candidato) !== numLimpo) return false;
+        const cCargo = (c.cargo || '').toUpperCase();
+        const cUf = (c.uf || '').toUpperCase();
 
-      // Validação estrita: se não for oficial do TSE nem campanha registrada, descarta (trata como nulo)
+        if (cargoKey === 'presidente') {
+          return cCargo.includes('PRESIDENTE');
+        }
+        if (cUf !== ufPesquisa.toUpperCase()) return false;
+
+        if (cargoKey === 'governador') return cCargo.includes('GOVERNADOR');
+        if (cargoKey === 'senador') return cCargo.includes('SENADOR');
+        if (cargoKey === 'dep_federal') return cCargo.includes('FEDERAL');
+        if (cargoKey === 'dep_estadual') return cCargo.includes('ESTADUAL') || cCargo.includes('DISTRITAL');
+        return false;
+      });
+
+      // Validação estrita: se não for oficial do TSE nem campanha registrada para este cargo específico, descarta (trata como nulo)
       if (!tseMatch && !campMatch) return;
 
       const candUf = cargoKey === 'presidente' ? 'BR' : (tseMatch?.sg_uf || campMatch?.uf || ufPesquisa).toUpperCase();
@@ -176,10 +191,10 @@ export const PainelPesquisaEleitoral: React.FC = () => {
     pesquisasFiltradas.forEach((p) => {
       const uf = (p.uf || 'CE').toUpperCase();
       if (p.presidente_numero) registrarVotoCand(p.presidente_numero, p.presidente_nome, p.presidente_partido, p.presidente_foto, 'presidente', 'Presidente', 'BR');
-      if (p.governador_numero) registrarVotoCand(p.governador_numero, p.governador_nome, p.governador_partido, p.governador_foto, 'governador', 'Governador(a)', uf);
-      if (p.senador1_numero) registrarVotoCand(p.senador1_numero, p.senador1_nome, p.senador1_partido, p.senador1_foto, 'senador', 'Senador(a)', uf);
-      if (p.senador2_numero) registrarVotoCand(p.senador2_numero, p.senador2_nome, p.senador2_partido, p.senador2_foto, 'senador', 'Senador(a)', uf);
-      if (p.dep_federal_numero) registrarVotoCand(p.dep_federal_numero, p.dep_federal_nome, p.dep_federal_partido, p.dep_federal_foto, 'dep_federal', 'Dep. Federal (Dep. A)', uf);
+      if (p.governador_numero) registrarVotoCand(p.governador_numero, p.governador_nome, p.governador_partido, p.governador_foto, 'governador', 'Governador', uf);
+      if (p.senador1_numero) registrarVotoCand(p.senador1_numero, p.senador1_nome, p.senador1_partido, p.senador1_foto, 'senador', 'Senador', uf);
+      if (p.senador2_numero) registrarVotoCand(p.senador2_numero, p.senador2_nome, p.senador2_partido, p.senador2_foto, 'senador', 'Senador', uf);
+      if (p.dep_federal_numero) registrarVotoCand(p.dep_federal_numero, p.dep_federal_nome, p.dep_federal_partido, p.dep_federal_foto, 'dep_federal', 'Dep. Federal', uf);
       if (p.dep_estadual_numero) registrarVotoCand(p.dep_estadual_numero, p.dep_estadual_nome, p.dep_estadual_partido, p.dep_estadual_foto, 'dep_estadual', 'Deputado Estadual', uf);
     });
 

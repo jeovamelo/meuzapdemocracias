@@ -136,15 +136,15 @@ export const PaginaResultadosPublicos: React.FC = () => {
     const basePesquisas = pesquisasFiltradasAmostragem;
     const pesquisasUf = basePesquisas.filter((p) => (p.uf || '').toUpperCase() === ufSelecionada.toUpperCase());
 
-    // Função de validação estrita de candidatura oficial
+    // Função de validação estrita de candidatura oficial (Anti-Cruzamento)
     const encontrarCandidatoOficial = (numero: string, cargoKey: string, uf: string) => {
       const num = String(numero || '').trim();
       if (!num || num === 'BRANCO' || num === 'NULO') return null;
 
-      // 1. Busca no banco oficial do TSE
+      // 1. Busca no banco oficial do TSE com correspondência ESTRITA de cargo e UF
       let tse: any = null;
       if (cargoKey === 'presidente') {
-        tse = candidatosTse.find((c) => (c.ds_cargo || '').toUpperCase() === 'PRESIDENTE' && String(c.nr_candidato) === num);
+        tse = candidatosTse.find((c) => (c.ds_cargo || '').toUpperCase().includes('PRESIDENTE') && String(c.nr_candidato) === num);
       } else if (cargoKey === 'governador') {
         tse = candidatosTse.find((c) => (c.ds_cargo || '').toUpperCase() === 'GOVERNADOR' && String(c.nr_candidato) === num && (c.sg_uf || '').toUpperCase() === uf.toUpperCase());
       } else if (cargoKey === 'senador') {
@@ -167,8 +167,24 @@ export const PaginaResultadosPublicos: React.FC = () => {
         };
       }
 
-      // 2. Busca na base de campanhas cadastradas no sistema
-      const camp = campanhas.find((c) => String(c.nr_candidato) === num && (cargoKey === 'presidente' || (c.uf || '').toUpperCase() === uf.toUpperCase()));
+      // 2. Busca na base de campanhas cadastradas no sistema com correspondência ESTRITA de cargo e UF
+      const camp = campanhas.find((c) => {
+        if (String(c.nr_candidato) !== num) return false;
+        const cCargo = (c.cargo || '').toUpperCase();
+        const cUf = (c.uf || '').toUpperCase();
+
+        if (cargoKey === 'presidente') {
+          return cCargo.includes('PRESIDENTE');
+        }
+        if (cUf !== uf.toUpperCase()) return false;
+
+        if (cargoKey === 'governador') return cCargo.includes('GOVERNADOR');
+        if (cargoKey === 'senador') return cCargo.includes('SENADOR');
+        if (cargoKey === 'dep_federal') return cCargo.includes('FEDERAL');
+        if (cargoKey === 'dep_estadual') return cCargo.includes('ESTADUAL') || cCargo.includes('DISTRITAL');
+        return false;
+      });
+
       if (camp) {
         return {
           numero: num,
@@ -180,7 +196,7 @@ export const PaginaResultadosPublicos: React.FC = () => {
         };
       }
 
-      // NENHUMA correspondência oficial = Voto Nulo
+      // NENHUMA correspondência oficial para este cargo = Voto Nulo
       return null;
     };
 
@@ -209,7 +225,7 @@ export const PaginaResultadosPublicos: React.FC = () => {
           return;
         }
 
-        // Validação estrita contra a base oficial
+        // Validação estrita contra a base oficial do cargo
         const matchOficial = encontrarCandidatoOficial(num, cargoKey, ufAlvo);
 
         if (matchOficial) {
@@ -219,7 +235,7 @@ export const PaginaResultadosPublicos: React.FC = () => {
           countCands[num].count += 1;
           totalValidos += 1;
         } else {
-          // Voto com número inexistente ou legenda não cadastrada é REDIRECIONADO PARA NULO
+          // Voto com número inexistente, cruzado ou legenda não cadastrada é REDIRECIONADO PARA NULO
           totalNulos += 1;
         }
       });
@@ -276,7 +292,7 @@ export const PaginaResultadosPublicos: React.FC = () => {
     const dadosGov = processarCargo(
       pesquisasUf.map((p) => ({ numero: p.governador_numero, nome: p.governador_nome })),
       'governador',
-      'Governador(a)',
+      'Governador',
       ufSelecionada.toUpperCase()
     );
 
@@ -286,15 +302,15 @@ export const PaginaResultadosPublicos: React.FC = () => {
     const dadosSen = processarCargo(
       [...votosSen1, ...votosSen2],
       'senador',
-      'Senador(a)',
+      'Senador',
       ufSelecionada.toUpperCase()
     );
 
-    // 4. DEP. FEDERAL (DEP. A)
+    // 4. DEP. FEDERAL
     const dadosFed = processarCargo(
       pesquisasUf.map((p) => ({ numero: p.dep_federal_numero, nome: p.dep_federal_nome })),
       'dep_federal',
-      'Dep. Federal (Dep. A)',
+      'Dep. Federal',
       ufSelecionada.toUpperCase()
     );
 
@@ -385,9 +401,9 @@ export const PaginaResultadosPublicos: React.FC = () => {
   // Seções com Padronização Oficial dos Nomes dos Cargos
   const secoesCargo: { key: keyof typeof rankingConsolidado; titulo: string; icon: string; subtitulo: string }[] = [
     { key: 'presidente', titulo: 'Presidente', icon: '🇧🇷', subtitulo: 'Nacional' },
-    { key: 'governador', titulo: 'Governador(a)', icon: '🏛️', subtitulo: `Estado: ${ufSelecionada}` },
-    { key: 'senador', titulo: 'Senador(a)', icon: '🏛️', subtitulo: `Estado: ${ufSelecionada}` },
-    { key: 'dep_federal', titulo: 'Dep. Federal (Dep. A)', icon: '📋', subtitulo: `Estado: ${ufSelecionada}` },
+    { key: 'governador', titulo: 'Governador', icon: '🏛️', subtitulo: `Estado: ${ufSelecionada}` },
+    { key: 'senador', titulo: 'Senador', icon: '🏛️', subtitulo: `Estado: ${ufSelecionada}` },
+    { key: 'dep_federal', titulo: 'Dep. Federal', icon: '📋', subtitulo: `Estado: ${ufSelecionada}` },
     { key: 'dep_estadual', titulo: 'Deputado Estadual', icon: '📋', subtitulo: `Estado: ${ufSelecionada}` },
   ];
 
