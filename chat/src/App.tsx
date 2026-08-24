@@ -120,11 +120,19 @@ export function App() {
 
   // Gerar URL oficial da foto do acervo interno / TSE / Campanha
   const buildFotoCandidato = (c: any, ufPadrao: string) => {
-    if (c.foto_url && c.foto_url.startsWith('/candidatos/')) return c.foto_url;
     if (c.foto_candidato_url) return c.foto_candidato_url;
+    const isPres = (c.ds_cargo || c.cargo || '').toUpperCase().includes('PRESID');
     const cleanSq = String(c.sq_candidato ?? '').replace(/\D/g, '');
+    const uf = isPres ? 'BR' : (c.sg_uf || c.uf || ufPadrao || 'CE').toUpperCase();
+
+    if (c.foto_url && c.foto_url.startsWith('/candidatos/')) {
+      if (isPres && c.foto_url.includes('/candidatos/F') && !c.foto_url.includes('/candidatos/FBR')) {
+        return c.foto_url.replace(/\/candidatos\/F[A-Z]{2}/, '/candidatos/FBR');
+      }
+      return c.foto_url;
+    }
+
     if (cleanSq) {
-      const uf = (c.sg_uf || c.uf || ufPadrao || 'CE').toUpperCase();
       return `/candidatos/F${uf}${cleanSq}_div.jpg`;
     }
     if (c.foto_url) return c.foto_url;
@@ -161,7 +169,8 @@ export function App() {
       const { data: tsePresidentes, error: errPres } = await supabase
         .from('tse_candidatos')
         .select('*')
-        .eq('ds_cargo', 'PRESIDENTE');
+        .ilike('ds_cargo', '%PRESIDENTE%')
+        .eq('sg_uf', 'BR');
 
       if (errPres) console.warn('Erro tsePresidentes:', errPres);
 
@@ -204,21 +213,23 @@ export function App() {
         });
 
       // Mapear Presidentes (todos os cadastrados no banco nacional)
-      const presidentes: Candidato[] = (tsePresidentes || []).map((t: any) => {
-        const campVinculada = campMap.get(`${t.nr_candidato}`);
-        return {
-          id: t.id || `pres_${t.nr_candidato}`,
-          nome: t.nm_candidato || t.nm_urna_candidato,
-          nomeUrna: t.nm_urna_candidato || t.nm_candidato,
-          numero: String(t.nr_candidato),
-          cargo: 'Presidente',
-          partido: t.sg_partido || t.nm_partido || '',
-          uf: 'BR',
-          sq_candidato: t.sq_candidato ? String(t.sq_candidato) : undefined,
-          fotoUrl: campVinculada?.foto_candidato_url || buildFotoCandidato(t, 'BR'),
-          campaign_id: campVinculada?.id,
-        };
-      });
+      const presidentes: Candidato[] = (tsePresidentes || [])
+        .filter((t: any) => (t.ds_cargo || '').toUpperCase() === 'PRESIDENTE')
+        .map((t: any) => {
+          const campVinculada = campMap.get(`${t.nr_candidato}`);
+          return {
+            id: t.id || `pres_${t.nr_candidato}`,
+            nome: t.nm_candidato || t.nm_urna_candidato,
+            nomeUrna: t.nm_urna_candidato || t.nm_candidato,
+            numero: String(t.nr_candidato),
+            cargo: 'Presidente',
+            partido: t.sg_partido || t.nm_partido || '',
+            uf: 'BR',
+            sq_candidato: t.sq_candidato ? String(t.sq_candidato) : undefined,
+            fotoUrl: campVinculada?.foto_candidato_url || buildFotoCandidato(t, 'BR'),
+            campaign_id: campVinculada?.id,
+          };
+        });
 
       setCandidatosGovernador(governadores);
       setCandidatosSenador(senadores);
@@ -272,9 +283,9 @@ export function App() {
           numero: String(dbTse.nr_candidato),
           cargo: dbTse.ds_cargo || cargoBuscado,
           partido: dbTse.sg_partido || dbTse.nm_partido || '',
-          uf: dbTse.sg_uf || respostas.uf,
+          uf: cargoBuscado.toLowerCase().includes('presid') ? 'BR' : (dbTse.sg_uf || respostas.uf),
           sq_candidato: dbTse.sq_candidato ? String(dbTse.sq_candidato) : undefined,
-          fotoUrl: dbCamp?.foto_candidato_url || buildFotoCandidato(dbTse, respostas.uf),
+          fotoUrl: dbCamp?.foto_candidato_url || buildFotoCandidato(dbTse, cargoBuscado.toLowerCase().includes('presid') ? 'BR' : (dbTse.sg_uf || respostas.uf)),
           campaign_id: dbCamp?.id,
         };
       }

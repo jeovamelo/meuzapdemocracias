@@ -11,6 +11,24 @@ function carregarImagem(url?: string): Promise<HTMLImageElement | null> {
   });
 }
 
+function resolverFoto(cand?: Candidato | null, ufPadrao?: string): string {
+  if (!cand || cand.isBrancoNulo || cand.numero === 'BRANCO' || cand.numero === 'NULO') return '';
+  const isPres = (cand.cargo || '').toLowerCase().includes('presid');
+  const uf = isPres ? 'BR' : (cand.uf || ufPadrao || 'CE').toUpperCase();
+
+  if (cand.fotoUrl) {
+    if (isPres && cand.fotoUrl.includes('/candidatos/F') && !cand.fotoUrl.includes('/candidatos/FBR')) {
+      return cand.fotoUrl.replace(/\/candidatos\/F[A-Z]{2}/, '/candidatos/FBR');
+    }
+    return cand.fotoUrl;
+  }
+
+  if (cand.sq_candidato) {
+    return `/candidatos/F${uf}${cand.sq_candidato}_div.jpg`;
+  }
+  return '';
+}
+
 export async function gerarColinhaJpg(respostas: RespostaUsuario): Promise<{ blob: Blob; pngBlob: Blob; file: File; dataUrl: string }> {
   const { votos, uf, municipio, bairro } = respostas;
 
@@ -23,31 +41,20 @@ export async function gerarColinhaJpg(respostas: RespostaUsuario): Promise<{ blo
     { cargo: 'Presidente', cand: votos.presidente, digitos: '2 dígitos', ordem: '6º' },
   ];
 
-  // Helper para resolver URL da foto local / estática / Supabase
-  const getFotoUrl = (cand?: Candidato | null) => {
-    if (!cand || cand.isBrancoNulo || cand.numero === 'BRANCO' || cand.numero === 'NULO') return '';
-    if (cand.fotoUrl) return cand.fotoUrl;
-    if (cand.sq_candidato) {
-      const ufUpper = (cand.uf || (cand.cargo === 'Presidente' ? 'BR' : uf || 'CE')).toUpperCase();
-      return `/candidatos/F${ufUpper}${cand.sq_candidato}_div.jpg`;
-    }
-    return '';
-  };
-
   // Pré-carregar todas as fotos dos candidatos em paralelo
   const fotosCarregadas = await Promise.all(
-    itens.map((item) => carregarImagem(getFotoUrl(item.cand)))
+    itens.map((item) => carregarImagem(resolverFoto(item.cand, uf)))
   );
 
   const width = 960;
-  const height = 1480;
+  const height = 1500;
   const canvas = document.createElement('canvas');
   canvas.width = width;
   canvas.height = height;
   const ctx = canvas.getContext('2d');
   if (!ctx) throw new Error('Não foi possível inicializar o canvas');
 
-  // 1. Fundo Gradiente Elegante Escuro
+  // 1. Fundo Gradiente Escuro Moderno
   const bgGrad = ctx.createLinearGradient(0, 0, 0, height);
   bgGrad.addColorStop(0, '#090d16');
   bgGrad.addColorStop(0.4, '#0f172a');
@@ -55,81 +62,81 @@ export async function gerarColinhaJpg(respostas: RespostaUsuario): Promise<{ blo
   ctx.fillStyle = bgGrad;
   ctx.fillRect(0, 0, width, height);
 
-  // Efeito decorativo de luz no topo
-  const glowGrad = ctx.createRadialGradient(width / 2, 100, 10, width / 2, 100, 480);
-  glowGrad.addColorStop(0, 'rgba(249, 115, 22, 0.25)');
+  // Efeito de iluminação suave no topo
+  const glowGrad = ctx.createRadialGradient(width / 2, 100, 10, width / 2, 100, 500);
+  glowGrad.addColorStop(0, 'rgba(249, 115, 22, 0.22)');
   glowGrad.addColorStop(1, 'rgba(249, 115, 22, 0)');
   ctx.fillStyle = glowGrad;
   ctx.fillRect(0, 0, width, 550);
 
-  // Borda decorativa geral do card
-  ctx.strokeStyle = 'rgba(249, 115, 22, 0.4)';
-  ctx.lineWidth = 4;
+  // Borda sutil externa
+  ctx.strokeStyle = 'rgba(249, 115, 22, 0.35)';
+  ctx.lineWidth = 3;
   roundRect(ctx, 24, 24, width - 48, height - 48, 36);
   ctx.stroke();
 
-  // 2. Cabeçalho
-  // Badge da Logo
-  ctx.fillStyle = '#f97316';
-  roundRect(ctx, 52, 54, 52, 52, 16);
+  // 2. Cabeçalho Oficial
+  // Badge Logo com fundo branco
+  ctx.fillStyle = '#ffffff';
+  roundRect(ctx, 52, 54, 56, 56, 18);
   ctx.fill();
 
-  ctx.fillStyle = '#ffffff';
-  ctx.font = 'bold 26px sans-serif';
+  ctx.fillStyle = '#f97316';
+  ctx.font = 'bold 30px sans-serif';
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  ctx.fillText('✓', 78, 80);
+  ctx.fillText('✓', 80, 82);
 
-  // Título Democracias
+  // Título da Plataforma
   ctx.textAlign = 'left';
   ctx.textBaseline = 'alphabetic';
   ctx.fillStyle = '#ffffff';
   ctx.font = '800 34px "Plus Jakarta Sans", system-ui, -apple-system, sans-serif';
-  ctx.fillText('Democracias', 120, 84);
+  ctx.fillText('Democracias', 124, 84);
 
-  // Tag "Eleições 2026"
+  // Badge "ELEIÇÕES 2026"
   ctx.fillStyle = 'rgba(249, 115, 22, 0.18)';
-  roundRect(ctx, 335, 58, 175, 34, 10);
+  roundRect(ctx, 340, 58, 175, 36, 12);
   ctx.fill();
   ctx.strokeStyle = 'rgba(249, 115, 22, 0.6)';
   ctx.lineWidth = 1.5;
-  roundRect(ctx, 335, 58, 175, 34, 10);
+  roundRect(ctx, 340, 58, 175, 36, 12);
   ctx.stroke();
 
   ctx.fillStyle = '#fb923c';
   ctx.font = 'bold 14px monospace';
   ctx.textAlign = 'center';
-  ctx.fillText('ELEIÇÕES 2026', 422, 80);
+  ctx.fillText('ELEIÇÕES 2026', 427, 81);
 
-  // Localização à direita
+  // Localização à Direita
   ctx.textAlign = 'right';
   ctx.fillStyle = '#94a3b8';
   ctx.font = 'bold 16px sans-serif';
   const locTexto = `${municipio || 'Brasil'}/${uf || 'BR'}${bairro ? ` (${bairro})` : ''}`;
   ctx.fillText(`📍 ${locTexto}`, width - 56, 82);
 
-  // Divisória do Cabeçalho
-  ctx.strokeStyle = 'rgba(148, 163, 184, 0.16)';
+  // Divisória
+  ctx.strokeStyle = 'rgba(148, 163, 184, 0.18)';
   ctx.lineWidth = 1.5;
   ctx.beginPath();
-  ctx.moveTo(52, 126);
-  ctx.lineTo(width - 52, 126);
+  ctx.moveTo(52, 128);
+  ctx.lineTo(width - 52, 128);
   ctx.stroke();
 
-  // Título e Subtítulo Principal
+  // Título Principal
   ctx.textAlign = 'center';
   ctx.fillStyle = '#ffffff';
   ctx.font = '900 30px sans-serif';
-  ctx.fillText('🗳️ MINHA COLINHA ELEITORAL', width / 2, 172);
+  ctx.fillText('🗳️ MINHA COLINHA ELEITORAL', width / 2, 176);
 
   ctx.fillStyle = '#94a3b8';
   ctx.font = '500 15px sans-serif';
-  ctx.fillText('Ordem oficial de votação na urna eletrônica', width / 2, 202);
+  ctx.fillText('Ordem oficial de votação na urna eletrônica', width / 2, 206);
 
-  // 3. Renderização Vertical dos Votos (1 abaixo do outro com FOTOS)
-  const startY = 230;
-  const cardHeight = 150;
-  const cardGap = 16;
+  // 3. Renderização Vertical dos Cards Flutuantes Brancos (com fotos circulares e pílula laranja)
+  const startY = 236;
+  const cardHeight = 152;
+  const cardGap = 18;
   const cardWidth = width - 104;
 
   itens.forEach((item, index) => {
@@ -139,138 +146,149 @@ export async function gerarColinhaJpg(respostas: RespostaUsuario): Promise<{ blo
     const isBranco = cand?.numero === 'BRANCO' || (cand?.isBrancoNulo && cand?.nomeUrna.includes('Branco'));
     const isNulo = cand?.numero === 'NULO' || (cand?.isBrancoNulo && cand?.nomeUrna.includes('Nulo'));
 
-    // Fundo do Card
-    ctx.fillStyle = 'rgba(15, 23, 42, 0.88)';
-    roundRect(ctx, 52, y, cardWidth, cardHeight, 20);
-    ctx.fill();
+    // Sombra suave do card
+    ctx.save();
+    ctx.shadowColor = 'rgba(0, 0, 0, 0.35)';
+    ctx.shadowBlur = 16;
+    ctx.shadowOffsetY = 6;
 
-    // Borda do Card
-    ctx.strokeStyle = cand ? 'rgba(249, 115, 22, 0.35)' : 'rgba(51, 65, 85, 0.5)';
+    // Fundo do Card Flutuante Branco Leve
+    ctx.fillStyle = '#ffffff';
+    roundRect(ctx, 52, y, cardWidth, cardHeight, 24);
+    ctx.fill();
+    ctx.restore();
+
+    // Borda fina elegante
+    ctx.strokeStyle = '#f1f5f9';
     ctx.lineWidth = 1.5;
-    roundRect(ctx, 52, y, cardWidth, cardHeight, 20);
+    roundRect(ctx, 52, y, cardWidth, cardHeight, 24);
     ctx.stroke();
 
-    // Faixa lateral esquerda
-    ctx.fillStyle = '#f97316';
-    roundRect(ctx, 52, y, 6, cardHeight, { tl: 20, bl: 20, tr: 0, br: 0 });
-    ctx.fill();
-
-    // FOTO DO CANDIDATO (ou avatar com iniciais)
-    const photoSize = 104;
-    const photoX = 74;
-    const photoY = y + 23;
+    // FOTO DO CANDIDATO CIRCULAR
+    const photoRadius = 48;
+    const photoCenterX = 52 + 24 + photoRadius;
+    const photoCenterY = y + cardHeight / 2;
 
     ctx.save();
-    roundRect(ctx, photoX, photoY, photoSize, photoSize, 18);
+    ctx.beginPath();
+    ctx.arc(photoCenterX, photoCenterY, photoRadius, 0, Math.PI * 2);
+    ctx.closePath();
     ctx.clip();
 
     if (fotoImg && !isBranco && !isNulo) {
-      // Desenhar a foto oficial recortada
-      ctx.drawImage(fotoImg, photoX, photoY, photoSize, photoSize);
+      ctx.drawImage(
+        fotoImg,
+        photoCenterX - photoRadius,
+        photoCenterY - photoRadius,
+        photoRadius * 2,
+        photoRadius * 2
+      );
     } else {
-      // Fundo para fallback
-      ctx.fillStyle = '#1e293b';
-      ctx.fillRect(photoX, photoY, photoSize, photoSize);
+      ctx.fillStyle = '#f1f5f9';
+      ctx.fillRect(
+        photoCenterX - photoRadius,
+        photoCenterY - photoRadius,
+        photoRadius * 2,
+        photoRadius * 2
+      );
 
-      ctx.fillStyle = '#94a3b8';
+      ctx.fillStyle = '#64748b';
       ctx.font = 'bold 28px sans-serif';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
       const iniciais = cand?.nomeUrna ? cand.nomeUrna.slice(0, 2).toUpperCase() : (isBranco ? '⚪' : isNulo ? '🚫' : '👤');
-      ctx.fillText(iniciais, photoX + photoSize / 2, photoY + photoSize / 2);
+      ctx.fillText(iniciais, photoCenterX, photoCenterY);
     }
     ctx.restore();
 
-    // Borda da foto
-    ctx.strokeStyle = 'rgba(249, 115, 22, 0.5)';
-    ctx.lineWidth = 2;
-    roundRect(ctx, photoX, photoY, photoSize, photoSize, 18);
+    // Borda Temática Laranja da Foto Circular
+    ctx.strokeStyle = '#f97316';
+    ctx.lineWidth = 3.5;
+    ctx.beginPath();
+    ctx.arc(photoCenterX, photoCenterY, photoRadius, 0, Math.PI * 2);
     ctx.stroke();
 
-    // Informações Textuais do Candidato
-    const infoX = photoX + photoSize + 22;
+    // Informações Textuais (Hierarquia Tipográfica)
+    const infoX = photoCenterX + photoRadius + 22;
     ctx.textAlign = 'left';
     ctx.textBaseline = 'alphabetic';
 
-    // Ordem e Cargo Compacto
-    ctx.fillStyle = '#94a3b8';
-    ctx.font = 'bold 14px sans-serif';
+    // 1. Ordem e Cargo
+    ctx.fillStyle = '#64748b';
+    ctx.font = 'bold 15px sans-serif';
     ctx.fillText(`${item.ordem} • ${item.cargo}`, infoX, y + 42);
 
-    // Nome de Urna
-    ctx.fillStyle = '#ffffff';
-    ctx.font = '800 24px sans-serif';
+    // 2. Nome de Urna em Destaque
+    ctx.fillStyle = '#0f172a';
+    ctx.font = '900 26px sans-serif';
     const nomeExibicao = cand?.nomeUrna || (isBranco ? 'VOTO EM BRANCO' : isNulo ? 'VOTO NULO' : 'NÃO INFORMADO');
-    ctx.fillText(nomeExibicao.slice(0, 28), infoX, y + 78);
+    ctx.fillText(nomeExibicao.slice(0, 26), infoX, y + 80);
 
-    // Partido (Badge)
+    // 3. Sigla do Partido em Badge
     if (cand?.partido && !isBranco && !isNulo) {
-      ctx.fillStyle = 'rgba(16, 185, 129, 0.15)';
-      roundRect(ctx, infoX, y + 96, 95, 30, 8);
+      ctx.fillStyle = '#f1f5f9';
+      roundRect(ctx, infoX, y + 96, 110, 32, 8);
       ctx.fill();
-      ctx.strokeStyle = 'rgba(16, 185, 129, 0.5)';
+      ctx.strokeStyle = '#cbd5e1';
       ctx.lineWidth = 1;
-      roundRect(ctx, infoX, y + 96, 95, 30, 8);
+      roundRect(ctx, infoX, y + 96, 110, 32, 8);
       ctx.stroke();
 
-      ctx.fillStyle = '#34d399';
-      ctx.font = '900 14px monospace';
+      ctx.fillStyle = '#1e293b';
+      ctx.font = '900 15px monospace';
       ctx.textAlign = 'center';
-      ctx.fillText(cand.partido, infoX + 47, y + 117);
+      ctx.fillText(cand.partido, infoX + 55, y + 118);
     } else {
-      ctx.fillStyle = '#64748b';
-      ctx.font = '500 14px sans-serif';
-      ctx.fillText(item.digitos, infoX, y + 116);
+      ctx.fillStyle = '#94a3b8';
+      ctx.font = '600 15px sans-serif';
+      ctx.fillText(item.digitos, infoX, y + 118);
     }
 
-    // Caixa de Número Destacada à Direita
-    const numBoxWidth = 175;
-    const numBoxHeight = 96;
-    const numBoxX = width - 52 - numBoxWidth - 20;
-    const numBoxY = y + 27;
+    // NÚMERO EM PÍLULA LARANJA VIBRANTE À DIREITA
+    const pillWidth = 160;
+    const pillHeight = 64;
+    const pillX = width - 52 - pillWidth - 20;
+    const pillY = y + (cardHeight - pillHeight) / 2;
 
-    ctx.fillStyle = 'rgba(249, 115, 22, 0.14)';
-    roundRect(ctx, numBoxX, numBoxY, numBoxWidth, numBoxHeight, 16);
+    // Fundo da Pílula com gradiente laranja
+    const pillGrad = ctx.createLinearGradient(pillX, 0, pillX + pillWidth, 0);
+    pillGrad.addColorStop(0, '#f97316');
+    pillGrad.addColorStop(1, '#f59e0b');
+    ctx.fillStyle = pillGrad;
+    roundRect(ctx, pillX, pillY, pillWidth, pillHeight, 32);
     ctx.fill();
-    ctx.strokeStyle = '#f97316';
-    ctx.lineWidth = 2.5;
-    roundRect(ctx, numBoxX, numBoxY, numBoxWidth, numBoxHeight, 16);
-    ctx.stroke();
 
-    // Rótulo NÚMERO
-    ctx.fillStyle = '#fb923c';
-    ctx.font = 'bold 12px sans-serif';
-    ctx.textAlign = 'center';
-    ctx.fillText('NÚMERO', numBoxX + numBoxWidth / 2, numBoxY + 26);
-
-    // Dígitos do Número
+    // Texto do Número
     ctx.fillStyle = '#ffffff';
-    ctx.font = '900 36px monospace';
+    ctx.font = '900 34px monospace';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
     const numeroExibicao = cand?.numero || '—';
-    ctx.fillText(numeroExibicao, numBoxX + numBoxWidth / 2, numBoxY + 72);
+    ctx.fillText(numeroExibicao, pillX + pillWidth / 2, pillY + pillHeight / 2);
   });
 
-  // 4. Rodapé Promocional com o Link
-  const footerY = height - 175;
+  // 4. Rodapé Promocional
+  const footerY = height - 170;
 
   ctx.fillStyle = 'rgba(249, 115, 22, 0.15)';
-  roundRect(ctx, 52, footerY, cardWidth, 115, 20);
+  roundRect(ctx, 52, footerY, cardWidth, 110, 22);
   ctx.fill();
   ctx.strokeStyle = 'rgba(249, 115, 22, 0.55)';
   ctx.lineWidth = 2;
-  roundRect(ctx, 52, footerY, cardWidth, 115, 20);
+  roundRect(ctx, 52, footerY, cardWidth, 110, 22);
   ctx.stroke();
 
   ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
   ctx.fillStyle = '#ffffff';
   ctx.font = '700 19px sans-serif';
-  ctx.fillText('Participe da pesquisa oficial e gere sua colinha oficial para a urna:', width / 2, footerY + 44);
+  ctx.fillText('Participe da pesquisa oficial e gere sua colinha eleitoral:', width / 2, footerY + 38);
 
   ctx.fillStyle = '#f97316';
   ctx.font = '900 26px monospace';
-  ctx.fillText('🔗 https://chat.democracias.org', width / 2, footerY + 84);
+  ctx.fillText('🔗 https://chat.democracias.org', width / 2, footerY + 76);
 
-  // 5. Gerar arquivos de imagem (JPEG para download/share e PNG para Clipboard API)
+  // 5. Retornar Blob JPEG + PNG
   return new Promise((resolve, reject) => {
     canvas.toBlob(
       (jpegBlob) => {

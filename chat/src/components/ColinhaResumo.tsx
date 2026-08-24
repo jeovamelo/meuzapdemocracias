@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Send, CheckCircle2, Sparkles, Heart, FileCheck, Image as ImageIcon, Loader2, User, Ban, CircleDot } from 'lucide-react';
+import { Share2, Send, CheckCircle2, Sparkles, Heart, FileCheck, Loader2, User, Ban, CircleDot } from 'lucide-react';
 import { toast } from 'sonner';
 import type { RespostaUsuario, Candidato } from '../types';
 import { gerarColinhaJpg } from '../lib/gerarColinhaJpg';
@@ -9,9 +9,28 @@ interface Props {
   onResponderNovamente?: () => void;
 }
 
+// Helper para resolver URL da foto local / estática com garantia para Presidente (UF BR)
+export const resolverFotoCandidato = (cand?: Candidato | null, ufPadrao?: string): string => {
+  if (!cand || cand.isBrancoNulo || cand.numero === 'BRANCO' || cand.numero === 'NULO') return '';
+  const isPres = (cand.cargo || '').toLowerCase().includes('presid');
+  const uf = isPres ? 'BR' : (cand.uf || ufPadrao || 'CE').toUpperCase();
+
+  if (cand.fotoUrl) {
+    if (isPres && cand.fotoUrl.includes('/candidatos/F') && !cand.fotoUrl.includes('/candidatos/FBR')) {
+      return cand.fotoUrl.replace(/\/candidatos\/F[A-Z]{2}/, '/candidatos/FBR');
+    }
+    return cand.fotoUrl;
+  }
+
+  if (cand.sq_candidato) {
+    return `/candidatos/F${uf}${cand.sq_candidato}_div.jpg`;
+  }
+  return '';
+};
+
 export const ColinhaResumo: React.FC<Props> = ({ respostas, onResponderNovamente }) => {
   const [gerandoJpg, setGerandoJpg] = useState(false);
-  const [copiado, setCopiado] = useState(false);
+  const [compartilhado, setCompartilhado] = useState(false);
   const { votos, nome, uf, municipio, bairro } = respostas;
 
   const itensColinha: { cargo: string; cand?: Candidato | null; digitos: string; ordem: string }[] = [
@@ -36,22 +55,38 @@ export const ColinhaResumo: React.FC<Props> = ({ respostas, onResponderNovamente
 
   const linkWhatsapp = `https://api.whatsapp.com/send?text=${encodeURIComponent(textoCompartilhamento)}`;
 
-  // Copiar Colinha + Gerar Imagem JPEG vertical com fotos e link
-  const handleCopiarEGerarImagem = async () => {
+  // Compartilhar Colinha (Nativo via Web Share ou Cópia + Download)
+  const handleCompartilharColinha = async () => {
     setGerandoJpg(true);
     try {
       // 1. Gerar imagem JPEG/PNG vertical de alta qualidade com fotos
       const { pngBlob, file, dataUrl } = await gerarColinhaJpg(respostas);
 
-      // 2. Tentar copiar imagem diretamente para a área de transferência (Ctrl + V cola a imagem)
-      let copiouImagemNoClipboard = false;
+      // 2. Se suportar compartilhamento nativo de imagem em dispositivos móveis (WhatsApp, Instagram, etc.)
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        try {
+          await navigator.share({
+            title: 'Minha Colinha Eleitoral 2026 — Democracias',
+            text: textoCompartilhamento,
+            files: [file],
+          });
+          setCompartilhado(true);
+          setTimeout(() => setCompartilhado(false), 4000);
+          toast.success('Colinha pronta para compartilhar!');
+          return;
+        } catch {
+          // Fallback para download caso o usuário feche o modal nativo
+        }
+      }
+
+      // 3. Cópia direta para Clipboard no desktop
+      let copiouClipboard = false;
       if (navigator.clipboard && window.ClipboardItem) {
         try {
           const clipboardItem = new ClipboardItem({ 'image/png': pngBlob });
           await navigator.clipboard.write([clipboardItem]);
-          copiouImagemNoClipboard = true;
+          copiouClipboard = true;
         } catch {
-          // Fallback para texto caso o navegador restrinja cópia direta de bitmap
           try {
             await navigator.clipboard.writeText(textoCompartilhamento);
           } catch {}
@@ -62,24 +97,6 @@ export const ColinhaResumo: React.FC<Props> = ({ respostas, onResponderNovamente
         } catch {}
       }
 
-      setCopiado(true);
-      setTimeout(() => setCopiado(false), 4000);
-
-      // 3. Se suportar compartilhamento nativo de imagem em dispositivos móveis (WhatsApp, Instagram, etc.)
-      if (navigator.canShare && navigator.canShare({ files: [file] })) {
-        try {
-          await navigator.share({
-            title: 'Minha Colinha Eleitoral 2026 — Democracias',
-            text: textoCompartilhamento,
-            files: [file],
-          });
-          toast.success('Colinha pronta para compartilhar!');
-          return;
-        } catch {
-          // Fallback para download caso o usuário cancele o modal nativo
-        }
-      }
-
       // 4. Download automático da imagem JPEG
       const link = document.createElement('a');
       link.href = dataUrl;
@@ -88,13 +105,16 @@ export const ColinhaResumo: React.FC<Props> = ({ respostas, onResponderNovamente
       link.click();
       document.body.removeChild(link);
 
-      if (copiouImagemNoClipboard) {
+      setCompartilhado(true);
+      setTimeout(() => setCompartilhado(false), 4000);
+
+      if (copiouClipboard) {
         toast.success('Imagem copiada para a área de transferência e baixada em JPEG!');
       } else {
         toast.success('Imagem JPEG baixada e texto com link copiado!');
       }
     } catch (err) {
-      console.error('Erro ao gerar colinha:', err);
+      console.error('Erro ao processar colinha:', err);
       try {
         await navigator.clipboard.writeText(textoCompartilhamento);
         toast.info('Texto da colinha copiado para a área de transferência!');
@@ -108,6 +128,7 @@ export const ColinhaResumo: React.FC<Props> = ({ respostas, onResponderNovamente
 
   return (
     <div className="rounded-3xl border border-emerald-500/30 bg-gradient-to-b from-emerald-500/10 via-slate-800/90 to-slate-900 p-4 sm:p-5 space-y-4 shadow-2xl animate-message">
+      {/* MENSAGEM DE AGRADECIMENTO */}
       <div className="flex items-center gap-3">
         <div className="flex size-12 shrink-0 items-center justify-center rounded-2xl bg-emerald-500 text-white shadow-lg">
           <CheckCircle2 className="size-7" />
@@ -122,37 +143,36 @@ export const ColinhaResumo: React.FC<Props> = ({ respostas, onResponderNovamente
         </div>
       </div>
 
-      {/* CARD DA COLINHA ELEITORAL — DISPOSIÇÃO VERTICAL UM ABAIXO DO OUTRO */}
-      <div className="rounded-2xl bg-slate-950/95 border border-slate-800 p-3.5 sm:p-4 space-y-3 shadow-inner">
-        <div className="flex items-center justify-between border-b border-slate-800/80 pb-2.5">
+      {/* NOVO DESIGN AMIGÁVEL DA COLINHA ELEITORAL 2026 */}
+      <div className="rounded-3xl bg-slate-950/90 border border-slate-800/90 p-4 sm:p-5 space-y-3.5 shadow-2xl">
+        {/* CABEÇALHO DO CARD */}
+        <div className="flex items-center justify-between border-b border-slate-800/80 pb-3">
           <span className="text-xs font-black text-orange-400 uppercase tracking-wider flex items-center gap-1.5">
-            <FileCheck className="size-4" /> Sua Colinha Eleitoral 2026
+            <FileCheck className="size-4 text-orange-400" /> Sua Colinha Eleitoral 2026
           </span>
-          <span className="text-[10px] font-mono font-bold text-slate-400 bg-slate-900 px-2 py-0.5 rounded border border-slate-800">
+          <span className="text-[10px] font-mono font-bold text-slate-400 bg-slate-900 px-2.5 py-1 rounded-full border border-slate-800">
             {uf} • {municipio}
           </span>
         </div>
 
-        {/* LISTA VERTICAL: 1 VOTO ABAIXO DO OUTRO COM FOTO, NOME, NÚMERO E PARTIDO */}
+        {/* LISTA VERTICAL DE CARDS FLUTUANTES (FUNDO BRANCO/LEVE + FOTOS CIRCULARES + PÍLULA LARANJA) */}
         <div className="flex flex-col gap-2.5">
           {itensColinha.map(({ cargo, cand, ordem }) => {
             const isBranco = cand?.numero === 'BRANCO' || (cand?.isBrancoNulo && cand?.nomeUrna.includes('Branco'));
             const isNulo = cand?.numero === 'NULO' || (cand?.isBrancoNulo && cand?.nomeUrna.includes('Nulo'));
-            const fotoSrc = !isBranco && !isNulo
-              ? cand?.fotoUrl || (cand?.sq_candidato ? `/candidatos/F${(cand.uf || (cand.cargo === 'Presidente' ? 'BR' : uf || 'CE')).toUpperCase()}${cand.sq_candidato}_div.jpg` : '')
-              : '';
+            const fotoSrc = resolverFotoCandidato(cand, uf);
 
             return (
               <div
                 key={cargo}
-                className="flex items-center gap-3 p-3 rounded-2xl bg-slate-900/90 border border-slate-800/90 hover:border-slate-700 transition-colors shadow-sm"
+                className="flex items-center gap-3.5 p-3.5 sm:p-4 rounded-2xl bg-white text-slate-900 border border-slate-100 shadow-md hover:shadow-lg transition-all"
               >
-                {/* FOTO DO CANDIDATO */}
-                <div className="relative size-12 sm:size-14 shrink-0 rounded-xl overflow-hidden bg-slate-950 border border-slate-700/80 shadow flex items-center justify-center">
+                {/* FOTO DO CANDIDATO CIRCULAR */}
+                <div className="relative size-13 sm:size-15 shrink-0 rounded-full overflow-hidden bg-slate-100 border-2 border-orange-500/80 shadow-sm flex items-center justify-center">
                   {isBranco ? (
                     <CircleDot className="size-6 text-slate-400" />
                   ) : isNulo ? (
-                    <Ban className="size-6 text-rose-400" />
+                    <Ban className="size-6 text-rose-500" />
                   ) : fotoSrc ? (
                     <img
                       src={fotoSrc}
@@ -172,39 +192,41 @@ export const ColinhaResumo: React.FC<Props> = ({ respostas, onResponderNovamente
                   ) : null}
 
                   <div
-                    className={`photo-fallback size-full items-center justify-center bg-slate-900 text-slate-400 font-black text-xs ${
+                    className={`photo-fallback size-full items-center justify-center bg-slate-200 text-slate-600 font-black text-xs ${
                       fotoSrc && !isBranco && !isNulo ? 'hidden' : 'flex'
                     }`}
                   >
                     {cand?.nomeUrna && !isBranco && !isNulo ? (
                       <span>{cand.nomeUrna.slice(0, 2).toUpperCase()}</span>
                     ) : (
-                      <User className="size-5" />
+                      <User className="size-5 text-slate-500" />
                     )}
                   </div>
                 </div>
 
-                {/* INFORMAÇÕES: CARGO, NOME DE URNA E PARTIDO */}
+                {/* HIERARQUIA TIPOGRÁFICA: CARGO, NOME E PARTIDO */}
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-1.5">
-                    <span className="text-[10px] font-black text-orange-400 font-mono">{ordem}</span>
-                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider truncate">{cargo}</p>
+                    <span className="text-[10px] font-black text-orange-600 font-mono">{ordem}</span>
+                    <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wider truncate">{cargo}</p>
                   </div>
 
-                  <p className="font-black text-white text-sm truncate mt-0.5">
+                  <h4 className="font-black text-slate-900 text-sm sm:text-base truncate leading-tight mt-0.5">
                     {cand?.nomeUrna || (isBranco ? 'Voto em Branco' : isNulo ? 'Voto Nulo' : 'Não Informado')}
-                  </p>
+                  </h4>
 
                   {cand?.partido && !isBranco && !isNulo && (
-                    <span className="inline-block text-[10px] font-mono font-black text-emerald-400 bg-emerald-500/10 px-1.5 py-0.2 rounded border border-emerald-500/25 uppercase mt-0.5">
-                      {cand.partido}
-                    </span>
+                    <div className="mt-1">
+                      <span className="inline-block text-[11px] font-mono font-bold text-slate-700 bg-slate-100 px-2 py-0.5 rounded-md border border-slate-200 uppercase">
+                        {cand.partido}
+                      </span>
+                    </div>
                   )}
                 </div>
 
-                {/* NÚMERO DESTACADO */}
-                <div className="shrink-0 flex flex-col items-end">
-                  <span className="font-mono font-black text-sm sm:text-base px-3 py-1 rounded-xl bg-gradient-to-r from-orange-500/15 to-amber-500/15 text-orange-400 border border-orange-500/35 shadow-sm">
+                {/* NÚMERO EM PÍLULA LARANJA VIBRANTE */}
+                <div className="shrink-0">
+                  <span className="inline-flex items-center justify-center font-mono font-black text-sm sm:text-base px-3.5 py-1.5 rounded-full bg-gradient-to-r from-orange-500 to-amber-500 text-white shadow-md">
                     {cand?.numero || '—'}
                   </span>
                 </div>
@@ -213,9 +235,10 @@ export const ColinhaResumo: React.FC<Props> = ({ respostas, onResponderNovamente
           })}
         </div>
 
-        <div className="pt-2 border-t border-slate-800/60 text-center">
-          <p className="text-[10px] text-slate-500">
-            Oferecido por <strong className="text-slate-400">Democracias</strong> • <span className="text-orange-400/80 font-mono">chat.democracias.org</span>
+        {/* RODAPÉ DO CARD */}
+        <div className="pt-2.5 border-t border-slate-800/80 text-center">
+          <p className="text-[11px] text-slate-400">
+            Oferecido por <strong className="text-white font-black">Democracias</strong> • <span className="text-orange-400 font-mono font-bold">chat.democracias.org</span>
           </p>
         </div>
       </div>
@@ -227,24 +250,24 @@ export const ColinhaResumo: React.FC<Props> = ({ respostas, onResponderNovamente
             href={linkWhatsapp}
             target="_blank"
             rel="noopener noreferrer"
-            className="h-12 rounded-xl bg-[#25D366] hover:bg-[#1EBE5D] text-white font-bold text-sm shadow-lg flex items-center justify-center gap-2 transition-all active:scale-95"
+            className="h-12 rounded-2xl bg-[#25D366] hover:bg-[#1EBE5D] text-white font-bold text-sm shadow-lg flex items-center justify-center gap-2 transition-all active:scale-95"
           >
             <Send className="size-4" /> Compartilhar no WhatsApp
           </a>
 
           <button
-            onClick={handleCopiarEGerarImagem}
+            onClick={handleCompartilharColinha}
             disabled={gerandoJpg}
-            className="h-12 rounded-xl bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white font-black text-sm shadow-lg flex items-center justify-center gap-2 transition-all active:scale-95 disabled:opacity-50"
+            className="h-12 rounded-2xl bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white font-black text-sm shadow-lg flex items-center justify-center gap-2 transition-all active:scale-95 disabled:opacity-50"
           >
             {gerandoJpg ? (
               <Loader2 className="size-4 animate-spin" />
-            ) : copiado ? (
+            ) : compartilhado ? (
               <CheckCircle2 className="size-4 text-white" />
             ) : (
-              <ImageIcon className="size-4" />
+              <Share2 className="size-4" />
             )}
-            {gerandoJpg ? 'Gerando Imagem JPEG...' : copiado ? 'Copiado & Baixado!' : 'Copiar Colinha (JPEG)'}
+            {gerandoJpg ? 'Gerando Imagem...' : compartilhado ? 'Colinha Pronta!' : 'Compartilhar Colinha'}
           </button>
         </div>
 
@@ -252,7 +275,7 @@ export const ColinhaResumo: React.FC<Props> = ({ respostas, onResponderNovamente
           <button
             type="button"
             onClick={onResponderNovamente}
-            className="w-full h-11 rounded-xl bg-slate-800/80 hover:bg-slate-700 border border-slate-700/80 text-xs font-bold text-orange-400 flex items-center justify-center gap-2 transition-all"
+            className="w-full h-11 rounded-2xl bg-slate-800/80 hover:bg-slate-700 border border-slate-700/80 text-xs font-bold text-orange-400 flex items-center justify-center gap-2 transition-all"
           >
             <Sparkles className="size-3.5" /> Responder Novamente / Atualizar Meus Votos
           </button>
