@@ -11,8 +11,8 @@ export const MessageBubble: React.FC<Props> = ({ mensagem }) => {
   return (
     <div className={`flex items-end gap-2 animate-message mb-3.5 ${isBot ? 'justify-start' : 'justify-end'}`}>
       {isBot && (
-        <div className="size-7 rounded-full bg-gradient-to-tr from-orange-600 to-amber-500 flex items-center justify-center text-[10px] font-black text-white shrink-0 shadow-sm">
-          DEM
+        <div className="size-7 rounded-full bg-slate-900 border border-slate-700/80 p-0.5 flex items-center justify-center shrink-0 shadow-sm overflow-hidden">
+          <img src="/logo_icon.png" alt="Democracias" className="size-full object-contain" />
         </div>
       )}
 

@@ -10,9 +10,9 @@ export const ChatHeader: React.FC<Props> = ({ candidatoAtivo }) => {
     <header className="sticky top-0 z-30 w-full border-b border-slate-800 bg-slate-900/90 backdrop-blur-md px-4 py-3 shadow-lg">
       <div className="mx-auto flex max-w-xl items-center justify-between">
         <div className="flex items-center gap-3">
-          <div className="relative flex size-10 items-center justify-center rounded-2xl bg-gradient-to-tr from-orange-600 to-amber-500 text-white font-black text-sm shadow-md ring-2 ring-orange-500/20">
-            <Vote className="size-5" />
-            <span className="absolute -bottom-0.5 -right-0.5 size-3 rounded-full bg-emerald-500 ring-2 ring-slate-900 animate-pulse" />
+          <div className="relative flex size-10 shrink-0 items-center justify-center rounded-2xl bg-slate-800/90 border border-slate-700/80 p-1 shadow-md">
+            <img src="/logo_icon.png" alt="Democracias" className="size-full object-contain" />
+            <span className="absolute -bottom-0.5 -right-0.5 size-2.5 rounded-full bg-emerald-500 ring-2 ring-slate-900 animate-pulse" />
           </div>
           <div>
             <div className="flex items-center gap-1.5">
