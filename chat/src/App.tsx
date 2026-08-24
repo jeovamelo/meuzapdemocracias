@@ -116,180 +116,157 @@ export function App() {
     setMensagens((prev) => [...prev, novaMsg]);
   };
 
-  // Carregar dados de candidatos das campanhas e do TSE
+  // Gerar URL oficial da foto do TSE / Campanha
+  const buildFotoCandidato = (c: any, ufPadrao: string) => {
+    if (c.foto_candidato_url) return c.foto_candidato_url;
+    if (c.foto_url) return c.foto_url;
+    if (c.sq_candidato) {
+      const estado = (c.sg_uf || c.uf || ufPadrao || 'BR').toUpperCase();
+      return `https://divulgacandcontas.tse.jus.br/divulga/rest/v1/candidatura/buscar/foto/2/2026/${estado}/${c.sq_candidato}`;
+    }
+    return '';
+  };
+
+  // Carregar dados de candidatos majoritários do banco interno (tse_candidatos + campaigns)
   const carregarCandidatosMajoritarios = async (ufEscolhida: string) => {
     setCarregandoCandidatos(true);
     try {
-      // 1. Buscar do banco Supabase da VPS
+      // 1. Buscar campanhas registradas para obter vínculos e fotos customizadas
       const { data: dbCamps } = await supabase
         .from('campaigns')
         .select('*');
 
-      const mapeados: Candidato[] = (dbCamps || []).map((c: any) => ({
-        id: c.id,
-        nome: c.nome_candidato || c.nome_urna || 'Candidato',
-        nomeUrna: c.nome_urna || c.nome_candidato || 'Candidato',
-        numero: String(c.nr_candidato),
-        cargo: c.cargo || 'Candidato(a)',
-        partido: c.partido || '',
-        uf: c.uf,
-        fotoUrl: c.foto_candidato_url || '',
-        campaign_id: c.id,
-      }));
+      const campMap = new Map<string, any>();
+      (dbCamps || []).forEach((camp: any) => {
+        const chave = `${camp.uf}_${camp.cargo}_${camp.nr_candidato}`.toUpperCase();
+        campMap.set(chave, camp);
+        campMap.set(`${camp.nr_candidato}`, camp);
+      });
 
-      // Senadores da UF
-      let senadores = mapeados.filter(
-        (c) => c.cargo.toLowerCase().includes('senad') && (c.uf === ufEscolhida || !c.uf)
-      );
+      // 2. Buscar TODOS os candidatos de Governador e Senador no banco interno
+      const { data: tseEstaduais } = await supabase
+        .from('tse_candidatos')
+        .select('*')
+        .eq('sg_uf', ufEscolhida.toUpperCase())
+        .in('ds_cargo', ['GOVERNADOR', 'SENADOR'])
+        .order('nr_candidato');
 
-      // Governadores da UF
-      let governadores = mapeados.filter(
-        (c) => c.cargo.toLowerCase().includes('govern') && (c.uf === ufEscolhida || !c.uf)
-      );
+      // 3. Buscar TODOS os candidatos a Presidente no banco interno
+      const { data: tsePresidentes } = await supabase
+        .from('tse_candidatos')
+        .select('*')
+        .eq('ds_cargo', 'PRESIDENTE')
+        .order('nr_candidato');
 
-      // Presidentes (Nacional / BR)
-      let presidentes = mapeados.filter((c) => c.cargo.toLowerCase().includes('presid'));
+      // Mapear Governadores
+      const governadores: Candidato[] = (tseEstaduais || [])
+        .filter((t: any) => t.ds_cargo === 'GOVERNADOR')
+        .map((t: any) => {
+          const campVinculada = campMap.get(`${t.sg_uf}_GOVERNADOR_${t.nr_candidato}`.toUpperCase()) || campMap.get(`${t.nr_candidato}`);
+          return {
+            id: t.id || `gov_${t.nr_candidato}`,
+            nome: t.nm_candidato || t.nm_urna_candidato,
+            nomeUrna: t.nm_urna_candidato || t.nm_candidato,
+            numero: String(t.nr_candidato),
+            cargo: 'Governador',
+            partido: t.sg_partido || t.nm_partido || '',
+            uf: t.sg_uf || ufEscolhida,
+            fotoUrl: campVinculada?.foto_candidato_url || buildFotoCandidato(t, ufEscolhida),
+            campaign_id: campVinculada?.id,
+          };
+        });
 
-      // Fallback rico para Ceará e Nacional caso a base não possua todos
-      if (ufEscolhida === 'CE') {
-        if (governadores.length === 0) {
-          governadores = [
-            {
-              id: 'gov_13',
-              nome: 'Elmano de Freitas da Costa',
-              nomeUrna: 'Elmano de Freitas',
-              numero: '13',
-              cargo: 'Governador',
-              partido: 'PT',
-              uf: 'CE',
-              fotoUrl: 'https://divulgacandcontas.tse.jus.br/divulga/rest/v1/candidatura/buscar/foto/2/2026/CE/202600000001',
-            },
-            {
-              id: 'gov_44',
-              nome: 'Capitão Wagner Sousa Gomes',
-              nomeUrna: 'Capitão Wagner',
-              numero: '44',
-              cargo: 'Governador',
-              partido: 'União Brasil',
-              uf: 'CE',
-            },
-            {
-              id: 'gov_12',
-              nome: 'Roberto Cláudio Rodrigues Bezerra',
-              nomeUrna: 'Roberto Cláudio',
-              numero: '12',
-              cargo: 'Governador',
-              partido: 'PDT',
-              uf: 'CE',
-            },
-          ];
-        }
+      // Mapear Senadores
+      const senadores: Candidato[] = (tseEstaduais || [])
+        .filter((t: any) => t.ds_cargo === 'SENADOR')
+        .map((t: any) => {
+          const campVinculada = campMap.get(`${t.sg_uf}_SENADOR_${t.nr_candidato}`.toUpperCase()) || campMap.get(`${t.nr_candidato}`);
+          return {
+            id: t.id || `sen_${t.nr_candidato}`,
+            nome: t.nm_candidato || t.nm_urna_candidato,
+            nomeUrna: t.nm_urna_candidato || t.nm_candidato,
+            numero: String(t.nr_candidato),
+            cargo: 'Senador',
+            partido: t.sg_partido || t.nm_partido || '',
+            uf: t.sg_uf || ufEscolhida,
+            fotoUrl: campVinculada?.foto_candidato_url || buildFotoCandidato(t, ufEscolhida),
+            campaign_id: campVinculada?.id,
+          };
+        });
 
-        if (senadores.length === 0) {
-          senadores = [
-            {
-              id: 'sen_123',
-              nome: 'Cid Ferreira Gomes',
-              nomeUrna: 'Cid Gomes',
-              numero: '123',
-              cargo: 'Senador',
-              partido: 'PSB',
-              uf: 'CE',
-            },
-            {
-              id: 'sen_133',
-              nome: 'Camilo Sobreira de Santana',
-              nomeUrna: 'Camilo Santana',
-              numero: '133',
-              cargo: 'Senador',
-              partido: 'PT',
-              uf: 'CE',
-            },
-            {
-              id: 'sen_222',
-              nome: 'Eduardo Girão',
-              nomeUrna: 'Eduardo Girão',
-              numero: '222',
-              cargo: 'Senador',
-              partido: 'NOVO',
-              uf: 'CE',
-            },
-          ];
-        }
-      }
-
-      if (presidentes.length === 0) {
-        presidentes = [
-          {
-            id: 'pres_13',
-            nome: 'Luiz Inácio Lula da Silva',
-            nomeUrna: 'Lula',
-            numero: '13',
-            cargo: 'Presidente',
-            partido: 'PT',
-            uf: 'BR',
-          },
-          {
-            id: 'pres_22',
-            nome: 'Jair Messias Bolsonaro',
-            nomeUrna: 'Jair Bolsonaro',
-            numero: '22',
-            cargo: 'Presidente',
-            partido: 'PL',
-            uf: 'BR',
-          },
-          {
-            id: 'pres_15',
-            nome: 'Simone Nassar Tebet',
-            nomeUrna: 'Simone Tebet',
-            numero: '15',
-            cargo: 'Presidente',
-            partido: 'MDB',
-            uf: 'BR',
-          },
-          {
-            id: 'pres_12',
-            nome: 'Ciro Ferreira Gomes',
-            nomeUrna: 'Ciro Gomes',
-            numero: '12',
-            cargo: 'Presidente',
-            partido: 'PDT',
-            uf: 'BR',
-          },
-          {
-            id: 'pres_30',
-            nome: 'Romeu Zema Neto',
-            nomeUrna: 'Romeu Zema',
-            numero: '30',
-            cargo: 'Presidente',
-            partido: 'NOVO',
-            uf: 'BR',
-          },
-        ];
-      }
+      // Mapear Presidentes
+      const presidentes: Candidato[] = (tsePresidentes || []).map((t: any) => {
+        const campVinculada = campMap.get(`${t.nr_candidato}`);
+        return {
+          id: t.id || `pres_${t.nr_candidato}`,
+          nome: t.nm_candidato || t.nm_urna_candidato,
+          nomeUrna: t.nm_urna_candidato || t.nm_candidato,
+          numero: String(t.nr_candidato),
+          cargo: 'Presidente',
+          partido: t.sg_partido || t.nm_partido || '',
+          uf: 'BR',
+          fotoUrl: campVinculada?.foto_candidato_url || buildFotoCandidato(t, 'BR'),
+          campaign_id: campVinculada?.id,
+        };
+      });
 
       setCandidatosGovernador(governadores);
       setCandidatosSenador(senadores);
       setCandidatosPresidente(presidentes);
     } catch (e) {
-      console.warn('Erro ao carregar candidatos majoritários:', e);
+      console.warn('Erro ao carregar candidatos do banco:', e);
     } finally {
       setCarregandoCandidatos(false);
     }
   };
 
-  // Buscar candidato proporcional por número e cargo
+  // Buscar candidato por número em todas as opções do banco interno (tse_candidatos + campaigns)
   const buscarCandidatoPorNumero = async (numeroDigitado: string, cargoBuscado: string): Promise<Candidato> => {
     const numLimpo = numeroDigitado.replace(/\D/g, '');
 
     try {
-      // Buscar na tabela campaigns
+      // 1. Buscar no banco interno tse_candidatos
+      let query = supabase
+        .from('tse_candidatos')
+        .select('*')
+        .eq('nr_candidato', numLimpo);
+
+      if (cargoBuscado.toLowerCase().includes('estadual')) {
+        query = query.in('ds_cargo', ['DEPUTADO ESTADUAL', 'DEPUTADO DISTRITAL']).eq('sg_uf', respostas.uf);
+      } else if (cargoBuscado.toLowerCase().includes('federal')) {
+        query = query.eq('ds_cargo', 'DEPUTADO FEDERAL').eq('sg_uf', respostas.uf);
+      } else if (cargoBuscado.toLowerCase().includes('senad')) {
+        query = query.eq('ds_cargo', 'SENADOR').eq('sg_uf', respostas.uf);
+      } else if (cargoBuscado.toLowerCase().includes('govern')) {
+        query = query.eq('ds_cargo', 'GOVERNADOR').eq('sg_uf', respostas.uf);
+      } else if (cargoBuscado.toLowerCase().includes('presid')) {
+        query = query.eq('ds_cargo', 'PRESIDENTE');
+      }
+
+      const { data: tseList } = await query.limit(1);
+      const dbTse = tseList && tseList.length > 0 ? tseList[0] : null;
+
+      // 2. Verificar se existe campanha ativa cadastrada para este candidato
       const { data: dbCamp } = await supabase
         .from('campaigns')
         .select('*')
         .eq('nr_candidato', numLimpo)
         .limit(1)
         .maybeSingle();
+
+      if (dbTse) {
+        return {
+          id: dbTse.id || `tse_${numLimpo}`,
+          nome: dbTse.nm_candidato || dbTse.nm_urna_candidato,
+          nomeUrna: dbTse.nm_urna_candidato || dbTse.nm_candidato,
+          numero: String(dbTse.nr_candidato),
+          cargo: dbTse.ds_cargo || cargoBuscado,
+          partido: dbTse.sg_partido || dbTse.nm_partido || '',
+          uf: dbTse.sg_uf || respostas.uf,
+          fotoUrl: dbCamp?.foto_candidato_url || buildFotoCandidato(dbTse, respostas.uf),
+          campaign_id: dbCamp?.id,
+        };
+      }
 
       if (dbCamp) {
         return {
@@ -304,32 +281,11 @@ export function App() {
           campaign_id: dbCamp.id,
         };
       }
-
-      // Buscar na tabela tse_candidatos
-      const { data: dbTse } = await supabase
-        .from('tse_candidatos')
-        .select('*')
-        .eq('nr_candidato', numLimpo)
-        .limit(1)
-        .maybeSingle();
-
-      if (dbTse) {
-        return {
-          id: dbTse.id || `tse_${numLimpo}`,
-          nome: dbTse.nm_candidato || dbTse.nm_urna_candidato,
-          nomeUrna: dbTse.nm_urna_candidato || dbTse.nm_candidato,
-          numero: String(dbTse.nr_candidato),
-          cargo: dbTse.ds_cargo || cargoBuscado,
-          partido: dbTse.sg_partido || '',
-          uf: dbTse.sg_uf || respostas.uf,
-          fotoUrl: dbTse.foto_url || '',
-        };
-      }
     } catch (err) {
-      console.warn('Erro ao buscar candidato:', err);
+      console.warn('Erro ao buscar candidato por número no banco:', err);
     }
 
-    // Candidato genérico com o número digitado
+    // Voto nominal com número digitado caso não esteja indexado
     return {
       id: `cand_${numLimpo}`,
       nome: `Candidato(a) Nº ${numLimpo}`,
