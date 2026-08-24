@@ -1,5 +1,5 @@
-import { createFileRoute } from '@tanstack/react-router';
-import { useState, useEffect } from 'react';
+import { createFileRoute } from '@tanstack/react-router'
+import React, { useState, useEffect } from 'react';
 import { PageHeader } from '@/components/PageHeader';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -42,6 +42,49 @@ import {
 } from '@/components/ui/dialog';
 import { formatHora, formatDataCompleta } from '@/lib/date';
 import { PainelPesquisaEleitoral } from '@/components/PainelPesquisaEleitoral';
+
+class PesquisaErrorBoundary extends React.Component<
+  { children: React.ReactNode },
+  { hasError: boolean; error: any }
+> {
+  constructor(props: any) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+
+  static getDerivedStateFromError(error: any) {
+    return { hasError: true, error };
+  }
+
+  componentDidCatch(error: any, errorInfo: any) {
+    console.error('Erro na aba de pesquisa:', error, errorInfo);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="p-8 bg-white border border-rose-200 rounded-2xl text-center space-y-4 shadow-sm">
+          <div className="size-12 mx-auto rounded-full bg-rose-100 flex items-center justify-center text-rose-600">
+            <AlertTriangle className="size-6" />
+          </div>
+          <h3 className="text-lg font-extrabold text-slate-900">
+            Instabilidade ao carregar dados da Pesquisa
+          </h3>
+          <p className="text-sm text-slate-600 max-w-md mx-auto">
+            Não foi possível carregar os gráficos eleitorais no momento. Verifique a conexão com o Supabase e tente novamente.
+          </p>
+          <Button 
+            onClick={() => this.setState({ hasError: false })} 
+            className="bg-orange-500 hover:bg-orange-600 text-white font-bold"
+          >
+            <RefreshCw className="mr-2 size-4" /> Tentar Novamente
+          </Button>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
 
 export const Route = createFileRoute('/pc')({
   component: PcPage,
@@ -513,9 +556,6 @@ function PcPage() {
         >
           <BarChart3 className="h-4 w-4 text-orange-500" />
           Pesquisa
-          <span className="text-[11px] bg-orange-100 text-orange-800 font-extrabold px-2 py-0.5 rounded-full ml-1">
-            Inteligência
-          </span>
         </button>
       </div>
 
@@ -862,7 +902,9 @@ function PcPage() {
 
         {/* ABA 5: PESQUISA ELEITORAL & HEATMAP */}
         {activeTab === 'pesquisa' && (
-          <PainelPesquisaEleitoral />
+          <PesquisaErrorBoundary>
+            <PainelPesquisaEleitoral />
+          </PesquisaErrorBoundary>
         )}
 
       </div>
