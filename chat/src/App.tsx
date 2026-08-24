@@ -221,7 +221,7 @@ export function App() {
       // Mapear Deputados Federais (ordenados alfabeticamente)
       const depFed: Candidato[] = (tseEstaduais || [])
         .filter((t: any) => (t.ds_cargo || '').toUpperCase() === 'DEPUTADO FEDERAL')
-        .map((t: any) => mapearItem(t, 'Dep. Federal (Dep. A)', ufUpper));
+        .map((t: any) => mapearItem(t, 'Dep. Federal', ufUpper));
       depFed.sort((a, b) => a.nomeUrna.localeCompare(b.nomeUrna, 'pt-BR'));
 
       // Mapear Deputados Estaduais (ordenados alfabeticamente)
@@ -482,7 +482,7 @@ export function App() {
       setMensagens((prev) => [...prev, userMsg]);
       setInputText('');
 
-      const resBusca = await buscarCandidatoPorNumero(textoLimpo, 'Dep. Federal (Dep. A)');
+      const resBusca = await buscarCandidatoPorNumero(textoLimpo, 'Dep. Federal');
       const cand = resBusca.candidato;
       setCandidatoTemp(cand);
 
@@ -490,16 +490,16 @@ export function App() {
         const { cargoReal, nomeReal } = resBusca.avisoCargoCruzado;
         await adicionarMensagemBot(
           `⚠️ ATENÇÃO: Você informou o número ${textoLimpo}, que pertence a um candidato a ${cargoReal} (${nomeReal}).\n\n` +
-          `Como você está votando para Dep. Federal (Dep. A), este número é INVÁLIDO para este cargo e será computado como VOTO NULO caso confirme.\n\n` +
+          `Como você está votando para Dep. Federal, este número é INVÁLIDO para este cargo e será computado como VOTO NULO caso confirme.\n\n` +
           `👉 Clique em "Corrigir" para redigitar o número certo ou "Confirmar" para registrar como voto nulo:`
         );
       } else if (cand.partido === 'NÃO REGISTRADO') {
         await adicionarMensagemBot(
-          `⚠️ O número ${textoLimpo} não foi localizado entre os candidatos oficiais a Dep. Federal (Dep. A) em ${respostas.uf}.\n\n` +
+          `⚠️ O número ${textoLimpo} não foi localizado entre os candidatos oficiais a Dep. Federal em ${respostas.uf}.\n\n` +
           `Este voto será registrado como VOTO NULO. Deseja corrigir o número ou confirmar o voto nulo?`
         );
       } else {
-        await adicionarMensagemBot(`Localizamos o candidato oficial abaixo. Confirma seu voto para Dep. Federal (Dep. A)?`);
+        await adicionarMensagemBot(`Localizamos o candidato oficial abaixo. Confirma seu voto para Dep. Federal?`);
       }
       setEtapa('confirm_dep_federal');
       return;
@@ -699,7 +699,7 @@ export function App() {
         timestamp: getHoraAtual(),
       };
       setMensagens((prev) => [...prev, userMsg]);
-      await adicionarMensagemBot(`Localizamos o candidato oficial abaixo. Confirma seu voto para Dep. Federal (Dep. A)?`);
+      await adicionarMensagemBot(`Localizamos o candidato oficial abaixo. Confirma seu voto para Dep. Federal?`);
       setEtapa('confirm_dep_federal');
     } else if (etapa === 'voto_dep_estadual') {
       const userMsg: Mensagem = {
@@ -1059,7 +1059,7 @@ export function App() {
               <button
                 type="button"
                 onClick={() => {
-                  const cargoNome = etapa === 'voto_dep_federal' ? 'Dep. Federal (Dep. A)' : 'Deputado Estadual';
+                  const cargoNome = etapa === 'voto_dep_federal' ? 'Dep. Federal' : 'Deputado Estadual';
                   const lista = etapa === 'voto_dep_federal' ? candidatosDepFederal : candidatosDepEstadual;
                   setModalConsultaCargo({ cargoNome, candidatos: lista });
                 }}
@@ -1077,7 +1077,7 @@ export function App() {
                   onClick={() =>
                     handleVotoBrancoNulo(
                       'BRANCO',
-                      etapa === 'voto_dep_estadual' ? 'Deputado Estadual' : 'Dep. Federal (Dep. A)',
+                      etapa === 'voto_dep_estadual' ? 'Deputado Estadual' : 'Dep. Federal',
                       etapa === 'voto_dep_estadual' ? 'confirm_dep_estadual' : 'confirm_dep_federal'
                     )
                   }
@@ -1091,7 +1091,7 @@ export function App() {
                   onClick={() =>
                     handleVotoBrancoNulo(
                       'NULO',
-                      etapa === 'voto_dep_estadual' ? 'Deputado Estadual' : 'Dep. Federal (Dep. A)',
+                      etapa === 'voto_dep_estadual' ? 'Deputado Estadual' : 'Dep. Federal',
                       etapa === 'voto_dep_estadual' ? 'confirm_dep_estadual' : 'confirm_dep_federal'
                     )
                   }
@@ -1106,7 +1106,7 @@ export function App() {
           {/* ETAPA CONFIRMAÇÃO: DEP FEDERAL */}
           {etapa === 'confirm_dep_federal' && candidatoTemp && !digitando && (
             <div className="space-y-3 my-3 animate-message">
-              <CandidateCard candidato={candidatoTemp} tituloCargo="Dep. Federal (Dep. A)" modoConfirmacao />
+              <CandidateCard candidato={candidatoTemp} tituloCargo="Dep. Federal" modoConfirmacao />
               <div className="grid grid-cols-2 gap-2.5">
                 <button
                   onClick={() =>
@@ -1124,7 +1124,7 @@ export function App() {
                   onClick={() =>
                     handleCorrigirVoto(
                       'voto_dep_federal',
-                      'Digite novamente o número da sua escolha para Dep. Federal (Dep. A) (4 dígitos) ou consulte a lista abaixo:'
+                      'Digite novamente o número da sua escolha para Dep. Federal (4 dígitos) ou consulte a lista abaixo:'
                     )
                   }
                   className="h-11 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 font-bold text-xs flex items-center justify-center gap-1.5 cursor-pointer"
@@ -1308,7 +1308,7 @@ export function App() {
             <div className="my-3 space-y-2">
               <button
                 type="button"
-                onClick={() => setModalConsultaCargo({ cargoNome: 'Governador(a)', candidatos: candidatosGovernador })}
+                onClick={() => setModalConsultaCargo({ cargoNome: 'Governador', candidatos: candidatosGovernador })}
                 className="w-full h-10 rounded-xl bg-orange-500/15 hover:bg-orange-500/25 border border-orange-500/40 text-orange-300 font-bold text-xs flex items-center justify-center gap-1.5"
               >
                 <Users className="size-4 text-orange-400" />
@@ -1339,7 +1339,7 @@ export function App() {
           {/* ETAPA CONFIRMAÇÃO: GOVERNADOR */}
           {etapa === 'confirm_governador' && candidatoTemp && !digitando && (
             <div className="space-y-3 my-3 animate-message">
-              <CandidateCard candidato={candidatoTemp} tituloCargo="Governador(a)" modoConfirmacao />
+              <CandidateCard candidato={candidatoTemp} tituloCargo="Governador" modoConfirmacao />
               <div className="grid grid-cols-2 gap-2.5">
                 <button
                   onClick={() =>
@@ -1357,7 +1357,7 @@ export function App() {
                   onClick={() =>
                     handleCorrigirVoto(
                       'voto_governador',
-                      'Selecione novamente o seu candidato a Governador(a):'
+                      'Selecione novamente o seu candidato a Governador:'
                     )
                   }
                   className="h-11 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 font-bold text-xs flex items-center justify-center gap-1.5 cursor-pointer"
