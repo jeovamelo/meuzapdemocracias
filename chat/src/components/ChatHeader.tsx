@@ -36,18 +36,29 @@ export const ChatHeader: React.FC<Props> = ({ candidatoAtivo }) => {
           </div>
         </div>
 
-        {candidatoAtivo && (
-          <div className="hidden sm:flex items-center gap-2 rounded-xl bg-slate-800/80 border border-slate-700/60 px-2.5 py-1 text-right">
-            <div>
-              <p className="text-[11px] font-bold text-slate-200 leading-tight truncate max-w-[120px]">
-                {candidatoAtivo.nomeUrna}
-              </p>
-              <p className="font-mono text-[10px] font-black text-orange-400">
-                {candidatoAtivo.numero} • {candidatoAtivo.uf}
-              </p>
+        <div className="flex items-center gap-2">
+          {candidatoAtivo && (
+            <div className="hidden md:flex items-center gap-2 rounded-xl bg-slate-800/80 border border-slate-700/60 px-2.5 py-1 text-right">
+              <div>
+                <p className="text-[11px] font-bold text-slate-200 leading-tight truncate max-w-[120px]">
+                  {candidatoAtivo.nomeUrna}
+                </p>
+                <p className="font-mono text-[10px] font-black text-orange-400">
+                  {candidatoAtivo.numero} • {candidatoAtivo.uf}
+                </p>
+              </div>
             </div>
-          </div>
-        )}
+          )}
+
+          <a
+            href="/resultado"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-gradient-to-r from-orange-500/20 to-amber-500/20 hover:from-orange-500/30 hover:to-amber-500/30 text-orange-400 border border-orange-500/40 text-xs font-bold transition-all shadow-sm active:scale-95"
+          >
+            <span className="text-sm">📊</span>
+            <span className="hidden sm:inline font-black">Resultado da Pesquisa</span>
+            <span className="sm:hidden font-black">Resultados</span>
+          </a>
+        </div>
       </div>
     </header>
   );

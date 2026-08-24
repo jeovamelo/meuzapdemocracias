@@ -26,6 +26,7 @@ import { CandidateCard } from './components/CandidateCard';
 import { MajoritarySelect } from './components/MajoritarySelect';
 import { LocationInput } from './components/LocationInput';
 import { ColinhaResumo } from './components/ColinhaResumo';
+import { PaginaResultadosPublicos } from './pages/PaginaResultadosPublicos';
 
 const ESTADOS_BR = [
   'AC', 'AL', 'AP', 'AM', 'BA', 'CE', 'DF', 'ES', 'GO', 'MA', 'MT', 'MS', 'MG',
@@ -33,6 +34,29 @@ const ESTADOS_BR = [
 ];
 
 export function App() {
+  const [rotaAtual, setRotaAtual] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return window.location.pathname.startsWith('/resultado') || window.location.hash.includes('resultado') ? 'resultado' : 'chat';
+    }
+    return 'chat';
+  });
+
+  useEffect(() => {
+    const handlePopState = () => {
+      if (window.location.pathname.startsWith('/resultado') || window.location.hash.includes('resultado')) {
+        setRotaAtual('resultado');
+      } else {
+        setRotaAtual('chat');
+      }
+    };
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, []);
+
+  if (rotaAtual === 'resultado') {
+    return <PaginaResultadosPublicos />;
+  }
+
   const [mensagens, setMensagens] = useState<Mensagem[]>([]);
   const [etapa, setEtapa] = useState<EtapaChat>('boas_vindas');
   const [digitando, setDigitando] = useState(false);

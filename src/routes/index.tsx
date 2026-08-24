@@ -18,9 +18,17 @@ function LandingPage() {
           />
           <span className="font-bold text-xl tracking-tight text-slate-900">Democracias</span>
         </div>
-        <div>
+        <div className="flex items-center gap-3">
+          <a
+            href="https://chat.democracias.org/resultado"
+            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-gradient-to-r from-orange-500 to-amber-500 text-white font-black text-xs sm:text-sm shadow-md hover:from-orange-600 hover:to-amber-600 transition-all active:scale-95"
+          >
+            <BarChart3 className="size-4" />
+            <span>Resultado da Pesquisa</span>
+          </a>
+
           <Link to="/auth">
-            <Button>
+            <Button variant="outline" className="hidden sm:inline-flex">
               Acessar
               <ArrowRight className="ml-2 h-4 w-4" />
             </Button>
@@ -30,6 +38,11 @@ function LandingPage() {
 
       <main className="flex-1">
         <section className="py-20 px-6 max-w-5xl mx-auto text-center">
+          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-orange-500/10 border border-orange-500/30 text-orange-600 text-xs font-bold mb-6">
+            <span>🗳️ Pesquisa Eleitoral Oficial 2026</span>
+            <span className="w-1.5 h-1.5 rounded-full bg-orange-500 animate-pulse" />
+          </div>
+
           <h1 className="text-5xl md:text-6xl font-extrabold text-slate-900 tracking-tight mb-6">
             Inteligência e Gestão para a sua <span className="text-primary">Campanha Eleitoral</span>
           </h1>
@@ -37,20 +50,23 @@ function LandingPage() {
             Plataforma completa para coordenar sua equipe, controlar distribuição de materiais, 
             e monitorar sua intenção de voto com precisão. Em tempo real e do seu celular.
           </p>
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-4 flex-wrap">
+            <a
+              href="https://chat.democracias.org/resultado"
+              className="w-full sm:w-auto h-14 px-8 rounded-xl bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white font-black text-lg shadow-lg flex items-center justify-center gap-2 transition-all active:scale-95"
+            >
+              <BarChart3 className="size-5" />
+              <span>Resultado da Pesquisa</span>
+            </a>
+            <a
+              href="https://chat.democracias.org"
+              className="w-full sm:w-auto h-14 px-8 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-lg shadow-md flex items-center justify-center gap-2 transition-all"
+            >
+              <span>Votar no Assistente</span>
+            </a>
             <Link to="/onboarding">
-              <Button size="lg" className="w-full sm:w-auto text-lg h-14 px-8 shadow-md">
+              <Button size="lg" variant="outline" className="w-full sm:w-auto text-lg h-14 px-8 shadow-sm">
                 Cadastrar Campanha (Admin)
-              </Button>
-            </Link>
-            <Link to="/public/cadastro">
-              <Button size="lg" variant="secondary" className="w-full sm:w-auto text-lg h-14 px-8 bg-slate-900 text-white hover:bg-slate-800">
-                Cadastre-se Geral (Membro / Apoiador)
-              </Button>
-            </Link>
-            <Link to="/auth">
-              <Button size="lg" variant="outline" className="w-full sm:w-auto text-lg h-14 px-8">
-                Já tenho uma conta
               </Button>
             </Link>
           </div>
