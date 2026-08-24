@@ -43,30 +43,30 @@ function LandingPage() {
             e monitorar a preferência eleitoral com precisão. Em tempo real e do seu celular.
           </p>
 
-          {/* BOTÕES PRINCIPAIS DE AÇÃO COM ALTO CONTRASTE */}
+          {/* BOTÕES PRINCIPAIS DE AÇÃO COM CORES E CONTRASTE DEFINIDOS */}
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4 flex-wrap mb-4">
-            {/* 1. RESULTADO DA ENQUETE */}
+            {/* 1. RESULTADO DA PESQUISA / ENQUETE (LARANJA VIBRANTE) */}
             <a
               href="https://chat.democracias.org/resultado"
               className="w-full sm:w-auto h-14 px-8 rounded-xl bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white font-black text-lg shadow-lg flex items-center justify-center gap-2.5 transition-all active:scale-95 border border-orange-400/40"
             >
               <BarChart3 className="size-5 text-white" />
-              <span>Resultado da Enquete</span>
+              <span>Resultado da Pesquisa</span>
             </a>
 
-            {/* 2. VOTAR NO ASSISTENTE */}
+            {/* 2. PARTICIPAR DA ENQUETE (ESCURO / ASSISTENTE) */}
             <a
               href="https://chat.democracias.org"
               className="w-full sm:w-auto h-14 px-8 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-lg shadow-md flex items-center justify-center gap-2 transition-all active:scale-95"
             >
-              <span>Votar no Assistente</span>
+              <span>Participar da Enquete</span>
             </a>
 
-            {/* 3. CADASTRAR CAMPANHA (ADMIN) */}
+            {/* 3. CADASTRAR CAMPANHA (ADMIN) (AZUL INSTITUCIONAL) */}
             <Link to="/onboarding" className="w-full sm:w-auto">
               <button
                 type="button"
-                className="w-full sm:w-auto h-14 px-8 rounded-xl bg-white hover:bg-slate-100 text-slate-900 font-bold text-lg border-2 border-slate-300 shadow-sm flex items-center justify-center transition-all"
+                className="w-full sm:w-auto h-14 px-8 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-lg shadow-md flex items-center justify-center transition-all active:scale-95 border border-blue-500/40"
               >
                 Cadastrar Campanha (Admin)
               </button>
