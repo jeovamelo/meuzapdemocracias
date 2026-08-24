@@ -92,7 +92,7 @@ export function App() {
       const msg2: Mensagem = {
         id: '2',
         remetente: 'bot',
-        conteudo: 'Para iniciarmos, como posso te chamar?',
+        conteudo: 'Meu nome é Democracias, qual é o seu?',
         timestamp: getHoraAtual(),
       };
 
@@ -337,7 +337,11 @@ export function App() {
 
       setRespostas((prev) => ({ ...prev, nome: textoLimpo }));
       await adicionarMensagemBot(`Muito prazer, ${textoLimpo.split(' ')[0]}! 👍`);
-      await adicionarMensagemBot('Por favor, informe o seu CPF:\n\n🔒 O CPF é obrigatório para certificar seu voto oficial e evitar duplicidade de registros.\n\nCaso opte por não informar, sua manifestação será contabilizada no máximo como expectativa para as campanhas.');
+      await adicionarMensagemBot(
+        'Por favor, informe opcionalmente o seu CPF:\n\n' +
+        '🔒 O CPF é necessário para garantir a integridade da pesquisa e evitar duplicidade de registros.\n' +
+        'Seu CPF será criptografado e guardado de forma segura'
+      );
       setEtapa('cpf');
       return;
     }
@@ -346,8 +350,8 @@ export function App() {
       if (textoLimpo) {
         const cpfValido = validarCpf(textoLimpo);
         if (!cpfValido) {
-          toast.error('CPF inválido! Verifique os 11 dígitos ou avance como expectativa.');
-          await adicionarMensagemBot('⚠️ O CPF digitado é inválido. Por favor, confira os 11 dígitos para certificar seu voto ou clique no botão abaixo para avançar sem CPF:');
+          toast.error('CPF inválido! Verifique os 11 dígitos ou avance sem CPF.');
+          await adicionarMensagemBot('⚠️ O CPF digitado é inválido. Por favor, confira os 11 dígitos ou clique no botão abaixo para avançar sem CPF:');
           return;
         }
       }
@@ -1211,9 +1215,9 @@ export function App() {
                   }}
                   placeholder={
                     etapa === 'nome'
-                      ? 'Como posso te chamar? (Digite seu nome)...'
+                      ? 'Qual é o seu nome? (Digite aqui)...'
                       : etapa === 'cpf'
-                      ? '000.000.000-00 (Obrigatório p/ evitar duplicidade)'
+                      ? '000.000.000-00 (Opcional)'
                       : etapa === 'whatsapp'
                       ? '(85) 99999-9999 (Opcional)'
                       : etapa === 'voto_dep_federal'
@@ -1247,7 +1251,7 @@ export function App() {
                     onClick={handlePularCpf}
                     className="text-xs font-bold text-slate-400 hover:text-orange-400 transition-colors py-1 flex items-center gap-1"
                   >
-                    Avançar sem CPF (Contabilizar apenas como expectativa) <ChevronRight className="size-3.5" />
+                    Avançar sem CPF <ChevronRight className="size-3.5" />
                   </button>
                 </div>
               )}
