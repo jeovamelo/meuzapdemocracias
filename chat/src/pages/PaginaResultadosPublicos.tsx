@@ -290,7 +290,7 @@ export const PaginaResultadosPublicos: React.FC = () => {
         posicao: candidato.posicao,
       });
 
-      const texto = `📊 *${candidato.nomeUrna}* está com *${candidato.percentual.toFixed(1).replace('.', ',')}%* para ${candidato.cargo} na Pesquisa Oficial da plataforma Democracias!\n\nConfira os resultados e participe: https://chat.democracias.org`;
+      const texto = `📊 *${candidato.nomeUrna}* está com *${candidato.percentual.toFixed(1).replace('.', ',')}%* para ${candidato.cargo} na Enquete Eleitoral da plataforma Democracias!\n\nConfira os resultados e participe: https://chat.democracias.org`;
 
       // 1. Web Share nativo no celular (Instagram, WhatsApp, etc.)
       if (navigator.canShare && navigator.canShare({ files: [file] })) {
@@ -366,7 +366,7 @@ export const PaginaResultadosPublicos: React.FC = () => {
               <div className="flex items-center gap-2">
                 <span className="font-extrabold text-white text-base tracking-tight">Democracias</span>
                 <span className="rounded-full bg-gradient-to-r from-orange-500/20 to-amber-500/20 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-orange-400 border border-orange-500/30">
-                  Resultados Oficiais
+                  Enquete Eleitoral
                 </span>
               </div>
               <p className="text-[10px] text-slate-400">Inteligência & Mapeamento Eleitoral 2026</p>
@@ -379,7 +379,7 @@ export const PaginaResultadosPublicos: React.FC = () => {
               className="h-9 px-3.5 rounded-xl bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white text-xs font-black shadow-md flex items-center gap-1.5 transition-all active:scale-95"
             >
               <Vote className="size-3.5" />
-              <span className="hidden sm:inline">Participar da Pesquisa</span>
+              <span className="hidden sm:inline">Participar da Enquete</span>
               <span className="sm:hidden">Votar</span>
             </a>
           </div>
@@ -396,10 +396,10 @@ export const PaginaResultadosPublicos: React.FC = () => {
                 <TrendingUp className="size-4 text-orange-400" /> Eleições Gerais 2026
               </span>
               <h1 className="text-2xl sm:text-3xl font-black text-white tracking-tight">
-                Resultado Oficial da Pesquisa
+                Resultado da Enquete Eleitoral
               </h1>
               <p className="text-xs sm:text-sm text-slate-300">
-                Acompanhe a intenção de voto dos eleitores consolidados em percentual (%).
+                Acompanhe a preferência de votos dos eleitores consolidados em percentual (%).
               </p>
             </div>
 
@@ -431,12 +431,12 @@ export const PaginaResultadosPublicos: React.FC = () => {
                 </span>
               ) : (
                 <span className="text-slate-300 font-medium text-xs">
-                  Amostra representativa regional • Resultados consolidados exclusivamente em percentual (%)
+                  Amostra independente regional • Resultados consolidados exclusivamente em percentual (%)
                 </span>
               )}
             </div>
             <span className="text-[10px] font-mono font-bold text-slate-500 bg-slate-900 px-2.5 py-1 rounded-md border border-slate-800 shrink-0">
-              LEGISLAÇÃO TSE
+              ENQUETE INDEPENDENTE
             </span>
           </div>
         </div>
@@ -483,7 +483,7 @@ export const PaginaResultadosPublicos: React.FC = () => {
         {carregando ? (
           <div className="py-20 flex flex-col items-center justify-center gap-3 text-slate-400">
             <Loader2 className="size-8 animate-spin text-orange-500" />
-            <p className="text-sm font-bold">Consolidando dados da pesquisa...</p>
+            <p className="text-sm font-bold">Consolidando dados da enquete...</p>
           </div>
         ) : (
           <div className="space-y-8">
@@ -587,7 +587,7 @@ export const PaginaResultadosPublicos: React.FC = () => {
                         {secoesCargo.find((s) => s.key === cargoSelecionado)?.titulo}
                       </h2>
                       <p className="text-xs text-slate-400">
-                        Listagem completa de todos os candidatos que pontuaram na pesquisa
+                        Listagem completa de todos os candidatos que pontuaram na enquete
                       </p>
                     </div>
                   </div>

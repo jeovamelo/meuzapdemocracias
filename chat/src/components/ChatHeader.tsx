@@ -26,7 +26,7 @@ export const ChatHeader: React.FC<Props> = ({ candidatoAtivo }) => {
             <div className="flex items-center gap-1.5">
               <span className="text-sm font-black tracking-tight text-white">Democracias</span>
               <span className="inline-flex items-center gap-0.5 rounded-full bg-orange-500/15 border border-orange-500/35 px-2 py-0.5 text-[10px] font-bold text-orange-400">
-                <Sparkles className="size-2.5" /> Pesquisa
+                <Sparkles className="size-2.5" /> Enquete
               </span>
             </div>
             <p className="text-[11px] font-medium text-slate-400 flex items-center gap-1">
@@ -55,7 +55,7 @@ export const ChatHeader: React.FC<Props> = ({ candidatoAtivo }) => {
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-gradient-to-r from-orange-500/20 to-amber-500/20 hover:from-orange-500/30 hover:to-amber-500/30 text-orange-400 border border-orange-500/40 text-xs font-bold transition-all shadow-sm active:scale-95"
           >
             <span className="text-sm">📊</span>
-            <span className="hidden sm:inline font-black">Resultado da Pesquisa</span>
+            <span className="hidden sm:inline font-black">Resultado da Enquete</span>
             <span className="sm:hidden font-black">Resultados</span>
           </a>
         </div>

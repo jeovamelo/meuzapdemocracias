@@ -103,7 +103,7 @@ export function App() {
       const msg1: Mensagem = {
         id: '1',
         remetente: 'bot',
-        conteudo: '👋 Olá! Bem-vindo(a) à Pesquisa Eleitoral Oficial da plataforma Democracias.\n\nSua opinião é anônima, segura e ajuda a mapear a força eleitoral em cada região.',
+        conteudo: '👋 Olá! Bem-vindo(a) à Enquete Eleitoral da plataforma Democracias.\n\nSua participação é anônima, segura e ajuda a mapear a preferência dos eleitores em cada região.',
         timestamp: getHoraAtual(),
       };
 
@@ -363,7 +363,7 @@ export function App() {
       await adicionarMensagemBot(`Muito prazer, ${textoLimpo.split(' ')[0]}! 👍`);
       await adicionarMensagemBot(
         'Por favor, informe opcionalmente o seu CPF:\n\n' +
-        '🔒 O CPF é necessário para garantir a integridade da pesquisa e evitar duplicidade de registros.\n' +
+        '🔒 O CPF é necessário para garantir a integridade da enquete e evitar duplicidade de registros.\n' +
         'Seu CPF será criptografado e guardado de forma segura'
       );
       setEtapa('cpf');

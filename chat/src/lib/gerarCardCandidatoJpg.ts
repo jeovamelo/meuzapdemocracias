@@ -77,7 +77,7 @@ export async function gerarCardCandidatoJpg(dados: DadosCardCandidato): Promise<
 
   ctx.fillStyle = '#94a3b8';
   ctx.font = 'bold 16px sans-serif';
-  ctx.fillText('PESQUISA ELEITORAL 2026', 152, 130);
+  ctx.fillText('ENQUETE ELEITORAL 2026', 152, 130);
 
   // Badge da Localidade
   ctx.fillStyle = 'rgba(249, 115, 22, 0.15)';
@@ -221,7 +221,7 @@ export async function gerarCardCandidatoJpg(dados: DadosCardCandidato): Promise<
   // 6. BLOCO DE INTENÇÃO DE VOTO EM DESTAQUE GIGANTE
   ctx.fillStyle = '#64748b';
   ctx.font = 'bold 20px sans-serif';
-  ctx.fillText('INTENÇÃO DE VOTOS NA PESQUISA OFICIAL', width / 2, cardY + 665);
+  ctx.fillText('PREFERÊNCIA NA ENQUETE ELEITORAL', width / 2, cardY + 665);
 
   ctx.fillStyle = '#ea580c';
   ctx.font = '900 88px monospace';
@@ -264,7 +264,7 @@ export async function gerarCardCandidatoJpg(dados: DadosCardCandidato): Promise<
 
   ctx.fillStyle = '#ffffff';
   ctx.font = '700 20px sans-serif';
-  ctx.fillText('Participe e acompanhe a pesquisa oficial em tempo real:', width / 2, bannerFooterY + 38);
+  ctx.fillText('Participe e acompanhe a enquete em tempo real:', width / 2, bannerFooterY + 38);
 
   ctx.fillStyle = '#f97316';
   ctx.font = '900 28px monospace';

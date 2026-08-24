@@ -282,7 +282,7 @@ export async function gerarColinhaJpg(respostas: RespostaUsuario): Promise<{ blo
   ctx.textBaseline = 'middle';
   ctx.fillStyle = '#ffffff';
   ctx.font = '700 19px sans-serif';
-  ctx.fillText('Participe da pesquisa oficial e gere sua colinha eleitoral:', width / 2, footerY + 38);
+  ctx.fillText('Participe da enquete eleitoral e gere sua colinha:', width / 2, footerY + 38);
 
   ctx.fillStyle = '#f97316';
   ctx.font = '900 26px monospace';

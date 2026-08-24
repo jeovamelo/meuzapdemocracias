@@ -416,10 +416,10 @@ export const ResultadosPesquisa: React.FC<Props> = ({ respostas, onVoltarParaCol
           </div>
           <div>
             <h3 className="text-base font-black text-white flex items-center gap-1.5">
-              Resultados da Pesquisa Eleitoral 2026
+              Resultados da Enquete Eleitoral 2026
             </h3>
             <p className="text-xs text-slate-400">
-              Intenção de votos computada na plataforma Democracias
+              Preferência de votos computada na plataforma independente Democracias
             </p>
           </div>
         </div>
@@ -434,12 +434,12 @@ export const ResultadosPesquisa: React.FC<Props> = ({ respostas, onVoltarParaCol
               </span>
             ) : (
               <span className="text-slate-300 font-medium text-[11px]">
-                Amostra representativa regional • Resultados consolidados exclusivamente em percentual (%)
+                Amostra independente regional • Resultados consolidados exclusivamente em percentual (%)
               </span>
             )}
           </div>
           <span className="text-[9px] font-mono font-bold text-slate-500 bg-slate-950 px-2 py-0.5 rounded border border-slate-800 shrink-0">
-            TSE 2026
+            ENQUETE INDEPENDENTE
           </span>
         </div>
       </div>

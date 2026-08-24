@@ -31,7 +31,7 @@ function LandingPage() {
       <main className="flex-1">
         <section className="py-16 sm:py-20 px-6 max-w-5xl mx-auto text-center">
           <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-orange-500/10 border border-orange-500/30 text-orange-600 text-xs font-black mb-6">
-            <span>🗳️ Pesquisa Eleitoral Oficial 2026</span>
+            <span>🗳️ Enquete Eleitoral 2026</span>
             <span className="w-1.5 h-1.5 rounded-full bg-orange-500 animate-pulse" />
           </div>
 
@@ -40,18 +40,18 @@ function LandingPage() {
           </h1>
           <p className="text-lg sm:text-xl text-slate-600 mb-10 max-w-3xl mx-auto leading-relaxed">
             Plataforma completa para coordenar sua equipe, controlar distribuição de materiais, 
-            e monitorar sua intenção de voto com precisão. Em tempo real e do seu celular.
+            e monitorar a preferência eleitoral com precisão. Em tempo real e do seu celular.
           </p>
 
           {/* BOTÕES PRINCIPAIS DE AÇÃO COM ALTO CONTRASTE */}
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4 flex-wrap mb-4">
-            {/* 1. RESULTADO DA PESQUISA */}
+            {/* 1. RESULTADO DA ENQUETE */}
             <a
               href="https://chat.democracias.org/resultado"
               className="w-full sm:w-auto h-14 px-8 rounded-xl bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white font-black text-lg shadow-lg flex items-center justify-center gap-2.5 transition-all active:scale-95 border border-orange-400/40"
             >
               <BarChart3 className="size-5 text-white" />
-              <span>Resultado da Pesquisa</span>
+              <span>Resultado da Enquete</span>
             </a>
 
             {/* 2. VOTAR NO ASSISTENTE */}

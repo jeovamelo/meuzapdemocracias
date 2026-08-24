@@ -63,7 +63,7 @@ export const ColinhaResumo: React.FC<Props> = ({ respostas, onResponderNovamente
     `4️⃣ *Senador(a) 2ª Vaga:* ${votos.senador_2?.numero || '—'} - ${votos.senador_2?.nomeUrna || '—'} ${votos.senador_2?.partido ? `(${votos.senador_2.partido})` : ''}\n` +
     `5️⃣ *Governador(a):* ${votos.governador?.numero || '—'} - ${votos.governador?.nomeUrna || '—'} ${votos.governador?.partido ? `(${votos.governador.partido})` : ''}\n` +
     `6️⃣ *Presidente:* ${votos.presidente?.numero || '—'} - ${votos.presidente?.nomeUrna || '—'} ${votos.presidente?.partido ? `(${votos.presidente.partido})` : ''}\n\n` +
-    `Participe você também da pesquisa oficial e gere sua colinha: https://chat.democracias.org`;
+    `Participe você também da enquete eleitoral e gere sua colinha: https://chat.democracias.org`;
 
   const linkWhatsapp = `https://api.whatsapp.com/send?text=${encodeURIComponent(textoCompartilhamento)}`;
 
