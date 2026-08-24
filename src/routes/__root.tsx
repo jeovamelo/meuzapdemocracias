@@ -139,16 +139,16 @@ function RootComponent() {
   const { campaign } = useCampaignScope();
 
   useEffect(() => {
-    // Redireciona para /onboarding se tentar acessar rotas protegidas sem campanha
-    const publicRoutes = ['/', '/auth', '/onboarding', '/pc', '/public/cadastro', '/bu'];
-    const isPublic = publicRoutes.some(r => location === r || location.startsWith('/public') || location.startsWith('/bu'));
+    // Redireciona para /onboarding se tentar acessar rotas protegidas de campanha sem campanha selecionada
+    const publicRoutes = ['/', '/auth', '/onboarding', '/pc', '/pesquisa', '/resultado', '/public/cadastro', '/bu'];
+    const isPublic = publicRoutes.some(r => location === r || location.startsWith('/public') || location.startsWith('/bu') || location.startsWith('/pc') || location.startsWith('/pesquisa'));
 
     if (!isPublic && !campaign) {
       router.navigate({ to: '/onboarding' });
     }
   }, [campaign, location, router]);
 
-  const showBottomNav = !['/', '/auth', '/onboarding', '/pc', '/saidas/nova'].includes(location) && !location.startsWith('/public');
+  const showBottomNav = !['/', '/auth', '/onboarding', '/pc', '/pesquisa', '/resultado', '/saidas/nova'].includes(location) && !location.startsWith('/public') && !location.startsWith('/pc') && !location.startsWith('/pesquisa');
 
   return (
     <QueryClientProvider client={queryClient}>
