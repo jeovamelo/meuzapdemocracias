@@ -347,8 +347,8 @@ export function App() {
       setInputText('');
 
       setRespostas((prev) => ({ ...prev, cpf: cpfFormatado }));
-      await adicionarMensagemBot('📱 Se desejar receber pesquisas e atualizações eleitorais da sua região, informe o seu WhatsApp com DDD (Opcional — clique em Avançar se preferir não informar):');
-      setEtapa('whatsapp');
+      await adicionarMensagemBot('Em qual Estado (UF) você vota ou reside atualmente?');
+      setEtapa('uf');
       return;
     }
 
@@ -363,9 +363,7 @@ export function App() {
       setMensagens((prev) => [...prev, userMsg]);
       setInputText('');
 
-      setRespostas((prev) => ({ ...prev, whatsapp: zapFormatado }));
-      await adicionarMensagemBot('Em qual Estado (UF) você vota ou reside atualmente?');
-      setEtapa('uf');
+      await salvarPesquisaCompleta(zapFormatado);
       return;
     }
 
@@ -496,11 +494,11 @@ export function App() {
 
     setRespostas((prev) => ({ ...prev, cpf: '' }));
     await adicionarMensagemBot('Tudo bem! Vamos continuar.');
-    await adicionarMensagemBot('📱 Se desejar receber pesquisas e atualizações eleitorais da sua região, informe o seu WhatsApp com DDD (Opcional — clique em Avançar se preferir não informar):');
-    setEtapa('whatsapp');
+    await adicionarMensagemBot('Em qual Estado (UF) você vota ou reside atualmente?');
+    setEtapa('uf');
   };
 
-  // Pular WhatsApp
+  // Pular WhatsApp (finaliza a pesquisa sem whatsapp)
   const handlePularWhatsapp = async () => {
     const userMsg: Mensagem = {
       id: Math.random().toString(36).substring(2, 9),
@@ -510,9 +508,7 @@ export function App() {
     };
     setMensagens((prev) => [...prev, userMsg]);
 
-    setRespostas((prev) => ({ ...prev, whatsapp: '' }));
-    await adicionarMensagemBot('Em qual Estado (UF) você vota ou reside atualmente?');
-    setEtapa('uf');
+    await salvarPesquisaCompleta('');
   };
 
   // Selecionar UF
@@ -616,10 +612,8 @@ export function App() {
     setEtapa('voto_dep_federal');
   };
 
-  // Confirmar Localização e Salvar tudo no Supabase (com sobrescrita da pesquisa anterior)
+  // Confirmar Localização -> Em seguida pergunta o WhatsApp
   const handleConfirmarLocalizacao = async (dadosLoc: { cidade: string; bairro: string; cep?: string }) => {
-    setSalvando(true);
-
     const userMsg: Mensagem = {
       id: Math.random().toString(36).substring(2, 9),
       remetente: 'user',
@@ -628,11 +622,24 @@ export function App() {
     };
     setMensagens((prev) => [...prev, userMsg]);
 
-    const respostasFinais: RespostaUsuario = {
-      ...respostas,
+    setRespostas((prev) => ({
+      ...prev,
       municipio: dadosLoc.cidade,
       bairro: dadosLoc.bairro,
       cep: dadosLoc.cep,
+    }));
+
+    await adicionarMensagemBot(`📍 Localização registrada: ${dadosLoc.cidade}/${respostas.uf} (Bairro ${dadosLoc.bairro}).`);
+    await adicionarMensagemBot('📱 Para finalizarmos, se desejar receber o resultado desta pesquisa e novidades da sua região, informe o seu WhatsApp com DDD (Opcional — ou clique em Concluir sem WhatsApp abaixo):');
+    setEtapa('whatsapp');
+  };
+
+  // Salvar tudo no Supabase com ou sem WhatsApp
+  const salvarPesquisaCompleta = async (zapInformado?: string) => {
+    setSalvando(true);
+    const respostasFinais: RespostaUsuario = {
+      ...respostas,
+      whatsapp: zapInformado || '',
     };
 
     try {
@@ -669,8 +676,8 @@ export function App() {
         nome: respostasFinais.nome.trim(),
         cpf: cpfLimpo,
         uf: respostasFinais.uf,
-        municipio: dadosLoc.cidade,
-        bairro: dadosLoc.bairro,
+        municipio: respostasFinais.municipio,
+        bairro: respostasFinais.bairro,
         dep_estadual_numero: respostasFinais.votos.deputado_estadual?.numero || null,
         dep_estadual_nome: respostasFinais.votos.deputado_estadual?.nomeUrna || null,
         dep_estadual_foto: respostasFinais.votos.deputado_estadual?.fotoUrl || null,
@@ -731,19 +738,19 @@ export function App() {
           funcao: 'Apoiador(a) / Pesquisa Chat',
           meta_votos: 1,
           uf: respostasFinais.uf,
-          municipio: dadosLoc.cidade,
-          bairro: dadosLoc.bairro,
-          cep: dadosLoc.cep || null,
+          municipio: respostasFinais.municipio,
+          bairro: respostasFinais.bairro,
+          cep: respostasFinais.cep || null,
           campanha_id: primaryCampId,
           campaign_id: primaryCampId,
           status: 'ativo'
         }]);
 
       setRespostas(respostasFinais);
-      toast.success('Pesquisa registrada e atualizada com sucesso!');
+      toast.success('Pesquisa registrada e computada com sucesso!');
 
       await adicionarMensagemBot(`🎉 Obrigado por sua participação na pesquisa, ${respostasFinais.nome.split(' ')[0]}!`);
-      await adicionarMensagemBot('Aqui está o resumo da sua Colinha Eleitoral Oficial. Seus votos foram atualizados e você pode compartilhar no WhatsApp:');
+      await adicionarMensagemBot('Aqui está o resumo da sua Colinha Eleitoral Oficial. Seus votos foram computados e você pode compartilhar no WhatsApp:');
 
       setEtapa('concluido');
     } catch (err) {
@@ -1236,7 +1243,7 @@ export function App() {
                     onClick={handlePularWhatsapp}
                     className="text-xs font-bold text-slate-400 hover:text-orange-400 transition-colors py-1 flex items-center gap-1"
                   >
-                    Avançar sem WhatsApp <ChevronRight className="size-3.5" />
+                    Concluir Pesquisa sem WhatsApp <ChevronRight className="size-3.5" />
                   </button>
                 </div>
               )}
