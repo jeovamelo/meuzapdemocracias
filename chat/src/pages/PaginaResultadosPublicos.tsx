@@ -11,7 +11,10 @@ import {
   User,
   Instagram,
   Sparkles,
-  Users
+  Users,
+  Ban,
+  CircleDot,
+  CheckCircle2
 } from 'lucide-react';
 import { toast, Toaster } from 'sonner';
 import { supabase } from '../lib/supabase';
@@ -37,8 +40,19 @@ export interface ItemRankeado {
   sq_candidato?: string;
   fotoUrl?: string;
   percentual: number;
+  percentualGeral: number;
   posicao: number;
   votosContados: number;
+}
+
+export interface EstatisticasCargo {
+  totalValidos: number;
+  totalNulos: number;
+  totalBrancos: number;
+  totalGeral: number;
+  pctValidos: number;
+  pctNulos: number;
+  pctBrancos: number;
 }
 
 export const PaginaResultadosPublicos: React.FC = () => {
@@ -51,9 +65,10 @@ export const PaginaResultadosPublicos: React.FC = () => {
 
   const [pesquisas, setPesquisas] = useState<any[]>([]);
   const [candidatosTse, setCandidatosTse] = useState<any[]>([]);
+  const [campanhas, setCampanhas] = useState<any[]>([]);
   const [totalRespondentesUnicos, setTotalRespondentesUnicos] = useState<number>(0);
 
-  // Carregar dados de pesquisas_chat e candidatos oficiais
+  // Carregar dados de pesquisas_chat, candidatos oficiais do TSE e campanhas cadastradas
   useEffect(() => {
     const carregar = async () => {
       setCarregando(true);
@@ -78,6 +93,12 @@ export const PaginaResultadosPublicos: React.FC = () => {
           .or(`sg_uf.eq.BR,sg_uf.eq.${ufSelecionada.toUpperCase()}`);
 
         setCandidatosTse(dataTse || []);
+
+        const { data: dataCamp } = await supabase
+          .from('campaigns')
+          .select('*');
+
+        setCampanhas(dataCamp || []);
       } catch (e) {
         console.error('Erro ao carregar resultados públicos:', e);
       } finally {
@@ -96,7 +117,6 @@ export const PaginaResultadosPublicos: React.FC = () => {
 
     // Modo VOTO ÚNICO: mantém apenas o voto mais recente de cada participante único (por CPF ou Token)
     const mapaUnicos = new Map<string, any>();
-    // Ordenar do mais antigo ao mais recente para que o último sobrescreva
     const ordenadas = [...pesquisas].sort((a, b) => {
       const dataA = new Date(a.atualizado_em || a.criado_em || 0).getTime();
       const dataB = new Date(b.atualizado_em || b.criado_em || 0).getTime();
@@ -111,266 +131,201 @@ export const PaginaResultadosPublicos: React.FC = () => {
     return Array.from(mapaUnicos.values());
   }, [pesquisas, tipoAmostragem]);
 
-  // Processar ranking consolidado por cargo com validação estrita de candidatos oficiais e tratamento de nulos
-  const rankingConsolidado = useMemo(() => {
-    const dados: Record<'presidente' | 'governador' | 'senador' | 'dep_federal' | 'dep_estadual', ItemRankeado[]> = {
-      presidente: [],
-      governador: [],
-      senador: [],
-      dep_federal: [],
-      dep_estadual: [],
-    };
-
+  // Processar ranking consolidado por cargo com validação ESTRITA e redirecionamento de inexistentes para NULO
+  const dadosConsolidados = useMemo(() => {
     const basePesquisas = pesquisasFiltradasAmostragem;
     const pesquisasUf = basePesquisas.filter((p) => (p.uf || '').toUpperCase() === ufSelecionada.toUpperCase());
 
-    // 1. PRESIDENTE (Nível Nacional)
-    const votosPres = basePesquisas.map((p) => ({
-      numero: p.presidente_numero ? String(p.presidente_numero).trim() : '',
-      nome: p.presidente_nome,
-      partido: p.presidente_partido,
-      foto: p.presidente_foto,
-    })).filter((v) => v.numero && v.numero.toUpperCase() !== 'BRANCO' && v.numero.toUpperCase() !== 'NULO');
+    // Função de validação estrita de candidatura oficial
+    const encontrarCandidatoOficial = (numero: string, cargoKey: string, uf: string) => {
+      const num = String(numero || '').trim();
+      if (!num || num === 'BRANCO' || num === 'NULO') return null;
 
-    const countPres: Record<string, { count: number; info: any; tseMatch?: any }> = {};
-    let totalValidosPres = 0;
-
-    votosPres.forEach((v) => {
-      // Validação se o número consta na base de candidatos oficiais do cargo
-      const tseMatch = candidatosTse.find(
-        (c) => (c.ds_cargo || '').toUpperCase() === 'PRESIDENTE' && String(c.nr_candidato) === v.numero
-      );
-
-      // Se for candidato oficial reconhecido
-      if (tseMatch || (v.nome && !v.nome.toLowerCase().includes('não registrado') && !v.nome.toLowerCase().includes('nulo'))) {
-        if (!countPres[v.numero]) {
-          countPres[v.numero] = { count: 0, info: v, tseMatch };
-        }
-        countPres[v.numero].count += 1;
-        totalValidosPres += 1;
+      // 1. Busca no banco oficial do TSE
+      let tse: any = null;
+      if (cargoKey === 'presidente') {
+        tse = candidatosTse.find((c) => (c.ds_cargo || '').toUpperCase() === 'PRESIDENTE' && String(c.nr_candidato) === num);
+      } else if (cargoKey === 'governador') {
+        tse = candidatosTse.find((c) => (c.ds_cargo || '').toUpperCase() === 'GOVERNADOR' && String(c.nr_candidato) === num && (c.sg_uf || '').toUpperCase() === uf.toUpperCase());
+      } else if (cargoKey === 'senador') {
+        tse = candidatosTse.find((c) => (c.ds_cargo || '').toUpperCase() === 'SENADOR' && String(c.nr_candidato) === num && (c.sg_uf || '').toUpperCase() === uf.toUpperCase());
+      } else if (cargoKey === 'dep_federal') {
+        tse = candidatosTse.find((c) => (c.ds_cargo || '').toUpperCase() === 'DEPUTADO FEDERAL' && String(c.nr_candidato) === num && (c.sg_uf || '').toUpperCase() === uf.toUpperCase());
+      } else if (cargoKey === 'dep_estadual') {
+        tse = candidatosTse.find((c) => ['DEPUTADO ESTADUAL', 'DEPUTADO DISTRITAL'].includes((c.ds_cargo || '').toUpperCase()) && String(c.nr_candidato) === num && (c.sg_uf || '').toUpperCase() === uf.toUpperCase());
       }
-    });
 
-    const listaPres: ItemRankeado[] = Object.keys(countPres).map((num) => {
-      const item = countPres[num];
-      const tse = item.tseMatch;
-      return {
-        id: `pres_${num}`,
-        numero: num,
-        nomeUrna: tse?.nm_urna_candidato || item.info.nome || `Presidente ${num}`,
-        partido: tse?.sg_partido || item.info.partido || '',
-        cargo: 'Presidente',
-        uf: 'BR',
-        sq_candidato: tse?.sq_candidato ? String(tse.sq_candidato) : undefined,
-        fotoUrl: tse?.foto_url || (tse?.sq_candidato ? `/candidatos/FBR${tse.sq_candidato}_div.jpg` : item.info.foto),
-        percentual: totalValidosPres > 0 ? (item.count / totalValidosPres) * 100 : 0,
-        posicao: 0,
-        votosContados: item.count,
-      };
-    });
-
-    listaPres.sort((a, b) => b.percentual - a.percentual || a.nomeUrna.localeCompare(b.nomeUrna));
-    listaPres.forEach((item, idx) => { item.posicao = idx + 1; });
-    dados.presidente = listaPres;
-
-    // 2. GOVERNADOR (Nível Estadual)
-    const votosGov = pesquisasUf.map((p) => ({
-      numero: p.governador_numero ? String(p.governador_numero).trim() : '',
-      nome: p.governador_nome,
-      partido: p.governador_partido,
-      foto: p.governador_foto,
-    })).filter((v) => v.numero && v.numero.toUpperCase() !== 'BRANCO' && v.numero.toUpperCase() !== 'NULO');
-
-    const countGov: Record<string, { count: number; info: any; tseMatch?: any }> = {};
-    let totalValidosGov = 0;
-
-    votosGov.forEach((v) => {
-      const tseMatch = candidatosTse.find(
-        (c) => (c.ds_cargo || '').toUpperCase() === 'GOVERNADOR' &&
-               String(c.nr_candidato) === v.numero &&
-               (c.sg_uf || '').toUpperCase() === ufSelecionada.toUpperCase()
-      );
-
-      if (tseMatch || (v.nome && !v.nome.toLowerCase().includes('não registrado') && !v.nome.toLowerCase().includes('nulo'))) {
-        if (!countGov[v.numero]) {
-          countGov[v.numero] = { count: 0, info: v, tseMatch };
-        }
-        countGov[v.numero].count += 1;
-        totalValidosGov += 1;
+      if (tse) {
+        return {
+          numero: num,
+          nomeUrna: tse.nm_urna_candidato || tse.nm_candidato,
+          partido: tse.sg_partido || tse.nm_partido || '',
+          cargo: tse.ds_cargo,
+          uf: tse.sg_uf || uf,
+          sq_candidato: tse.sq_candidato ? String(tse.sq_candidato) : undefined,
+          fotoUrl: tse.foto_url || (tse.sq_candidato ? `/candidatos/F${(tse.sg_uf || 'BR').toUpperCase()}${tse.sq_candidato}_div.jpg` : ''),
+        };
       }
-    });
 
-    const listaGov: ItemRankeado[] = Object.keys(countGov).map((num) => {
-      const item = countGov[num];
-      const tse = item.tseMatch;
-      return {
-        id: `gov_${num}`,
-        numero: num,
-        nomeUrna: tse?.nm_urna_candidato || item.info.nome || `Governador ${num}`,
-        partido: tse?.sg_partido || item.info.partido || '',
-        cargo: 'Governador(a)',
-        uf: ufSelecionada.toUpperCase(),
-        sq_candidato: tse?.sq_candidato ? String(tse.sq_candidato) : undefined,
-        fotoUrl: tse?.foto_url || (tse?.sq_candidato ? `/candidatos/F${ufSelecionada.toUpperCase()}${tse.sq_candidato}_div.jpg` : item.info.foto),
-        percentual: totalValidosGov > 0 ? (item.count / totalValidosGov) * 100 : 0,
-        posicao: 0,
-        votosContados: item.count,
-      };
-    });
-
-    listaGov.sort((a, b) => b.percentual - a.percentual || a.nomeUrna.localeCompare(b.nomeUrna));
-    listaGov.forEach((item, idx) => { item.posicao = idx + 1; });
-    dados.governador = listaGov;
-
-    // 3. SENADOR (Nível Estadual)
-    const votosSen1 = pesquisasUf.map((p) => ({ numero: p.senador1_numero ? String(p.senador1_numero).trim() : '', nome: p.senador1_nome, partido: p.senador1_partido, foto: p.senador1_foto })).filter((v) => v.numero && v.numero.toUpperCase() !== 'BRANCO' && v.numero.toUpperCase() !== 'NULO');
-    const votosSen2 = pesquisasUf.map((p) => ({ numero: p.senador2_numero ? String(p.senador2_numero).trim() : '', nome: p.senador2_nome, partido: p.senador2_partido, foto: p.senador2_foto })).filter((v) => v.numero && v.numero.toUpperCase() !== 'BRANCO' && v.numero.toUpperCase() !== 'NULO');
-    const totalRespondentesValidosSen = pesquisasUf.length || 1;
-
-    const countSen: Record<string, { count: number; info: any; tseMatch?: any }> = {};
-    [...votosSen1, ...votosSen2].forEach((v) => {
-      const tseMatch = candidatosTse.find(
-        (c) => (c.ds_cargo || '').toUpperCase() === 'SENADOR' &&
-               String(c.nr_candidato) === v.numero &&
-               (c.sg_uf || '').toUpperCase() === ufSelecionada.toUpperCase()
-      );
-
-      if (tseMatch || (v.nome && !v.nome.toLowerCase().includes('não registrado') && !v.nome.toLowerCase().includes('nulo'))) {
-        if (!countSen[v.numero]) {
-          countSen[v.numero] = { count: 0, info: v, tseMatch };
-        }
-        countSen[v.numero].count += 1;
+      // 2. Busca na base de campanhas cadastradas no sistema
+      const camp = campanhas.find((c) => String(c.nr_candidato) === num && (cargoKey === 'presidente' || (c.uf || '').toUpperCase() === uf.toUpperCase()));
+      if (camp) {
+        return {
+          numero: num,
+          nomeUrna: camp.nome_urna || camp.nome_candidato,
+          partido: camp.partido || '',
+          cargo: camp.cargo,
+          uf: camp.uf || uf,
+          fotoUrl: camp.foto_candidato_url || '',
+        };
       }
-    });
 
-    const listaSen: ItemRankeado[] = Object.keys(countSen).map((num) => {
-      const item = countSen[num];
-      const tse = item.tseMatch;
-      return {
-        id: `sen_${num}`,
-        numero: num,
-        nomeUrna: tse?.nm_urna_candidato || item.info.nome || `Senador ${num}`,
-        partido: tse?.sg_partido || item.info.partido || '',
-        cargo: 'Senador(a)',
-        uf: ufSelecionada.toUpperCase(),
-        sq_candidato: tse?.sq_candidato ? String(tse.sq_candidato) : undefined,
-        fotoUrl: tse?.foto_url || (tse?.sq_candidato ? `/candidatos/F${ufSelecionada.toUpperCase()}${tse.sq_candidato}_div.jpg` : item.info.foto),
-        percentual: totalRespondentesValidosSen > 0 ? (item.count / totalRespondentesValidosSen) * 100 : 0,
-        posicao: 0,
-        votosContados: item.count,
-      };
-    });
+      // NENHUMA correspondência oficial = Voto Nulo
+      return null;
+    };
 
-    listaSen.sort((a, b) => b.percentual - a.percentual || a.nomeUrna.localeCompare(b.nomeUrna));
-    listaSen.forEach((item, idx) => { item.posicao = idx + 1; });
-    dados.senador = listaSen;
+    const processarCargo = (
+      votosBrutos: { numero?: any; nome?: any }[],
+      cargoKey: 'presidente' | 'governador' | 'senador' | 'dep_federal' | 'dep_estadual',
+      cargoLabel: string,
+      ufAlvo: string
+    ) => {
+      let totalValidos = 0;
+      let totalNulos = 0;
+      let totalBrancos = 0;
+      const countCands: Record<string, { count: number; info: any }> = {};
 
-    // 4. DEP. FEDERAL (DEP. A) (Proporcional - 4 dígitos)
-    const votosFed = pesquisasUf.map((p) => ({
-      numero: p.dep_federal_numero ? String(p.dep_federal_numero).trim() : '',
-      nome: p.dep_federal_nome,
-      partido: p.dep_federal_partido,
-      foto: p.dep_federal_foto,
-    })).filter((v) => v.numero && v.numero.toUpperCase() !== 'BRANCO' && v.numero.toUpperCase() !== 'NULO');
+      votosBrutos.forEach((v) => {
+        const num = String(v.numero || '').trim();
+        const nomeStr = String(v.nome || '').toLowerCase();
 
-    const countFed: Record<string, { count: number; info: any; tseMatch?: any }> = {};
-    let totalValidosFed = 0;
-
-    votosFed.forEach((v) => {
-      // Validação: deve ter 4 dígitos ou constar no TSE de Deputado Federal
-      const tseMatch = candidatosTse.find(
-        (c) => (c.ds_cargo || '').toUpperCase() === 'DEPUTADO FEDERAL' &&
-               String(c.nr_candidato) === v.numero &&
-               (c.sg_uf || '').toUpperCase() === ufSelecionada.toUpperCase()
-      );
-
-      const isValidName = v.nome && !v.nome.toLowerCase().includes('não registrado') && !v.nome.toLowerCase().includes('candidato ') && !v.nome.toLowerCase().includes('voto nominal') && !v.nome.toLowerCase().includes('nulo');
-
-      if (tseMatch || isValidName || v.numero.length === 4) {
-        if (!countFed[v.numero]) {
-          countFed[v.numero] = { count: 0, info: v, tseMatch };
+        if (!num || num === 'NULO' || nomeStr.includes('voto nulo') || nomeStr.includes('não registrado')) {
+          totalNulos += 1;
+          return;
         }
-        countFed[v.numero].count += 1;
-        totalValidosFed += 1;
-      }
-    });
 
-    const listaFed: ItemRankeado[] = Object.keys(countFed).map((num) => {
-      const item = countFed[num];
-      const tse = item.tseMatch;
-      return {
-        id: `fed_${num}`,
-        numero: num,
-        nomeUrna: tse?.nm_urna_candidato || item.info.nome || `Deputado ${num}`,
-        partido: tse?.sg_partido || item.info.partido || '',
-        cargo: 'Dep. Federal (Dep. A)',
-        uf: ufSelecionada.toUpperCase(),
-        fotoUrl: tse?.foto_url || item.info.foto || resolverFotoCandidato({ numero: num, cargo: 'Deputado Federal', uf: ufSelecionada } as any, ufSelecionada),
-        percentual: totalValidosFed > 0 ? (item.count / totalValidosFed) * 100 : 0,
-        posicao: 0,
-        votosContados: item.count,
-      };
-    });
-
-    listaFed.sort((a, b) => b.percentual - a.percentual || a.nomeUrna.localeCompare(b.nomeUrna));
-    listaFed.forEach((item, idx) => { item.posicao = idx + 1; });
-    dados.dep_federal = listaFed;
-
-    // 5. DEPUTADO ESTADUAL (Proporcional - 5 dígitos)
-    const votosEst = pesquisasUf.map((p) => ({
-      numero: p.dep_estadual_numero ? String(p.dep_estadual_numero).trim() : '',
-      nome: p.dep_estadual_nome,
-      partido: p.dep_estadual_partido,
-      foto: p.dep_estadual_foto,
-    })).filter((v) => v.numero && v.numero.toUpperCase() !== 'BRANCO' && v.numero.toUpperCase() !== 'NULO');
-
-    const countEst: Record<string, { count: number; info: any; tseMatch?: any }> = {};
-    let totalValidosEst = 0;
-
-    votosEst.forEach((v) => {
-      // Validação estrita: candidatos a deputado estadual possuem 5 dígitos e constam no estado
-      const tseMatch = candidatosTse.find(
-        (c) => ['DEPUTADO ESTADUAL', 'DEPUTADO DISTRITAL'].includes((c.ds_cargo || '').toUpperCase()) &&
-               String(c.nr_candidato) === v.numero &&
-               (c.sg_uf || '').toUpperCase() === ufSelecionada.toUpperCase()
-      );
-
-      // Tratamento rigoroso: se número não pertence a nenhum candidato registrado do cargo (ex: 1301 que é de outro cargo ou inválido),
-      // não contabilizar como candidato no ranking
-      const isValidCandidate = tseMatch || (v.nome && !v.nome.toLowerCase().includes('candidato ') && !v.nome.toLowerCase().includes('não registrado') && !v.nome.toLowerCase().includes('voto nominal') && !v.nome.toLowerCase().includes('nulo') && v.numero.length === 5);
-
-      if (isValidCandidate) {
-        if (!countEst[v.numero]) {
-          countEst[v.numero] = { count: 0, info: v, tseMatch };
+        if (num === 'BRANCO' || nomeStr.includes('branco')) {
+          totalBrancos += 1;
+          return;
         }
-        countEst[v.numero].count += 1;
-        totalValidosEst += 1;
-      }
-    });
 
-    const listaEst: ItemRankeado[] = Object.keys(countEst).map((num) => {
-      const item = countEst[num];
-      const tse = item.tseMatch;
-      return {
-        id: `est_${num}`,
-        numero: num,
-        nomeUrna: tse?.nm_urna_candidato || item.info.nome || `Deputado ${num}`,
-        partido: tse?.sg_partido || item.info.partido || '',
-        cargo: 'Deputado Estadual',
-        uf: ufSelecionada.toUpperCase(),
-        fotoUrl: tse?.foto_url || item.info.foto || resolverFotoCandidato({ numero: num, cargo: 'Deputado Estadual', uf: ufSelecionada } as any, ufSelecionada),
-        percentual: totalValidosEst > 0 ? (item.count / totalValidosEst) * 100 : 0,
-        posicao: 0,
-        votosContados: item.count,
+        // Validação estrita contra a base oficial
+        const matchOficial = encontrarCandidatoOficial(num, cargoKey, ufAlvo);
+
+        if (matchOficial) {
+          if (!countCands[num]) {
+            countCands[num] = { count: 0, info: matchOficial };
+          }
+          countCands[num].count += 1;
+          totalValidos += 1;
+        } else {
+          // Voto com número inexistente ou legenda não cadastrada é REDIRECIONADO PARA NULO
+          totalNulos += 1;
+        }
+      });
+
+      const totalGeral = totalValidos + totalNulos + totalBrancos;
+
+      const itens: ItemRankeado[] = Object.keys(countCands).map((num) => {
+        const item = countCands[num];
+        const info = item.info;
+        const pctValidos = totalValidos > 0 ? (item.count / totalValidos) * 100 : 0;
+        const pctGeral = totalGeral > 0 ? (item.count / totalGeral) * 100 : 0;
+
+        return {
+          id: `${cargoKey}_${num}`,
+          numero: num,
+          nomeUrna: info.nomeUrna,
+          partido: info.partido,
+          cargo: cargoLabel,
+          uf: ufAlvo,
+          sq_candidato: info.sq_candidato,
+          fotoUrl: info.fotoUrl || resolverFotoCandidato({ numero: num, cargo: cargoLabel, uf: ufAlvo } as any, ufAlvo),
+          percentual: pctValidos,
+          percentualGeral: pctGeral,
+          posicao: 0,
+          votosContados: item.count,
+        };
+      });
+
+      itens.sort((a, b) => b.percentual - a.percentual || a.nomeUrna.localeCompare(b.nomeUrna));
+      itens.forEach((item, idx) => { item.posicao = idx + 1; });
+
+      const estatisticas: EstatisticasCargo = {
+        totalValidos,
+        totalNulos,
+        totalBrancos,
+        totalGeral,
+        pctValidos: totalGeral > 0 ? (totalValidos / totalGeral) * 100 : 0,
+        pctNulos: totalGeral > 0 ? (totalNulos / totalGeral) * 100 : 0,
+        pctBrancos: totalGeral > 0 ? (totalBrancos / totalGeral) * 100 : 0,
       };
-    });
 
-    listaEst.sort((a, b) => b.percentual - a.percentual || a.nomeUrna.localeCompare(b.nomeUrna));
-    listaEst.forEach((item, idx) => { item.posicao = idx + 1; });
-    dados.dep_estadual = listaEst;
+      return { itens, estatisticas };
+    };
 
-    return dados;
-  }, [pesquisasFiltradasAmostragem, candidatosTse, ufSelecionada]);
+    // 1. PRESIDENTE
+    const dadosPres = processarCargo(
+      basePesquisas.map((p) => ({ numero: p.presidente_numero, nome: p.presidente_nome })),
+      'presidente',
+      'Presidente',
+      'BR'
+    );
+
+    // 2. GOVERNADOR
+    const dadosGov = processarCargo(
+      pesquisasUf.map((p) => ({ numero: p.governador_numero, nome: p.governador_nome })),
+      'governador',
+      'Governador(a)',
+      ufSelecionada.toUpperCase()
+    );
+
+    // 3. SENADOR
+    const votosSen1 = pesquisasUf.map((p) => ({ numero: p.senador1_numero, nome: p.senador1_nome }));
+    const votosSen2 = pesquisasUf.map((p) => ({ numero: p.senador2_numero, nome: p.senador2_nome }));
+    const dadosSen = processarCargo(
+      [...votosSen1, ...votosSen2],
+      'senador',
+      'Senador(a)',
+      ufSelecionada.toUpperCase()
+    );
+
+    // 4. DEP. FEDERAL (DEP. A)
+    const dadosFed = processarCargo(
+      pesquisasUf.map((p) => ({ numero: p.dep_federal_numero, nome: p.dep_federal_nome })),
+      'dep_federal',
+      'Dep. Federal (Dep. A)',
+      ufSelecionada.toUpperCase()
+    );
+
+    // 5. DEPUTADO ESTADUAL
+    const dadosEst = processarCargo(
+      pesquisasUf.map((p) => ({ numero: p.dep_estadual_numero, nome: p.dep_estadual_nome })),
+      'dep_estadual',
+      'Deputado Estadual',
+      ufSelecionada.toUpperCase()
+    );
+
+    return {
+      ranking: {
+        presidente: dadosPres.itens,
+        governador: dadosGov.itens,
+        senador: dadosSen.itens,
+        dep_federal: dadosFed.itens,
+        dep_estadual: dadosEst.itens,
+      },
+      estatisticas: {
+        presidente: dadosPres.estatisticas,
+        governador: dadosGov.estatisticas,
+        senador: dadosSen.estatisticas,
+        dep_federal: dadosFed.estatisticas,
+        dep_estadual: dadosEst.estatisticas,
+      },
+    };
+  }, [pesquisasFiltradasAmostragem, candidatosTse, campanhas, ufSelecionada]);
+
+  const rankingConsolidado = dadosConsolidados.ranking;
+  const estatisticasPorCargo = dadosConsolidados.estatisticas;
 
   // Função para compartilhar o Card do Candidato no Instagram/WhatsApp
   const handleCompartilharCardCandidato = async (candidato: ItemRankeado) => {
@@ -388,9 +343,8 @@ export const PaginaResultadosPublicos: React.FC = () => {
         posicao: candidato.posicao,
       });
 
-      const texto = `📊 *${candidato.nomeUrna}* está com *${candidato.percentual.toFixed(1).replace('.', ',')}%* para ${candidato.cargo} na Enquete Eleitoral da plataforma Democracias!\n\nConfira os resultados e participe: https://chat.democracias.org`;
+      const texto = `📊 *${candidato.nomeUrna}* está com *${candidato.percentual.toFixed(1).replace('.', ',')}%* dos votos válidos para ${candidato.cargo} na Enquete Eleitoral da plataforma Democracias!\n\nConfira os resultados e participe: https://chat.democracias.org`;
 
-      // 1. Web Share nativo no celular (Instagram, WhatsApp, etc.)
       if (navigator.canShare && navigator.canShare({ files: [file] })) {
         try {
           await navigator.share({
@@ -400,12 +354,9 @@ export const PaginaResultadosPublicos: React.FC = () => {
           });
           toast.success('Card de resultado compartilhado!');
           return;
-        } catch {
-          // Fallback para download caso feche o menu
-        }
+        } catch {}
       }
 
-      // 2. Download do JPEG
       const link = document.createElement('a');
       link.href = dataUrl;
       link.download = `card_${candidato.cargo.toLowerCase().replace(/\s+/g, '_')}_${candidato.nomeUrna.toLowerCase().replace(/\s+/g, '_')}.jpg`;
@@ -413,7 +364,6 @@ export const PaginaResultadosPublicos: React.FC = () => {
       link.click();
       document.body.removeChild(link);
 
-      // 3. Cópia da imagem / texto
       if (navigator.clipboard && window.ClipboardItem) {
         try {
           const item = new ClipboardItem({ 'image/png': pngBlob });
@@ -448,57 +398,49 @@ export const PaginaResultadosPublicos: React.FC = () => {
       {/* CABEÇALHO SUPERIOR FIXO */}
       <header className="sticky top-0 z-40 border-b border-slate-800/80 bg-slate-950/90 backdrop-blur-md px-4 py-3 shadow-lg">
         <div className="max-w-5xl mx-auto flex items-center justify-between gap-3">
-          <div className="flex items-center gap-3">
-            {/* Logo Democracias em Badge Branca */}
-            <div className="flex items-center justify-center rounded-xl bg-white px-2.5 py-1 shadow-md border border-white/20">
-              <img
-                src="/democraciaslogo.png"
-                alt="Democracias"
-                className="h-6 w-auto object-contain"
-                onError={(e) => {
-                  (e.currentTarget as HTMLElement).style.display = 'none';
-                }}
-              />
+          <div className="flex items-center gap-2.5">
+            <div className="size-9 rounded-xl bg-orange-500/20 border border-orange-500/40 flex items-center justify-center text-orange-400 font-black shadow-inner">
+              <BarChart3 className="size-5" />
             </div>
-
             <div>
               <div className="flex items-center gap-2">
-                <span className="font-extrabold text-white text-base tracking-tight">Democracias</span>
-                <span className="rounded-full bg-gradient-to-r from-orange-500/20 to-amber-500/20 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-orange-400 border border-orange-500/30">
+                <h1 className="font-black text-sm sm:text-base tracking-tight text-white">
+                  Democracias
+                </h1>
+                <span className="text-[10px] font-extrabold uppercase tracking-wider px-2 py-0.5 rounded-full bg-orange-500 text-white shadow-sm">
                   Enquete Eleitoral
                 </span>
               </div>
-              <p className="text-[10px] text-slate-400">Inteligência & Mapeamento Eleitoral 2026</p>
+              <p className="text-[10px] text-slate-400 font-medium">
+                Inteligência & Mapeamento Eleitoral 2026
+              </p>
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
-            <a
-              href="/"
-              className="h-9 px-3.5 rounded-xl bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white text-xs font-black shadow-md flex items-center gap-1.5 transition-all active:scale-95"
-            >
-              <Vote className="size-3.5" />
-              <span className="hidden sm:inline">Participar da Enquete</span>
-              <span className="sm:hidden">Votar</span>
-            </a>
-          </div>
+          <a
+            href="/"
+            className="h-9 px-3.5 rounded-xl bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white font-bold text-xs flex items-center gap-1.5 shadow-md transition-all active:scale-95 cursor-pointer shrink-0"
+          >
+            <Vote className="size-3.5" />
+            <span>Participar da Enquete</span>
+          </a>
         </div>
       </header>
 
-      {/* CONTAINER PRINCIPAL */}
+      {/* CONTEÚDO PRINCIPAL */}
       <main className="max-w-5xl mx-auto px-4 pt-6 space-y-6">
-        {/* BANNER DE BOAS-VINDAS, FILTRO GERAL / VOTO ÚNICO E SELETOR DE ESTADO */}
-        <div className="rounded-3xl border border-orange-500/30 bg-gradient-to-b from-orange-500/10 via-slate-900/90 to-slate-950 p-5 sm:p-7 shadow-2xl space-y-5">
+        {/* BANNER DE BOAS-VINDAS E CONTROLES */}
+        <div className="rounded-3xl bg-gradient-to-b from-slate-900 via-slate-900/90 to-slate-950 border border-slate-800/80 p-5 sm:p-7 shadow-xl space-y-4">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div className="space-y-1">
-              <span className="text-xs font-black text-orange-400 uppercase tracking-wider flex items-center gap-1.5 font-mono">
-                <TrendingUp className="size-4 text-orange-400" /> Eleições Gerais 2026
-              </span>
-              <h1 className="text-2xl sm:text-3xl font-black text-white tracking-tight">
-                Resultado da Enquete Eleitoral
-              </h1>
+              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-orange-500/10 border border-orange-500/30 text-orange-400 text-xs font-bold mb-1">
+                <TrendingUp className="size-3.5" /> Resultados em Tempo Real
+              </div>
+              <h2 className="text-xl sm:text-2xl md:text-3xl font-black text-white tracking-tight">
+                Panorama da Enquete Eleitoral 2026
+              </h2>
               <p className="text-xs sm:text-sm text-slate-300">
-                Acompanhe a preferência de votos dos eleitores consolidados em percentual (%).
+                Acompanhe a preferência de votos nominais válidos consolidados em percentual (%).
               </p>
             </div>
 
@@ -564,7 +506,7 @@ export const PaginaResultadosPublicos: React.FC = () => {
                 </span>
               ) : (
                 <span className="text-slate-300 font-medium text-xs">
-                  Amostra independente regional • Resultados consolidados exclusivamente em percentual (%) {tipoAmostragem === 'voto_unico' ? '• Filtro: Voto Único' : '• Filtro: Geral'}
+                  Amostra regional oficial com validação estrita • Votos nominais válidos e tratamento transparente de nulos
                 </span>
               )}
             </div>
@@ -617,17 +559,18 @@ export const PaginaResultadosPublicos: React.FC = () => {
         {carregando ? (
           <div className="py-20 flex flex-col items-center justify-center gap-3 text-slate-400">
             <Loader2 className="size-8 animate-spin text-orange-500" />
-            <p className="text-sm font-bold">Consolidando dados da enquete...</p>
+            <p className="text-sm font-bold">Consolidando dados oficiais da enquete...</p>
           </div>
         ) : (
           <div className="space-y-8">
-            {/* MODO 1: PANORAMA GERAL (CARGOS COM CANDIDATOS VÁLIDOS) */}
+            {/* MODO 1: PANORAMA GERAL (CARGOS COM CANDIDATOS OFICIAIS VÁLIDOS) */}
             {modo === 'panorama' && (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {secoesCargo.map((sec) => {
                   const listaCompleta = rankingConsolidado[sec.key] || [];
                   const listaComVotos = listaCompleta.filter((c) => c.votosContados > 0);
                   const top3 = listaComVotos.slice(0, 3);
+                  const stats = estatisticasPorCargo[sec.key];
 
                   return (
                     <div
@@ -658,7 +601,7 @@ export const PaginaResultadosPublicos: React.FC = () => {
 
                         {top3.length === 0 ? (
                           <div className="py-8 text-center bg-slate-950/60 rounded-2xl border border-slate-800/80 p-4">
-                            <p className="text-xs text-slate-400">Nenhum voto registrado para candidato oficial neste estado.</p>
+                            <p className="text-xs text-slate-400">Nenhum voto nominal registrado para candidatos oficiais neste estado.</p>
                             <a
                               href="/"
                               className="inline-flex items-center gap-1 text-xs font-bold text-orange-400 hover:underline mt-2"
@@ -680,21 +623,37 @@ export const PaginaResultadosPublicos: React.FC = () => {
                         )}
                       </div>
 
-                      {top3.length > 0 && (
-                        <div className="pt-3 border-t border-slate-800/80">
+                      {/* BARRA DE TRANSPARÊNCIA ELEITORAL: VOTOS VÁLIDOS, NULOS E BRANCOS */}
+                      <div className="pt-3 border-t border-slate-800/80 space-y-2">
+                        <div className="grid grid-cols-3 gap-1.5 p-2 rounded-xl bg-slate-950/80 border border-slate-800 text-[10px] font-mono font-bold text-center">
+                          <div className="text-emerald-400">
+                            <span className="text-slate-400 block text-[9px]">Válidos</span>
+                            {stats.pctValidos.toFixed(1).replace('.', ',')}%
+                          </div>
+                          <div className="text-rose-400">
+                            <span className="text-slate-400 block text-[9px]">Nulos</span>
+                            {stats.pctNulos.toFixed(1).replace('.', ',')}%
+                          </div>
+                          <div className="text-slate-300">
+                            <span className="text-slate-400 block text-[9px]">Brancos</span>
+                            {stats.pctBrancos.toFixed(1).replace('.', ',')}%
+                          </div>
+                        </div>
+
+                        {top3.length > 0 && (
                           <button
                             type="button"
                             onClick={() => {
                               setModo('detalhado');
                               setCargoSelecionado(sec.key as CargoFiltro);
                             }}
-                            className="w-full h-10 rounded-xl bg-slate-800/90 hover:bg-slate-700/90 text-xs font-black text-slate-200 flex items-center justify-center gap-1.5 transition-all cursor-pointer"
+                            className="w-full h-9 rounded-xl bg-slate-800/90 hover:bg-slate-700/90 text-xs font-black text-slate-200 flex items-center justify-center gap-1.5 transition-all cursor-pointer"
                           >
                             <span>Ver Detalhes do Cargo</span>
                             <ChevronRight className="size-3.5 text-orange-400" />
                           </button>
-                        </div>
-                      )}
+                        )}
+                      </div>
                     </div>
                   );
                 })}
@@ -720,7 +679,7 @@ export const PaginaResultadosPublicos: React.FC = () => {
                         {secoesCargo.find((s) => s.key === cargoSelecionado)?.titulo}
                       </h2>
                       <p className="text-xs text-slate-400">
-                        Listagem completa de candidatos oficiais que pontuaram na enquete
+                        Listagem completa de candidatos oficiais nominais validados
                       </p>
                     </div>
                   </div>
@@ -729,6 +688,44 @@ export const PaginaResultadosPublicos: React.FC = () => {
                     📍 {ufSelecionada} • 2026
                   </span>
                 </div>
+
+                {/* MÉTRICAS COMPLETAS DO CARGO */}
+                {(() => {
+                  const stats = estatisticasPorCargo[cargoSelecionado as keyof typeof estatisticasPorCargo];
+                  return (
+                    <div className="grid grid-cols-3 gap-3">
+                      <div className="p-3.5 rounded-2xl bg-slate-950/80 border border-slate-800 text-center">
+                        <span className="text-[11px] font-bold text-emerald-400 flex items-center justify-center gap-1">
+                          <CheckCircle2 className="size-3" /> Votos Válidos
+                        </span>
+                        <p className="font-mono text-xl font-black text-white mt-1">
+                          {stats?.pctValidos.toFixed(1).replace('.', ',')}%
+                        </p>
+                        <span className="text-[10px] text-slate-500">{stats?.totalValidos} votos</span>
+                      </div>
+
+                      <div className="p-3.5 rounded-2xl bg-slate-950/80 border border-slate-800 text-center">
+                        <span className="text-[11px] font-bold text-rose-400 flex items-center justify-center gap-1">
+                          <Ban className="size-3" /> Votos Nulos
+                        </span>
+                        <p className="font-mono text-xl font-black text-rose-400 mt-1">
+                          {stats?.pctNulos.toFixed(1).replace('.', ',')}%
+                        </p>
+                        <span className="text-[10px] text-slate-500">{stats?.totalNulos} votos</span>
+                      </div>
+
+                      <div className="p-3.5 rounded-2xl bg-slate-950/80 border border-slate-800 text-center">
+                        <span className="text-[11px] font-bold text-slate-300 flex items-center justify-center gap-1">
+                          <CircleDot className="size-3" /> Em Branco
+                        </span>
+                        <p className="font-mono text-xl font-black text-slate-300 mt-1">
+                          {stats?.pctBrancos.toFixed(1).replace('.', ',')}%
+                        </p>
+                        <span className="text-[10px] text-slate-500">{stats?.totalBrancos} votos</span>
+                      </div>
+                    </div>
+                  );
+                })()}
 
                 {/* LISTAGEM DETALHADA */}
                 {(() => {
@@ -739,9 +736,9 @@ export const PaginaResultadosPublicos: React.FC = () => {
                     return (
                       <div className="py-16 text-center bg-slate-950/60 rounded-3xl border border-slate-800 p-6 space-y-3">
                         <Vote className="size-10 text-slate-600 mx-auto" />
-                        <h3 className="text-base font-black text-white">Nenhum voto registrado para este cargo</h3>
+                        <h3 className="text-base font-black text-white">Nenhum voto registrado para candidatos oficiais</h3>
                         <p className="text-xs text-slate-400 max-w-md mx-auto">
-                          Ainda não foram computados votos para esta modalidade no estado selecionado. Participe e convide amigos para compor a amostragem!
+                          Ainda não foram computados votos nominais válidos para esta modalidade no estado selecionado.
                         </p>
                         <a
                           href="/"
@@ -759,7 +756,6 @@ export const PaginaResultadosPublicos: React.FC = () => {
                         <CardCandidatoLinha
                           key={cand.id}
                           candidato={cand}
-                          modoDetalhado
                           gerandoCardId={gerandoCardId}
                           onCompartilhar={() => handleCompartilharCardCandidato(cand)}
                         />
@@ -776,27 +772,24 @@ export const PaginaResultadosPublicos: React.FC = () => {
   );
 };
 
-// COMPONENTE DO CARD DE LINHA DO CANDIDATO TOTALMENTE RESPONSIVO E COM ALINHAMENTO IMPECÁVEL
+// Componente de Linha de Candidato do Ranking Oficial
 const CardCandidatoLinha: React.FC<{
   candidato: ItemRankeado;
-  modoDetalhado?: boolean;
-  gerandoCardId?: string | null;
+  gerandoCardId: string | null;
   onCompartilhar: () => void;
-}> = ({ candidato, modoDetalhado, gerandoCardId, onCompartilhar }) => {
-  const isTop1 = candidato.posicao === 1;
+}> = ({ candidato, gerandoCardId, onCompartilhar }) => {
   const gerandoEste = gerandoCardId === candidato.id;
+  const isTop1 = candidato.posicao === 1;
 
   return (
-    <div className="p-3.5 sm:p-4 rounded-2xl bg-white text-slate-900 border border-slate-100 shadow-md hover:shadow-lg transition-all space-y-3 w-full min-w-0 overflow-hidden">
-      {/* BLOCO PRINCIPAL FLEXÍVEL (COLUNA NO MOBILE, LINHA NO DESKTOP SE NECESSÁRIO) */}
+    <div className="rounded-2xl bg-white border border-slate-200/90 p-3 sm:p-4 shadow-sm space-y-3 transition-all hover:border-orange-500/50 hover:shadow-md">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 min-w-0">
-        {/* LADO ESQUERDO: POSIÇÃO + FOTO + DADOS DO CANDIDATO */}
         <div className="flex items-center gap-3 min-w-0 flex-1">
           {/* POSIÇÃO */}
           <div
-            className={`size-8 shrink-0 rounded-full font-black text-xs flex items-center justify-center shadow-sm ${
+            className={`size-8 sm:size-9 rounded-full flex items-center justify-center font-black text-xs sm:text-sm font-mono shrink-0 shadow-sm ${
               isTop1
-                ? 'bg-amber-400 text-amber-950 font-black ring-2 ring-amber-300'
+                ? 'bg-amber-400 text-slate-950 ring-2 ring-amber-300'
                 : candidato.posicao <= 3
                 ? 'bg-slate-200 text-slate-800'
                 : 'bg-slate-100 text-slate-600'
@@ -862,7 +855,7 @@ const CardCandidatoLinha: React.FC<{
         <div className="flex items-center justify-between sm:justify-end gap-3 pt-1 sm:pt-0 border-t sm:border-t-0 border-slate-100 shrink-0">
           {/* PERCENTUAL EM DESTAQUE */}
           <div className="text-left sm:text-right">
-            <span className="text-[10px] font-bold text-slate-400 block sm:hidden">Preferência</span>
+            <span className="text-[10px] font-bold text-slate-400 block sm:hidden">Votos Válidos</span>
             <span className="font-mono font-black text-lg sm:text-xl text-orange-600">
               {candidato.percentual.toFixed(1).replace('.', ',')}%
             </span>

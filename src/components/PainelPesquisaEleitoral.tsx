@@ -52,6 +52,7 @@ interface CandidatoOpcao {
 export const PainelPesquisaEleitoral: React.FC = () => {
   const [pesquisas, setPesquisas] = useState<any[]>([]);
   const [candidatosTse, setCandidatosTse] = useState<any[]>([]);
+  const [campanhas, setCampanhas] = useState<any[]>([]);
   const [carregando, setCarregando] = useState(true);
 
   const [amostragem, setAmostragem] = useState<AmostragemModo>('geral');
@@ -60,7 +61,7 @@ export const PainelPesquisaEleitoral: React.FC = () => {
   const [ufFiltroMapa, setUfFiltroMapa] = useState<string | null>(null);
   const [buscaTexto, setBuscaTexto] = useState('');
 
-  // Carregar dados de pesquisas_chat e candidatos
+  // Carregar dados de pesquisas_chat, candidatos TSE e campanhas
   const carregarDados = async () => {
     setCarregando(true);
     try {
@@ -76,6 +77,12 @@ export const PainelPesquisaEleitoral: React.FC = () => {
         .select('*');
 
       setCandidatosTse(dataTse || []);
+
+      const { data: dataCamp } = await supabase
+        .from('campaigns')
+        .select('*');
+
+      setCampanhas(dataCamp || []);
     } catch (e) {
       console.error('Erro ao carregar dados de pesquisa:', e);
     } finally {
@@ -139,23 +146,25 @@ export const PainelPesquisaEleitoral: React.FC = () => {
         tseMatch = candidatosTse.find((c) => ['DEPUTADO ESTADUAL', 'DEPUTADO DISTRITAL'].includes((c.ds_cargo || '').toUpperCase()) && String(c.nr_candidato) === numLimpo && (c.sg_uf || '').toUpperCase() === ufPesquisa.toUpperCase());
       }
 
-      // Validação estrita: se não for oficial nem tiver nome válido correspondente, descarta
-      const isValid = tseMatch || (nome && !nome.toLowerCase().includes('não registrado') && !nome.toLowerCase().includes('nulo') && !nome.toLowerCase().includes('candidato '));
-      if (!isValid) return;
+      // Validação na base de campanhas
+      const campMatch = campanhas.find((c) => String(c.nr_candidato) === numLimpo && (cargoKey === 'presidente' || (c.uf || '').toUpperCase() === ufPesquisa.toUpperCase()));
 
-      const candUf = cargoKey === 'presidente' ? 'BR' : (tseMatch?.sg_uf || ufPesquisa).toUpperCase();
+      // Validação estrita: se não for oficial do TSE nem campanha registrada, descarta (trata como nulo)
+      if (!tseMatch && !campMatch) return;
+
+      const candUf = cargoKey === 'presidente' ? 'BR' : (tseMatch?.sg_uf || campMatch?.uf || ufPesquisa).toUpperCase();
       const chave = `${cargoKey}_${candUf}_${numLimpo}`;
 
       if (!mapaCands.has(chave)) {
         mapaCands.set(chave, {
           id: chave,
           numero: numLimpo,
-          nomeUrna: tseMatch?.nm_urna_candidato || nome || `Candidato ${numLimpo}`,
-          partido: tseMatch?.sg_partido || partido || '',
+          nomeUrna: tseMatch?.nm_urna_candidato || campMatch?.nome_urna || campMatch?.nome_candidato || nome,
+          partido: tseMatch?.sg_partido || campMatch?.partido || partido || '',
           cargo: cargoLabel,
           cargoKey,
           uf: candUf,
-          fotoUrl: tseMatch?.foto_url || (tseMatch?.sq_candidato ? `/candidatos/F${candUf}${tseMatch.sq_candidato}_div.jpg` : foto),
+          fotoUrl: tseMatch?.foto_url || campMatch?.foto_candidato_url || (tseMatch?.sq_candidato ? `/candidatos/F${candUf}${tseMatch.sq_candidato}_div.jpg` : foto),
           totalVotos: 0,
         });
       }
@@ -177,7 +186,7 @@ export const PainelPesquisaEleitoral: React.FC = () => {
     const lista = Array.from(mapaCands.values());
     lista.sort((a, b) => b.totalVotos - a.totalVotos || a.nomeUrna.localeCompare(b.nomeUrna));
     return lista;
-  }, [pesquisasFiltradas, candidatosTse]);
+  }, [pesquisasFiltradas, candidatosTse, campanhas]);
 
   // Candidatos filtrados por busca e cargo
   const candidatosFiltradosSelect = useMemo(() => {
