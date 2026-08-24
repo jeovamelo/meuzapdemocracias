@@ -16,7 +16,7 @@ import {
 } from 'lucide-react';
 import { Toaster, toast } from 'sonner';
 import { supabase } from './lib/supabase';
-import { formatarCpf } from './lib/cep';
+import { formatarCpf, validarCpf } from './lib/cep';
 import { getHoraAtual } from './lib/date';
 import type { Candidato, EtapaChat, Mensagem, RespostaUsuario, CargoEtapa } from './types';
 import { ChatHeader } from './components/ChatHeader';
@@ -321,7 +321,16 @@ export function App() {
     }
 
     if (etapa === 'cpf') {
-      const cpfFormatado = formatarCpf(textoLimpo);
+      if (textoLimpo) {
+        const cpfValido = validarCpf(textoLimpo);
+        if (!cpfValido) {
+          toast.error('CPF inválido! Verifique os dígitos ou clique em "Prefiro não informar".');
+          await adicionarMensagemBot('⚠️ O CPF digitado é inválido. Por favor, confira os 11 dígitos ou clique em "Prefiro não informar CPF" para avançar:');
+          return;
+        }
+      }
+
+      const cpfFormatado = textoLimpo ? formatarCpf(textoLimpo) : '';
       const userMsg: Mensagem = {
         id: Math.random().toString(36).substring(2, 9),
         remetente: 'user',
