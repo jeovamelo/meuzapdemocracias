@@ -636,10 +636,22 @@ export function App() {
       },
     }));
 
+    const isNuloOuBranco =
+      candidatoTemp.isBrancoNulo ||
+      candidatoTemp.partido === 'NÃO REGISTRADO' ||
+      candidatoTemp.numero === 'BRANCO' ||
+      candidatoTemp.numero === 'NULO';
+
+    const textoConfirmacao = isNuloOuBranco
+      ? candidatoTemp.numero === 'BRANCO'
+        ? `⚪ Voto em Branco registrado`
+        : `🚫 Voto NULO registrado (Nº ${candidatoTemp.numero})`
+      : `✅ Voto confirmado: ${candidatoTemp.nomeUrna} (${candidatoTemp.numero})`;
+
     const userMsg: Mensagem = {
       id: Math.random().toString(36).substring(2, 9),
       remetente: 'user',
-      conteudo: `✅ Voto confirmado: ${candidatoTemp.nomeUrna} (${candidatoTemp.numero})`,
+      conteudo: textoConfirmacao,
       timestamp: getHoraAtual(),
     };
     setMensagens((prev) => [...prev, userMsg]);
