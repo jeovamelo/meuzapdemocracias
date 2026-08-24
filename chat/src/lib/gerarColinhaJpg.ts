@@ -11,7 +11,7 @@ function carregarImagem(url?: string): Promise<HTMLImageElement | null> {
   });
 }
 
-export async function gerarColinhaJpg(respostas: RespostaUsuario): Promise<{ blob: Blob; file: File; dataUrl: string }> {
+export async function gerarColinhaJpg(respostas: RespostaUsuario): Promise<{ blob: Blob; pngBlob: Blob; file: File; dataUrl: string }> {
   const { votos, uf, municipio, bairro } = respostas;
 
   const itens: { cargo: string; cand?: Candidato | null; digitos: string; ordem: string }[] = [
@@ -259,17 +259,24 @@ export async function gerarColinhaJpg(respostas: RespostaUsuario): Promise<{ blo
   ctx.font = '900 26px monospace';
   ctx.fillText('🔗 https://chat.democracias.org', width / 2, footerY + 84);
 
-  // 5. Gerar arquivo JPG de alta qualidade
+  // 5. Gerar arquivos de imagem (JPEG para download/share e PNG para Clipboard API)
   return new Promise((resolve, reject) => {
     canvas.toBlob(
-      (blob) => {
-        if (!blob) {
+      (jpegBlob) => {
+        if (!jpegBlob) {
           reject(new Error('Erro ao converter imagem da colinha'));
           return;
         }
-        const file = new File([blob], 'minha_colinha_eleitoral_2026.jpg', { type: 'image/jpeg' });
-        const dataUrl = canvas.toDataURL('image/jpeg', 0.95);
-        resolve({ blob, file, dataUrl });
+
+        canvas.toBlob(
+          (pngBlob) => {
+            const finalPngBlob = pngBlob || jpegBlob;
+            const file = new File([jpegBlob], 'minha_colinha_eleitoral_2026.jpg', { type: 'image/jpeg' });
+            const dataUrl = canvas.toDataURL('image/jpeg', 0.95);
+            resolve({ blob: jpegBlob, pngBlob: finalPngBlob, file, dataUrl });
+          },
+          'image/png'
+        );
       },
       'image/jpeg',
       0.95

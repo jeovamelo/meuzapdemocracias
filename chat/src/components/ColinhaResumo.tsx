@@ -40,15 +40,32 @@ export const ColinhaResumo: React.FC<Props> = ({ respostas, onResponderNovamente
   const handleCopiarEGerarImagem = async () => {
     setGerandoJpg(true);
     try {
-      // 1. Copiar texto formatado com link para a área de transferência
-      await navigator.clipboard.writeText(textoCompartilhamento);
+      // 1. Gerar imagem JPEG/PNG vertical de alta qualidade com fotos
+      const { pngBlob, file, dataUrl } = await gerarColinhaJpg(respostas);
+
+      // 2. Tentar copiar imagem diretamente para a área de transferência (Ctrl + V cola a imagem)
+      let copiouImagemNoClipboard = false;
+      if (navigator.clipboard && window.ClipboardItem) {
+        try {
+          const clipboardItem = new ClipboardItem({ 'image/png': pngBlob });
+          await navigator.clipboard.write([clipboardItem]);
+          copiouImagemNoClipboard = true;
+        } catch {
+          // Fallback para texto caso o navegador restrinja cópia direta de bitmap
+          try {
+            await navigator.clipboard.writeText(textoCompartilhamento);
+          } catch {}
+        }
+      } else {
+        try {
+          await navigator.clipboard.writeText(textoCompartilhamento);
+        } catch {}
+      }
+
       setCopiado(true);
       setTimeout(() => setCopiado(false), 4000);
 
-      // 2. Gerar imagem JPEG vertical de alta qualidade com fotos
-      const { file, dataUrl } = await gerarColinhaJpg(respostas);
-
-      // 3. Se suportar compartilhamento nativo de imagem em dispositivos móveis
+      // 3. Se suportar compartilhamento nativo de imagem em dispositivos móveis (WhatsApp, Instagram, etc.)
       if (navigator.canShare && navigator.canShare({ files: [file] })) {
         try {
           await navigator.share({
@@ -56,10 +73,10 @@ export const ColinhaResumo: React.FC<Props> = ({ respostas, onResponderNovamente
             text: textoCompartilhamento,
             files: [file],
           });
-          toast.success('Colinha em JPEG pronta para compartilhar!');
+          toast.success('Colinha pronta para compartilhar!');
           return;
         } catch {
-          // Fallback para download se o usuário fechar o menu nativo
+          // Fallback para download caso o usuário cancele o modal nativo
         }
       }
 
@@ -71,10 +88,19 @@ export const ColinhaResumo: React.FC<Props> = ({ respostas, onResponderNovamente
       link.click();
       document.body.removeChild(link);
 
-      toast.success('Imagem JPEG gerada e texto copiado com o link!');
+      if (copiouImagemNoClipboard) {
+        toast.success('Imagem copiada para a área de transferência e baixada em JPEG!');
+      } else {
+        toast.success('Imagem JPEG baixada e texto com link copiado!');
+      }
     } catch (err) {
       console.error('Erro ao gerar colinha:', err);
-      toast.info('Texto da colinha copiado para a área de transferência!');
+      try {
+        await navigator.clipboard.writeText(textoCompartilhamento);
+        toast.info('Texto da colinha copiado para a área de transferência!');
+      } catch {
+        toast.error('Erro ao processar colinha.');
+      }
     } finally {
       setGerandoJpg(false);
     }
