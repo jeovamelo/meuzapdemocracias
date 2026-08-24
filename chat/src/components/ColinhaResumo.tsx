@@ -23,12 +23,12 @@ export const ColinhaResumo: React.FC<Props> = ({ respostas, onResponderNovamente
   const textoCompartilhamento = `🗳️ *MINHA ESCOLHA ELEITORAL 2026 — DEMOCRACIAS*\n\n` +
     `📍 *Local:* ${municipio}/${uf} (${bairro})\n\n` +
     `📋 *Votos Declarados (Ordem da Urna):*\n` +
-    `1️⃣ *Dep. Federal:* ${votos.deputado_federal?.numero || '—'} - ${votos.deputado_federal?.nomeUrna || '—'}\n` +
-    `2️⃣ *Dep. Estadual:* ${votos.deputado_estadual?.numero || '—'} - ${votos.deputado_estadual?.nomeUrna || '—'}\n` +
-    `3️⃣ *1º Senador:* ${votos.senador_1?.numero || '—'} - ${votos.senador_1?.nomeUrna || '—'}\n` +
-    `4️⃣ *2º Senador:* ${votos.senador_2?.numero || '—'} - ${votos.senador_2?.nomeUrna || '—'}\n` +
-    `5️⃣ *Governador:* ${votos.governador?.numero || '—'} - ${votos.governador?.nomeUrna || '—'}\n` +
-    `6️⃣ *Presidente:* ${votos.presidente?.numero || '—'} - ${votos.presidente?.nomeUrna || '—'}\n\n` +
+    `1️⃣ *Dep. Federal:* ${votos.deputado_federal?.numero || '—'} - ${votos.deputado_federal?.nomeUrna || '—'} ${votos.deputado_federal?.partido ? `(${votos.deputado_federal.partido})` : ''}\n` +
+    `2️⃣ *Dep. Estadual:* ${votos.deputado_estadual?.numero || '—'} - ${votos.deputado_estadual?.nomeUrna || '—'} ${votos.deputado_estadual?.partido ? `(${votos.deputado_estadual.partido})` : ''}\n` +
+    `3️⃣ *1º Senador:* ${votos.senador_1?.numero || '—'} - ${votos.senador_1?.nomeUrna || '—'} ${votos.senador_1?.partido ? `(${votos.senador_1.partido})` : ''}\n` +
+    `4️⃣ *2º Senador:* ${votos.senador_2?.numero || '—'} - ${votos.senador_2?.nomeUrna || '—'} ${votos.senador_2?.partido ? `(${votos.senador_2.partido})` : ''}\n` +
+    `5️⃣ *Governador:* ${votos.governador?.numero || '—'} - ${votos.governador?.nomeUrna || '—'} ${votos.governador?.partido ? `(${votos.governador.partido})` : ''}\n` +
+    `6️⃣ *Presidente:* ${votos.presidente?.numero || '—'} - ${votos.presidente?.nomeUrna || '—'} ${votos.presidente?.partido ? `(${votos.presidente.partido})` : ''}\n\n` +
     `Participe você também da pesquisa oficial: https://chat.democracias.org`;
 
   const linkWhatsapp = `https://api.whatsapp.com/send?text=${encodeURIComponent(textoCompartilhamento)}`;
@@ -68,12 +68,17 @@ export const ColinhaResumo: React.FC<Props> = ({ respostas, onResponderNovamente
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
           {itensColinha.map(({ cargo, cand }) => (
-            <div key={cargo} className="flex items-center justify-between p-2 rounded-xl bg-slate-900/90 border border-slate-800/80">
-              <div>
-                <p className="text-[10px] font-bold text-slate-400 uppercase">{cargo}</p>
-                <p className="font-bold text-white truncate max-w-[140px]">{cand?.nomeUrna || 'Não Informado'}</p>
+            <div key={cargo} className="flex items-center justify-between p-2.5 rounded-xl bg-slate-900/90 border border-slate-800/80">
+              <div className="min-w-0 flex-1 pr-2">
+                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">{cargo}</p>
+                <p className="font-bold text-white truncate text-xs">{cand?.nomeUrna || 'Não Informado'}</p>
+                {cand?.partido && (
+                  <span className="inline-block text-[9px] font-mono font-bold text-orange-400/90 uppercase mt-0.5">
+                    {cand.partido}
+                  </span>
+                )}
               </div>
-              <span className="font-mono font-black text-xs px-2 py-0.5 rounded-md bg-orange-500/10 text-orange-400 border border-orange-500/30">
+              <span className="font-mono font-black text-xs px-2.5 py-1 rounded-lg bg-orange-500/10 text-orange-400 border border-orange-500/30 shrink-0">
                 {cand?.numero || '—'}
               </span>
             </div>

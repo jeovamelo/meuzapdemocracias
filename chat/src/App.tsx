@@ -16,7 +16,7 @@ import {
 } from 'lucide-react';
 import { Toaster, toast } from 'sonner';
 import { supabase } from './lib/supabase';
-import { formatarCpf, validarCpf } from './lib/cep';
+import { formatarCpf, validarCpf, formatarWhatsapp } from './lib/cep';
 import { getHoraAtual } from './lib/date';
 import type { Candidato, EtapaChat, Mensagem, RespostaUsuario, CargoEtapa } from './types';
 import { ChatHeader } from './components/ChatHeader';
@@ -44,6 +44,7 @@ export function App() {
   const [respostas, setRespostas] = useState<RespostaUsuario>({
     nome: '',
     cpf: '',
+    whatsapp: '',
     uf: 'CE',
     municipio: '',
     bairro: '',
@@ -330,7 +331,7 @@ export function App() {
         const cpfValido = validarCpf(textoLimpo);
         if (!cpfValido) {
           toast.error('CPF inválido! Verifique os 11 dígitos ou avance como expectativa.');
-          await adicionarMensagemBot('⚠️ O CPF digitado é inválido. Por favor, confira os 11 dígitos para evitar duplicidade ou clique no botão abaixo para avançar apenas como expectativa:');
+          await adicionarMensagemBot('⚠️ O CPF digitado é inválido. Por favor, confira os 11 dígitos para certificar seu voto ou clique no botão abaixo para avançar sem CPF:');
           return;
         }
       }
@@ -339,13 +340,30 @@ export function App() {
       const userMsg: Mensagem = {
         id: Math.random().toString(36).substring(2, 9),
         remetente: 'user',
-        conteudo: cpfFormatado || 'Prefiro não informar',
+        conteudo: cpfFormatado ? `CPF: ${cpfFormatado}` : 'Prefiro não informar',
         timestamp: getHoraAtual(),
       };
       setMensagens((prev) => [...prev, userMsg]);
       setInputText('');
 
       setRespostas((prev) => ({ ...prev, cpf: cpfFormatado }));
+      await adicionarMensagemBot('📱 Se desejar receber pesquisas e atualizações eleitorais da sua região, informe o seu WhatsApp com DDD (Opcional — clique em Avançar se preferir não informar):');
+      setEtapa('whatsapp');
+      return;
+    }
+
+    if (etapa === 'whatsapp') {
+      const zapFormatado = textoLimpo ? formatarWhatsapp(textoLimpo) : '';
+      const userMsg: Mensagem = {
+        id: Math.random().toString(36).substring(2, 9),
+        remetente: 'user',
+        conteudo: zapFormatado ? `WhatsApp: ${zapFormatado}` : 'Prefiro não informar',
+        timestamp: getHoraAtual(),
+      };
+      setMensagens((prev) => [...prev, userMsg]);
+      setInputText('');
+
+      setRespostas((prev) => ({ ...prev, whatsapp: zapFormatado }));
       await adicionarMensagemBot('Em qual Estado (UF) você vota ou reside atualmente?');
       setEtapa('uf');
       return;
@@ -478,6 +496,21 @@ export function App() {
 
     setRespostas((prev) => ({ ...prev, cpf: '' }));
     await adicionarMensagemBot('Tudo bem! Vamos continuar.');
+    await adicionarMensagemBot('📱 Se desejar receber pesquisas e atualizações eleitorais da sua região, informe o seu WhatsApp com DDD (Opcional — clique em Avançar se preferir não informar):');
+    setEtapa('whatsapp');
+  };
+
+  // Pular WhatsApp
+  const handlePularWhatsapp = async () => {
+    const userMsg: Mensagem = {
+      id: Math.random().toString(36).substring(2, 9),
+      remetente: 'user',
+      conteudo: 'Prefiro não informar o WhatsApp',
+      timestamp: getHoraAtual(),
+    };
+    setMensagens((prev) => [...prev, userMsg]);
+
+    setRespostas((prev) => ({ ...prev, whatsapp: '' }));
     await adicionarMensagemBot('Em qual Estado (UF) você vota ou reside atualmente?');
     setEtapa('uf');
   };
@@ -663,6 +696,8 @@ export function App() {
         presidente_foto: respostasFinais.votos.presidente?.fotoUrl || null,
         presidente_partido: respostasFinais.votos.presidente?.partido || null,
         origem_url: 'chat.democracias.org',
+        whatsapp: respostasFinais.whatsapp || null,
+        telefone: respostasFinais.whatsapp || null,
         atualizado_em: new Date().toISOString(),
       };
 
@@ -691,6 +726,7 @@ export function App() {
         .insert([{
           nome: respostasFinais.nome.trim(),
           cpf: cpfLimpo,
+          telefone: respostasFinais.whatsapp || null,
           tipo: 'apoiador',
           funcao: 'Apoiador(a) / Pesquisa Chat',
           meta_votos: 1,
@@ -883,7 +919,7 @@ export function App() {
                     timestamp: getHoraAtual(),
                   };
                   setMensagens((prev) => [...prev, userMsg]);
-                  await adicionarMensagemBot(`Confirma seu voto para 1º Senador em ${cand.nomeUrna} (${cand.numero})?`);
+                  await adicionarMensagemBot(`Confirma seu voto para 1º Senador em ${cand.nomeUrna} (${cand.numero}${cand.partido ? ` - ${cand.partido}` : ''})?`);
                   setEtapa('confirm_senador_1');
                 }}
                 onVotoBranco={() => handleVotoBrancoNulo('BRANCO', '1º Senador', 'confirm_senador_1')}
@@ -901,7 +937,7 @@ export function App() {
                   onClick={() =>
                     handleConfirmarVoto(
                       'senador_1',
-                      '4️⃣ Agora escolha o seu 2º SENADOR (3 dígitos) entre as opções por ordem de número:',
+                      '4️⃣ Agora escolha a sua opção para SENADORA OU SENADOR (2ª vaga - 3 dígitos) entre as opções restantes:',
                       'voto_senador_2'
                     )
                   }
@@ -945,7 +981,7 @@ export function App() {
                     timestamp: getHoraAtual(),
                   };
                   setMensagens((prev) => [...prev, userMsg]);
-                  await adicionarMensagemBot(`Confirma seu voto para 2º Senador em ${cand.nomeUrna} (${cand.numero})?`);
+                  await adicionarMensagemBot(`Confirma seu voto para 2º Senador em ${cand.nomeUrna} (${cand.numero}${cand.partido ? ` - ${cand.partido}` : ''})?`);
                   setEtapa('confirm_senador_2');
                 }}
                 onVotoBranco={() => handleVotoBrancoNulo('BRANCO', '2º Senador', 'confirm_senador_2')}
@@ -963,7 +999,7 @@ export function App() {
                   onClick={() =>
                     handleConfirmarVoto(
                       'senador_2',
-                      '5️⃣ Escolha o seu candidato a GOVERNADOR (2 dígitos). Veja as opções por ordem de número abaixo:',
+                      '5️⃣ Escolha a sua candidata ou candidato a GOVERNADORA OU GOVERNADOR (2 dígitos). Veja as opções abaixo:',
                       'voto_governador'
                     )
                   }
@@ -1001,7 +1037,7 @@ export function App() {
                     timestamp: getHoraAtual(),
                   };
                   setMensagens((prev) => [...prev, userMsg]);
-                  await adicionarMensagemBot(`Confirma seu voto para Governador em ${cand.nomeUrna} (${cand.numero})?`);
+                  await adicionarMensagemBot(`Confirma seu voto para GOVERNADORA OU GOVERNADOR em ${cand.nomeUrna} (${cand.numero}${cand.partido ? ` - ${cand.partido}` : ''})?`);
                   setEtapa('confirm_governador');
                 }}
                 onVotoBranco={() => handleVotoBrancoNulo('BRANCO', 'Governador', 'confirm_governador')}
@@ -1019,7 +1055,7 @@ export function App() {
                   onClick={() =>
                     handleConfirmarVoto(
                       'governador',
-                      '6️⃣ Por fim, escolha o seu candidato a PRESIDENTE DA REPÚBLICA (2 dígitos):',
+                      '6️⃣ Por fim, escolha a sua candidata ou candidato a PRESIDENTE DA REPÚBLICA (2 dígitos):',
                       'voto_presidente'
                     )
                   }
@@ -1057,7 +1093,7 @@ export function App() {
                     timestamp: getHoraAtual(),
                   };
                   setMensagens((prev) => [...prev, userMsg]);
-                  await adicionarMensagemBot(`Confirma seu voto para Presidente da República em ${cand.nomeUrna} (${cand.numero})?`);
+                  await adicionarMensagemBot(`Confirma seu voto para PRESIDENTE DA REPÚBLICA em ${cand.nomeUrna} (${cand.numero}${cand.partido ? ` - ${cand.partido}` : ''})?`);
                   setEtapa('confirm_presidente');
                 }}
                 onVotoBranco={() => handleVotoBrancoNulo('BRANCO', 'Presidente', 'confirm_presidente')}
@@ -1124,8 +1160,9 @@ export function App() {
         {/* BARRA INFERIOR DE RESPOSTA */}
         {(etapa === 'nome' ||
           etapa === 'cpf' ||
-          etapa === 'voto_dep_estadual' ||
+          etapa === 'whatsapp' ||
           etapa === 'voto_dep_federal' ||
+          etapa === 'voto_dep_estadual' ||
           etapa === 'voto_senador_1' ||
           etapa === 'voto_senador_2' ||
           etapa === 'voto_governador' ||
@@ -1134,13 +1171,15 @@ export function App() {
             <form onSubmit={handleEnviarTexto} className="space-y-2">
               <div className="flex items-center gap-2">
                 <input
-                  type={etapa === 'cpf' || etapa.startsWith('voto_') ? 'text' : 'text'}
-                  inputMode={etapa === 'cpf' || etapa.startsWith('voto_') ? 'numeric' : 'text'}
+                  type={etapa === 'cpf' || etapa === 'whatsapp' || etapa.startsWith('voto_') ? 'text' : 'text'}
+                  inputMode={etapa === 'cpf' || etapa === 'whatsapp' || etapa.startsWith('voto_') ? 'numeric' : 'text'}
                   autoFocus
                   value={inputText}
                   onChange={(e) => {
                     if (etapa === 'cpf') {
                       setInputText(formatarCpf(e.target.value));
+                    } else if (etapa === 'whatsapp') {
+                      setInputText(formatarWhatsapp(e.target.value));
                     } else if (etapa.startsWith('voto_')) {
                       setInputText(e.target.value.replace(/\D/g, ''));
                     } else {
@@ -1152,6 +1191,8 @@ export function App() {
                       ? 'Digite seu nome completo...'
                       : etapa === 'cpf'
                       ? '000.000.000-00 (Obrigatório p/ evitar duplicidade)'
+                      : etapa === 'whatsapp'
+                      ? '(85) 99999-9999 (Opcional)'
                       : etapa === 'voto_dep_federal'
                       ? 'Digite o número da Deputada ou Deputado Federal (4 dígitos)...'
                       : etapa === 'voto_dep_estadual'
@@ -1169,7 +1210,7 @@ export function App() {
 
                 <button
                   type="submit"
-                  disabled={!inputText.trim() && etapa !== 'cpf'}
+                  disabled={!inputText.trim() && etapa !== 'cpf' && etapa !== 'whatsapp'}
                   className="size-12 rounded-2xl bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white flex items-center justify-center shrink-0 shadow-lg transition-all disabled:opacity-40 disabled:cursor-not-allowed"
                 >
                   <Send className="size-5" />
@@ -1184,6 +1225,18 @@ export function App() {
                     className="text-xs font-bold text-slate-400 hover:text-orange-400 transition-colors py-1 flex items-center gap-1"
                   >
                     Avançar sem CPF (Contabilizar apenas como expectativa) <ChevronRight className="size-3.5" />
+                  </button>
+                </div>
+              )}
+
+              {etapa === 'whatsapp' && (
+                <div className="flex justify-center">
+                  <button
+                    type="button"
+                    onClick={handlePularWhatsapp}
+                    className="text-xs font-bold text-slate-400 hover:text-orange-400 transition-colors py-1 flex items-center gap-1"
+                  >
+                    Avançar sem WhatsApp <ChevronRight className="size-3.5" />
                   </button>
                 </div>
               )}

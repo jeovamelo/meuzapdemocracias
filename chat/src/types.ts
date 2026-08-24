@@ -23,11 +23,12 @@ export type EtapaChat =
   | 'boas_vindas'
   | 'nome'
   | 'cpf'
+  | 'whatsapp'
   | 'uf'
-  | 'voto_dep_estadual'
-  | 'confirm_dep_estadual'
   | 'voto_dep_federal'
   | 'confirm_dep_federal'
+  | 'voto_dep_estadual'
+  | 'confirm_dep_estadual'
   | 'voto_senador_1'
   | 'confirm_senador_1'
   | 'voto_senador_2'
@@ -60,6 +61,7 @@ export interface VotosPesquisa {
 export interface RespostaUsuario {
   nome: string;
   cpf?: string;
+  whatsapp?: string;
   uf: string;
   municipio: string;
   bairro: string;

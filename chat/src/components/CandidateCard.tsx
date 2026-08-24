@@ -88,7 +88,7 @@ export const CandidateCard: React.FC<Props> = ({
 
         {/* INFORMAÇÕES */}
         <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-2 mb-1">
+          <div className="flex items-center gap-1.5 mb-1 flex-wrap">
             <span
               className={`inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[10px] font-black font-mono ${
                 isBranco
@@ -100,6 +100,13 @@ export const CandidateCard: React.FC<Props> = ({
             >
               {isBranco || isNulo ? candidato.numero : `Nº ${candidato.numero}`}
             </span>
+
+            {candidato.partido && !isBranco && !isNulo && (
+              <span className="inline-flex items-center rounded-md px-2 py-0.5 text-[10px] font-black font-mono bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 uppercase">
+                {candidato.partido}
+              </span>
+            )}
+
             <span className="truncate text-[10px] font-bold uppercase tracking-wider text-slate-400">
               {tituloCargo || candidato.cargo}
             </span>
@@ -110,7 +117,13 @@ export const CandidateCard: React.FC<Props> = ({
           </h3>
 
           <p className="text-[11px] text-slate-400 truncate mt-0.5">
-            {isBranco || isNulo ? 'Voto registrado' : candidato.partido || candidato.nome}
+            {isBranco || isNulo
+              ? 'Voto registrado'
+              : candidato.nome && candidato.nome !== candidato.nomeUrna
+              ? `${candidato.nome} • ${candidato.partido || ''}`
+              : candidato.partido
+              ? `Partido: ${candidato.partido}`
+              : ''}
           </p>
         </div>
 
