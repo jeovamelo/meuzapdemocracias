@@ -235,7 +235,7 @@ export const PainelPesquisaEleitoral: React.FC = () => {
     });
 
     const lista = Array.from(mapaCands.values());
-    lista.sort((a, b) => b.totalVotos - a.totalVotos || a.nomeUrna.localeCompare(b.nomeUrna));
+    lista.sort((a, b) => b.totalVotos - a.totalVotos || (a.nomeUrna || '').localeCompare(b.nomeUrna || ''));
     return lista;
   }, [pesquisasFiltradas, candidatosTse, campanhas]);
 
@@ -399,7 +399,7 @@ export const PainelPesquisaEleitoral: React.FC = () => {
     });
 
     const lista = Object.values(mapaCidades);
-    lista.sort((a, b) => b.votos - a.votos || a.cidade.localeCompare(b.cidade));
+    lista.sort((a, b) => b.votos - a.votos || (a.cidade || '').localeCompare(b.cidade || ''));
     return lista;
   }, [pesquisasFiltradas, camadaTipo, candidatoAtivo, partidoSelecionado]);
 
@@ -412,11 +412,11 @@ export const PainelPesquisaEleitoral: React.FC = () => {
         setCidades.add(p.municipio);
       }
     });
-    return Array.from(setCidades).sort();
+    return Array.from(setCidades).sort((a, b) => (a || '').localeCompare(b || ''));
   }, [pesquisasAmostragem, ufFiltro]);
 
   const maxVotosEstado = useMemo(() => {
-    return Math.max(1, ...Object.values(dadosGeograficosEstados.mapaUfs).map((e) => e.votos));
+    return Math.max(1, ...Object.values(dadosGeograficosEstados?.mapaUfs || {}).map((e) => e?.votos || 0));
   }, [dadosGeograficosEstados]);
 
   return (

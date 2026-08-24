@@ -12,25 +12,74 @@ import {
   User, 
   LogOut,
   AlertTriangle,
+  RefreshCw,
   Loader2
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { PainelPesquisaEleitoral } from '@/components/PainelPesquisaEleitoral';
+
+class PesquisaErrorBoundary extends React.Component<
+  { children: React.ReactNode },
+  { hasError: boolean; error: any }
+> {
+  constructor(props: any) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+
+  static getDerivedStateFromError(error: any) {
+    return { hasError: true, error };
+  }
+
+  componentDidCatch(error: any, errorInfo: any) {
+    console.error('Erro no painel de pesquisa:', error, errorInfo);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="p-8 bg-slate-900 border border-slate-800 rounded-3xl text-center space-y-4 shadow-xl max-w-xl mx-auto my-12 text-white">
+          <div className="size-14 mx-auto rounded-2xl bg-orange-500/10 border border-orange-500/20 flex items-center justify-center text-orange-500">
+            <AlertTriangle className="size-7" />
+          </div>
+          <h3 className="text-lg font-black">
+            Atualizando visualização de pesquisa...
+          </h3>
+          <p className="text-xs text-slate-400">
+            Os dados foram atualizados. Clique abaixo para recarregar o painel e os mapas.
+          </p>
+          <div className="flex justify-center gap-3 pt-2">
+            <Button 
+              onClick={() => this.setState({ hasError: false })} 
+              className="bg-orange-500 hover:bg-orange-600 text-white font-bold"
+            >
+              <RefreshCw className="mr-2 size-4" /> Recarregar Painel
+            </Button>
+            <Link to="/pc">
+              <Button variant="outline" className="border-slate-700 text-slate-300">Voltar ao PC</Button>
+            </Link>
+          </div>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
 
 export const Route = createFileRoute('/pesquisa')({
   component: PesquisaStandalonePage,
 });
 
 function PesquisaStandalonePage() {
-  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
-    return false;
-  });
+  const [mounted, setMounted] = useState(false);
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
   const [loginUser, setLoginUser] = useState('');
   const [loginPass, setLoginPass] = useState('');
   const [loginError, setLoginError] = useState('');
   const [isLoggingIn, setIsLoggingIn] = useState(false);
 
   useEffect(() => {
+    setMounted(true);
     if (typeof window !== 'undefined') {
       const auth = sessionStorage.getItem('democracias_pc_auth') === 'true';
       setIsAuthenticated(auth);
@@ -58,6 +107,14 @@ function PesquisaStandalonePage() {
     setIsAuthenticated(false);
     toast.info('Sessão administrativa encerrada.');
   };
+
+  if (!mounted) {
+    return (
+      <div className="min-h-screen bg-slate-950 flex items-center justify-center text-white">
+        <Loader2 className="size-8 animate-spin text-orange-500" />
+      </div>
+    );
+  }
 
   // TELA DE AUTENTICAÇÃO ADMINISTRATIVA OBRIGATÓRIA (MESMAS CREDENCIAIS DO /pc)
   if (!isAuthenticated) {
@@ -192,9 +249,11 @@ function PesquisaStandalonePage() {
         </div>
       </div>
 
-      {/* DASHBOARD & MAPA DE CALOR */}
+      {/* DASHBOARD & MAPA DE CALOR COM PROTEÇÃO */}
       <div className="max-w-7xl mx-auto">
-        <PainelPesquisaEleitoral />
+        <PesquisaErrorBoundary>
+          <PainelPesquisaEleitoral />
+        </PesquisaErrorBoundary>
       </div>
     </div>
   );
