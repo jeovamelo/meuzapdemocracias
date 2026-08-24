@@ -495,9 +495,9 @@ export function App() {
     setRespostas((prev) => ({ ...prev, uf: ufEscolhida }));
     await carregarCandidatosMajoritarios(ufEscolhida);
 
-    await adicionarMensagemBot(`Perfeito! Vamos iniciar a pesquisa pela ordem oficial de votação da urna eletrônica.`);
-    await adicionarMensagemBot(`1️⃣ Digite o NÚMERO do seu candidato a DEPUTADO ESTADUAL (5 dígitos) ou escolha Branco / Nulo:`);
-    setEtapa('voto_dep_estadual');
+    await adicionarMensagemBot(`Perfeito! Vamos iniciar a pesquisa seguindo a ordem oficial da cola e da urna eletrônica:`);
+    await adicionarMensagemBot(`1️⃣ Digite o NÚMERO da sua candidata ou candidato a DEPUTADA OU DEPUTADO FEDERAL (4 dígitos) ou escolha Branco / Nulo:`);
+    setEtapa('voto_dep_federal');
   };
 
   // Voto em Branco ou Nulo genérico
@@ -579,8 +579,8 @@ export function App() {
       votos: {},
     }));
     await adicionarMensagemBot(`🔄 Vamos atualizar a sua votação! Seus votos anteriores serão substituídos pelas novas escolhas.`);
-    await adicionarMensagemBot(`1️⃣ Digite o NÚMERO do seu candidato a DEPUTADO ESTADUAL (5 dígitos) ou escolha Branco / Nulo:`);
-    setEtapa('voto_dep_estadual');
+    await adicionarMensagemBot(`1️⃣ Digite o NÚMERO da sua candidata ou candidato a DEPUTADA OU DEPUTADO FEDERAL (4 dígitos) ou escolha Branco / Nulo:`);
+    setEtapa('voto_dep_federal');
   };
 
   // Confirmar Localização e Salvar tudo no Supabase (com sobrescrita da pesquisa anterior)
@@ -804,49 +804,17 @@ export function App() {
             </div>
           )}
 
-          {/* ETAPA CONFIRMAÇÃO: DEP ESTADUAL */}
-          {etapa === 'confirm_dep_estadual' && candidatoTemp && !digitando && (
-            <div className="space-y-3 my-3 animate-message">
-              <CandidateCard candidato={candidatoTemp} tituloCargo="Deputado Estadual" modoConfirmacao />
-              <div className="grid grid-cols-2 gap-2.5">
-                <button
-                  onClick={() =>
-                    handleConfirmarVoto(
-                      'deputado_estadual',
-                      '2️⃣ Agora digite o NÚMERO do seu candidato a DEPUTADO FEDERAL (4 dígitos) ou escolha Branco / Nulo:',
-                      'voto_dep_federal'
-                    )
-                  }
-                  className="h-11 rounded-xl bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 text-white font-bold text-xs shadow-lg flex items-center justify-center gap-1.5"
-                >
-                  <Check className="size-4" /> Confirmar
-                </button>
-                <button
-                  onClick={() =>
-                    handleCorrigirVoto(
-                      'voto_dep_estadual',
-                      'Digite novamente o número do seu Deputado Estadual (5 dígitos):'
-                    )
-                  }
-                  className="h-11 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 font-bold text-xs flex items-center justify-center gap-1.5"
-                >
-                  <RotateCcw className="size-4" /> Corrigir
-                </button>
-              </div>
-            </div>
-          )}
-
           {/* ETAPA CONFIRMAÇÃO: DEP FEDERAL */}
           {etapa === 'confirm_dep_federal' && candidatoTemp && !digitando && (
             <div className="space-y-3 my-3 animate-message">
-              <CandidateCard candidato={candidatoTemp} tituloCargo="Deputado Federal" modoConfirmacao />
+              <CandidateCard candidato={candidatoTemp} tituloCargo="Deputada ou Deputado Federal" modoConfirmacao />
               <div className="grid grid-cols-2 gap-2.5">
                 <button
                   onClick={() =>
                     handleConfirmarVoto(
                       'deputado_federal',
-                      '3️⃣ Escolha o seu 1º SENADOR (3 dígitos). Apresentamos as opções por ordem de número abaixo:',
-                      'voto_senador_1'
+                      '2️⃣ Agora digite o NÚMERO da sua candidata ou candidato a DEPUTADA OU DEPUTADO ESTADUAL (5 dígitos) ou escolha Branco / Nulo:',
+                      'voto_dep_estadual'
                     )
                   }
                   className="h-11 rounded-xl bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 text-white font-bold text-xs shadow-lg flex items-center justify-center gap-1.5"
@@ -857,7 +825,39 @@ export function App() {
                   onClick={() =>
                     handleCorrigirVoto(
                       'voto_dep_federal',
-                      'Digite novamente o número do seu Deputado Federal (4 dígitos):'
+                      'Digite novamente o número da sua Deputada ou Deputado Federal (4 dígitos):'
+                    )
+                  }
+                  className="h-11 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 font-bold text-xs flex items-center justify-center gap-1.5"
+                >
+                  <RotateCcw className="size-4" /> Corrigir
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* ETAPA CONFIRMAÇÃO: DEP ESTADUAL */}
+          {etapa === 'confirm_dep_estadual' && candidatoTemp && !digitando && (
+            <div className="space-y-3 my-3 animate-message">
+              <CandidateCard candidato={candidatoTemp} tituloCargo="Deputada ou Deputado Estadual" modoConfirmacao />
+              <div className="grid grid-cols-2 gap-2.5">
+                <button
+                  onClick={() =>
+                    handleConfirmarVoto(
+                      'deputado_estadual',
+                      '3️⃣ Escolha para SENADORA OU SENADOR (1ª vaga - 3 dígitos). Apresentamos as opções por ordem de número abaixo:',
+                      'voto_senador_1'
+                    )
+                  }
+                  className="h-11 rounded-xl bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 text-white font-bold text-xs shadow-lg flex items-center justify-center gap-1.5"
+                >
+                  <Check className="size-4" /> Confirmar
+                </button>
+                <button
+                  onClick={() =>
+                    handleCorrigirVoto(
+                      'voto_dep_estadual',
+                      'Digite novamente o número da sua Deputada ou Deputado Estadual (5 dígitos):'
                     )
                   }
                   className="h-11 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 font-bold text-xs flex items-center justify-center gap-1.5"
@@ -1152,17 +1152,17 @@ export function App() {
                       ? 'Digite seu nome completo...'
                       : etapa === 'cpf'
                       ? '000.000.000-00 (Obrigatório p/ evitar duplicidade)'
-                      : etapa === 'voto_dep_estadual'
-                      ? 'Digite o número do Dep. Estadual (5 dígitos)...'
                       : etapa === 'voto_dep_federal'
-                      ? 'Digite o número do Dep. Federal (4 dígitos)...'
+                      ? 'Digite o número da Deputada ou Deputado Federal (4 dígitos)...'
+                      : etapa === 'voto_dep_estadual'
+                      ? 'Digite o número da Deputada ou Deputado Estadual (5 dígitos)...'
                       : etapa === 'voto_senador_1'
-                      ? 'Digite o número do 1º Senador (3 dígitos)...'
+                      ? 'Digite o número da Senadora ou Senador - 1ª vaga (3 dígitos)...'
                       : etapa === 'voto_senador_2'
-                      ? 'Digite o número do 2º Senador (3 dígitos)...'
+                      ? 'Digite o número da Senadora ou Senador - 2ª vaga (3 dígitos)...'
                       : etapa === 'voto_governador'
-                      ? 'Digite o número do Governador (2 dígitos)...'
-                      : 'Digite o número do Presidente (2 dígitos)...'
+                      ? 'Digite o número da Governadora ou Governador (2 dígitos)...'
+                      : 'Digite o número da candidata ou candidato a Presidente (2 dígitos)...'
                   }
                   className="flex-1 h-12 px-4 rounded-2xl bg-slate-900 border border-slate-700 text-sm text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-orange-500/50 font-medium"
                 />

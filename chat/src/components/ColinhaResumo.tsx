@@ -12,24 +12,24 @@ export const ColinhaResumo: React.FC<Props> = ({ respostas, onResponderNovamente
   const { votos, nome, uf, municipio, bairro } = respostas;
 
   const itensColinha = [
-    { cargo: 'Deputado Estadual', cand: votos.deputado_estadual },
-    { cargo: 'Deputado Federal', cand: votos.deputado_federal },
-    { cargo: '1º Senador', cand: votos.senador_1 },
-    { cargo: '2º Senador', cand: votos.senador_2 },
-    { cargo: 'Governador', cand: votos.governador },
-    { cargo: 'Presidente', cand: votos.presidente },
+    { cargo: 'Deputada ou Deputado Federal', cand: votos.deputado_federal },
+    { cargo: 'Deputada ou Deputado Estadual', cand: votos.deputado_estadual },
+    { cargo: 'Senadora ou Senador (1ª vaga)', cand: votos.senador_1 },
+    { cargo: 'Senadora ou Senador (2ª vaga)', cand: votos.senador_2 },
+    { cargo: 'Governadora ou Governador', cand: votos.governador },
+    { cargo: 'Presidente da República', cand: votos.presidente },
   ];
 
   const textoCompartilhamento = `🗳️ *MINHA ESCOLHA ELEITORAL 2026 — DEMOCRACIAS*\n\n` +
     `👤 *Eleitor:* ${nome}\n` +
     `📍 *Local:* ${municipio}/${uf} (${bairro})\n\n` +
-    `📋 *Votos Declarados:*\n` +
-    `• Dep. Estadual: ${votos.deputado_estadual?.numero || '—'} - ${votos.deputado_estadual?.nomeUrna || '—'}\n` +
-    `• Dep. Federal: ${votos.deputado_federal?.numero || '—'} - ${votos.deputado_federal?.nomeUrna || '—'}\n` +
-    `• 1º Senador: ${votos.senador_1?.numero || '—'} - ${votos.senador_1?.nomeUrna || '—'}\n` +
-    `• 2º Senador: ${votos.senador_2?.numero || '—'} - ${votos.senador_2?.nomeUrna || '—'}\n` +
-    `• Governador: ${votos.governador?.numero || '—'} - ${votos.governador?.nomeUrna || '—'}\n` +
-    `• Presidente: ${votos.presidente?.numero || '—'} - ${votos.presidente?.nomeUrna || '—'}\n\n` +
+    `📋 *Votos Declarados (Ordem da Urna):*\n` +
+    `1️⃣ *Dep. Federal:* ${votos.deputado_federal?.numero || '—'} - ${votos.deputado_federal?.nomeUrna || '—'}\n` +
+    `2️⃣ *Dep. Estadual:* ${votos.deputado_estadual?.numero || '—'} - ${votos.deputado_estadual?.nomeUrna || '—'}\n` +
+    `3️⃣ *1º Senador:* ${votos.senador_1?.numero || '—'} - ${votos.senador_1?.nomeUrna || '—'}\n` +
+    `4️⃣ *2º Senador:* ${votos.senador_2?.numero || '—'} - ${votos.senador_2?.nomeUrna || '—'}\n` +
+    `5️⃣ *Governador:* ${votos.governador?.numero || '—'} - ${votos.governador?.nomeUrna || '—'}\n` +
+    `6️⃣ *Presidente:* ${votos.presidente?.numero || '—'} - ${votos.presidente?.nomeUrna || '—'}\n\n` +
     `Participe você também da pesquisa oficial: https://chat.democracias.org`;
 
   const linkWhatsapp = `https://api.whatsapp.com/send?text=${encodeURIComponent(textoCompartilhamento)}`;
