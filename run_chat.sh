@@ -4,7 +4,7 @@ docker run -d --name democracias-chat \
   --restart unless-stopped \
   --network host \
   -v /opt/democracias/chat/dist:/usr/share/nginx/html:ro \
-  -v /opt/democracias/public/candidatos:/usr/share/nginx/html/candidatos:ro \
+  -v /opt/democracias/public/candidatos:/var/www/candidatos:ro \
   -v /opt/democracias/chat/nginx.conf:/etc/nginx/conf.d/default.conf:ro \
   -l "traefik.enable=true" \
   -l "traefik.http.routers.chat.rule=Host(\`chat.democracias.org\`)" \
