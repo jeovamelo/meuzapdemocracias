@@ -46,8 +46,18 @@ export const CandidateCard: React.FC<Props> = ({
               alt={candidato.nomeUrna}
               className="size-full object-cover"
               onError={(e) => {
-                e.currentTarget.style.display = 'none';
-                const parent = e.currentTarget.parentElement;
+                const img = e.currentTarget;
+                const currentSrc = img.getAttribute('src') || '';
+                
+                // Fallback 1: se for caminho relativo /candidatos/..., tentar a rota absoluta da plataforma principal
+                if (currentSrc.startsWith('/candidatos/')) {
+                  img.src = `https://democracias.org${currentSrc}`;
+                  return;
+                }
+                
+                // Se falhar em todos, oculta e exibe o fallback
+                img.style.display = 'none';
+                const parent = img.parentElement;
                 if (parent) {
                   const fallback = parent.querySelector('.photo-fallback');
                   if (fallback) (fallback as HTMLElement).style.display = 'flex';

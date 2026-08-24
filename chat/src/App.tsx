@@ -116,13 +116,14 @@ export function App() {
     setMensagens((prev) => [...prev, novaMsg]);
   };
 
-  // Gerar URL oficial da foto do TSE / Campanha
+  // Gerar URL oficial da foto do acervo interno / TSE / Campanha
   const buildFotoCandidato = (c: any, ufPadrao: string) => {
     if (c.foto_candidato_url) return c.foto_candidato_url;
     if (c.foto_url) return c.foto_url;
-    if (c.sq_candidato) {
-      const estado = (c.sg_uf || c.uf || ufPadrao || 'BR').toUpperCase();
-      return `https://divulgacandcontas.tse.jus.br/divulga/rest/v1/candidatura/buscar/foto/2/2026/${estado}/${c.sq_candidato}`;
+    const cleanSq = String(c.sq_candidato ?? '').replace(/\D/g, '');
+    if (cleanSq) {
+      const uf = (c.sg_uf || c.uf || ufPadrao || 'CE').toUpperCase();
+      return `/candidatos/F${uf}${cleanSq}_div.jpg`;
     }
     return '';
   };
