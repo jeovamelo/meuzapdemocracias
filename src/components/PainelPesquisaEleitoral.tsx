@@ -17,10 +17,15 @@ import {
   Layers,
   Award,
   RefreshCw,
-  UserCheck
+  UserCheck,
+  CheckCircle2,
+  Flag,
+  Globe,
+  Ban,
+  CircleDot
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
-import { MapaBrasilSvg, EstadoVotosData } from './MapaBrasilSvg';
+import { MapaBrasilSvg, EstadoVotosData, CidadeVotosData } from './MapaBrasilSvg';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -36,6 +41,8 @@ const ESTADOS_NOMES: Record<string, string> = {
 
 type TipoCargo = 'todos' | 'presidente' | 'governador' | 'senador' | 'dep_federal' | 'dep_estadual';
 type AmostragemModo = 'geral' | 'voto_unico';
+type TipoCamada = 'geral' | 'candidato' | 'partido';
+type EscopoGeografico = 'nacional' | 'estadual' | 'municipal';
 
 interface CandidatoOpcao {
   id: string;
@@ -55,13 +62,22 @@ export const PainelPesquisaEleitoral: React.FC = () => {
   const [campanhas, setCampanhas] = useState<any[]>([]);
   const [carregando, setCarregando] = useState(true);
 
+  // Filtros Globais e Escopo
+  const [escopo, setEscopo] = useState<EscopoGeografico>('nacional');
   const [amostragem, setAmostragem] = useState<AmostragemModo>('geral');
   const [cargoFiltro, setCargoFiltro] = useState<TipoCargo>('todos');
+  
+  // Camadas do Mapa
+  const [camadaTipo, setCamadaTipo] = useState<TipoCamada>('geral');
   const [candidatoSelecionadoId, setCandidatoSelecionadoId] = useState<string>('todos');
-  const [ufFiltroMapa, setUfFiltroMapa] = useState<string | null>(null);
+  const [partidoSelecionado, setPartidoSelecionado] = useState<string>('todos');
+
+  // Filtros Geográficos
+  const [ufFiltro, setUfFiltro] = useState<string | null>(null);
+  const [cidadeFiltro, setCidadeFiltro] = useState<string | null>(null);
   const [buscaTexto, setBuscaTexto] = useState('');
 
-  // Carregar dados de pesquisas_chat, candidatos TSE e campanhas
+  // Carregar dados do Supabase
   const carregarDados = async () => {
     setCarregando(true);
     try {
@@ -84,7 +100,7 @@ export const PainelPesquisaEleitoral: React.FC = () => {
 
       setCampanhas(dataCamp || []);
     } catch (e) {
-      console.error('Erro ao carregar dados de pesquisa:', e);
+      console.error('Erro ao carregar dados da pesquisa:', e);
     } finally {
       setCarregando(false);
     }
@@ -94,13 +110,10 @@ export const PainelPesquisaEleitoral: React.FC = () => {
     carregarDados();
   }, []);
 
-  // Filtragem de amostragem: Geral vs Voto Único
-  const pesquisasFiltradas = useMemo(() => {
-    if (amostragem === 'geral') {
-      return pesquisas;
-    }
+  // Filtragem de Amostragem (Geral vs. Voto Único por CPF/Token)
+  const pesquisasAmostragem = useMemo(() => {
+    if (amostragem === 'geral') return pesquisas;
 
-    // Modo Voto Único (desduplicação por CPF / token de respondente único)
     const mapaUnicos = new Map<string, any>();
     const ordenadas = [...pesquisas].sort((a, b) => {
       const dataA = new Date(a.atualizado_em || a.criado_em || 0).getTime();
@@ -116,11 +129,39 @@ export const PainelPesquisaEleitoral: React.FC = () => {
     return Array.from(mapaUnicos.values());
   }, [pesquisas, amostragem]);
 
-  // Lista de todos os candidatos oficiais válidos que receberam votos
+  // Filtragem por Escopo Geográfico (Nacional / Estadual / Municipal)
+  const pesquisasFiltradas = useMemo(() => {
+    return pesquisasAmostragem.filter((p) => {
+      const pUf = (p.uf || '').toUpperCase();
+      const pCid = (p.municipio || '').toLowerCase().trim();
+
+      if (escopo === 'estadual' && ufFiltro && pUf !== ufFiltro.toUpperCase()) return false;
+      if (escopo === 'municipal') {
+        if (ufFiltro && pUf !== ufFiltro.toUpperCase()) return false;
+        if (cidadeFiltro && pCid !== cidadeFiltro.toLowerCase().trim()) return false;
+      }
+      return true;
+    });
+  }, [pesquisasAmostragem, escopo, ufFiltro, cidadeFiltro]);
+
+  // Lista de Partidos Únicos Presentes nos Votos
+  const partidosDisponiveis = useMemo(() => {
+    const setPartidos = new Set<string>();
+    pesquisasAmostragem.forEach((p) => {
+      [p.presidente_partido, p.governador_partido, p.senador1_partido, p.senador2_partido, p.dep_federal_partido, p.dep_estadual_partido].forEach((pt) => {
+        if (pt && pt !== 'NULO' && pt !== 'BRANCO' && pt !== 'NÃO REGISTRADO') {
+          setPartidos.add(pt.toUpperCase());
+        }
+      });
+    });
+    return Array.from(setPartidos).sort();
+  }, [pesquisasAmostragem]);
+
+  // Lista de Todos os Candidatos Oficiais Consolidados
   const listaCandidatosValidos = useMemo(() => {
     const mapaCands = new Map<string, CandidatoOpcao>();
 
-    const registrarVotoCand = (
+    const registrarVoto = (
       numero: string,
       nome: string,
       partido: string,
@@ -132,7 +173,7 @@ export const PainelPesquisaEleitoral: React.FC = () => {
       const numLimpo = (numero || '').trim();
       if (!numLimpo || numLimpo === 'BRANCO' || numLimpo === 'NULO') return;
 
-      // Validação: verificar se consta no banco oficial do TSE
+      // Validação TSE
       let tseMatch: any = null;
       if (cargoKey === 'presidente') {
         tseMatch = candidatosTse.find((c) => (c.ds_cargo || '').toUpperCase() === 'PRESIDENTE' && String(c.nr_candidato) === numLimpo);
@@ -146,17 +187,13 @@ export const PainelPesquisaEleitoral: React.FC = () => {
         tseMatch = candidatosTse.find((c) => ['DEPUTADO ESTADUAL', 'DEPUTADO DISTRITAL'].includes((c.ds_cargo || '').toUpperCase()) && String(c.nr_candidato) === numLimpo && (c.sg_uf || '').toUpperCase() === ufPesquisa.toUpperCase());
       }
 
-      // Validação estrita na base de campanhas
+      // Validação Campanha
       const campMatch = campanhas.find((c) => {
         if (String(c.nr_candidato) !== numLimpo) return false;
         const cCargo = (c.cargo || '').toUpperCase();
         const cUf = (c.uf || '').toUpperCase();
-
-        if (cargoKey === 'presidente') {
-          return cCargo.includes('PRESIDENTE');
-        }
+        if (cargoKey === 'presidente') return cCargo.includes('PRESIDENTE');
         if (cUf !== ufPesquisa.toUpperCase()) return false;
-
         if (cargoKey === 'governador') return cCargo.includes('GOVERNADOR');
         if (cargoKey === 'senador') return cCargo.includes('SENADOR');
         if (cargoKey === 'dep_federal') return cCargo.includes('FEDERAL');
@@ -164,7 +201,6 @@ export const PainelPesquisaEleitoral: React.FC = () => {
         return false;
       });
 
-      // Validação estrita: se não for oficial do TSE nem campanha registrada para este cargo específico, descarta (trata como nulo)
       if (!tseMatch && !campMatch) return;
 
       const candUf = cargoKey === 'presidente' ? 'BR' : (tseMatch?.sg_uf || campMatch?.uf || ufPesquisa).toUpperCase();
@@ -190,12 +226,12 @@ export const PainelPesquisaEleitoral: React.FC = () => {
 
     pesquisasFiltradas.forEach((p) => {
       const uf = (p.uf || 'CE').toUpperCase();
-      if (p.presidente_numero) registrarVotoCand(p.presidente_numero, p.presidente_nome, p.presidente_partido, p.presidente_foto, 'presidente', 'Presidente', 'BR');
-      if (p.governador_numero) registrarVotoCand(p.governador_numero, p.governador_nome, p.governador_partido, p.governador_foto, 'governador', 'Governador', uf);
-      if (p.senador1_numero) registrarVotoCand(p.senador1_numero, p.senador1_nome, p.senador1_partido, p.senador1_foto, 'senador', 'Senador', uf);
-      if (p.senador2_numero) registrarVotoCand(p.senador2_numero, p.senador2_nome, p.senador2_partido, p.senador2_foto, 'senador', 'Senador', uf);
-      if (p.dep_federal_numero) registrarVotoCand(p.dep_federal_numero, p.dep_federal_nome, p.dep_federal_partido, p.dep_federal_foto, 'dep_federal', 'Dep. Federal', uf);
-      if (p.dep_estadual_numero) registrarVotoCand(p.dep_estadual_numero, p.dep_estadual_nome, p.dep_estadual_partido, p.dep_estadual_foto, 'dep_estadual', 'Deputado Estadual', uf);
+      if (p.presidente_numero) registrarVoto(p.presidente_numero, p.presidente_nome, p.presidente_partido, p.presidente_foto, 'presidente', 'Presidente', 'BR');
+      if (p.governador_numero) registrarVoto(p.governador_numero, p.governador_nome, p.governador_partido, p.governador_foto, 'governador', 'Governador', uf);
+      if (p.senador1_numero) registrarVoto(p.senador1_numero, p.senador1_nome, p.senador1_partido, p.senador1_foto, 'senador', 'Senador', uf);
+      if (p.senador2_numero) registrarVoto(p.senador2_numero, p.senador2_nome, p.senador2_partido, p.senador2_foto, 'senador', 'Senador', uf);
+      if (p.dep_federal_numero) registrarVoto(p.dep_federal_numero, p.dep_federal_nome, p.dep_federal_partido, p.dep_federal_foto, 'dep_federal', 'Dep. Federal', uf);
+      if (p.dep_estadual_numero) registrarVoto(p.dep_estadual_numero, p.dep_estadual_nome, p.dep_estadual_partido, p.dep_estadual_foto, 'dep_estadual', 'Deputado Estadual', uf);
     });
 
     const lista = Array.from(mapaCands.values());
@@ -203,29 +239,60 @@ export const PainelPesquisaEleitoral: React.FC = () => {
     return lista;
   }, [pesquisasFiltradas, candidatosTse, campanhas]);
 
-  // Candidatos filtrados por busca e cargo
-  const candidatosFiltradosSelect = useMemo(() => {
-    return listaCandidatosValidos.filter((c) => {
-      if (cargoFiltro !== 'todos' && c.cargoKey !== cargoFiltro) return false;
-      if (buscaTexto) {
-        const termo = buscaTexto.toLowerCase();
-        return (
-          c.nomeUrna.toLowerCase().includes(termo) ||
-          c.numero.includes(termo) ||
-          c.partido.toLowerCase().includes(termo)
-        );
-      }
-      return true;
-    });
-  }, [listaCandidatosValidos, cargoFiltro, buscaTexto]);
-
-  // Candidato atualmente selecionado para análise geográfica
+  // Candidato Ativo Selecionado
   const candidatoAtivo = useMemo(() => {
-    if (candidatoSelecionadoId === 'todos') return null;
+    if (camadaTipo !== 'candidato' || candidatoSelecionadoId === 'todos') return null;
     return listaCandidatosValidos.find((c) => c.id === candidatoSelecionadoId) || null;
-  }, [listaCandidatosValidos, candidatoSelecionadoId]);
+  }, [listaCandidatosValidos, candidatoSelecionadoId, camadaTipo]);
 
-  // Cruzamento Geográfico para o Mapa de Calor (Por Estado / UF)
+  // Cálculo de KPIs Gerais (Válidos vs. Brancos vs. Nulos)
+  const kpisGerais = useMemo(() => {
+    let validos = 0;
+    let brancos = 0;
+    let nulos = 0;
+    let totalVotosRegistrados = 0;
+
+    const setCidades = new Set<string>();
+    const setBairros = new Set<string>();
+
+    pesquisasFiltradas.forEach((p) => {
+      if (p.municipio && p.municipio !== 'Não informado') setCidades.add(p.municipio);
+      if (p.bairro && p.bairro !== 'Geral') setBairros.add(p.bairro);
+
+      const checarVoto = (num?: string, partido?: string) => {
+        if (!num) return;
+        totalVotosRegistrados += 1;
+        const n = String(num).toUpperCase();
+        if (n === 'BRANCO') brancos += 1;
+        else if (n === 'NULO' || partido === 'NÃO REGISTRADO') nulos += 1;
+        else validos += 1;
+      };
+
+      if (cargoFiltro === 'todos' || cargoFiltro === 'presidente') checarVoto(p.presidente_numero, p.presidente_partido);
+      if (cargoFiltro === 'todos' || cargoFiltro === 'governador') checarVoto(p.governador_numero, p.governador_partido);
+      if (cargoFiltro === 'todos' || cargoFiltro === 'senador') {
+        checarVoto(p.senador1_numero, p.senador1_partido);
+        checarVoto(p.senador2_numero, p.senador2_partido);
+      }
+      if (cargoFiltro === 'todos' || cargoFiltro === 'dep_federal') checarVoto(p.dep_federal_numero, p.dep_federal_partido);
+      if (cargoFiltro === 'todos' || cargoFiltro === 'dep_estadual') checarVoto(p.dep_estadual_numero, p.dep_estadual_partido);
+    });
+
+    return {
+      totalParticipacoes: pesquisasFiltradas.length,
+      totalVotos: totalVotosRegistrados,
+      validos,
+      brancos,
+      nulos,
+      percValidos: totalVotosRegistrados > 0 ? (validos / totalVotosRegistrados) * 100 : 0,
+      percBrancos: totalVotosRegistrados > 0 ? (brancos / totalVotosRegistrados) * 100 : 0,
+      percNulos: totalVotosRegistrados > 0 ? (nulos / totalVotosRegistrados) * 100 : 0,
+      totalCidades: setCidades.size,
+      totalBairros: setBairros.size,
+    };
+  }, [pesquisasFiltradas, cargoFiltro]);
+
+  // Processamento do Mapa de Calor por Estados (UF)
   const dadosGeograficosEstados = useMemo(() => {
     const mapaUfs: Record<string, EstadoVotosData> = {};
 
@@ -248,29 +315,37 @@ export const PainelPesquisaEleitoral: React.FC = () => {
 
       mapaUfs[uf].totalVotosEstado += 1;
 
-      // Se um candidato específico foi selecionado
-      if (candidatoAtivo) {
-        let votouNeste = false;
+      let votou = false;
+
+      if (camadaTipo === 'candidato' && candidatoAtivo) {
         const num = candidatoAtivo.numero;
-
-        if (candidatoAtivo.cargoKey === 'presidente' && p.presidente_numero === num) votouNeste = true;
-        else if (candidatoAtivo.cargoKey === 'governador' && p.governador_numero === num && uf === candidatoAtivo.uf) votouNeste = true;
-        else if (candidatoAtivo.cargoKey === 'senador' && (p.senador1_numero === num || p.senador2_numero === num) && uf === candidatoAtivo.uf) votouNeste = true;
-        else if (candidatoAtivo.cargoKey === 'dep_federal' && p.dep_federal_numero === num && uf === candidatoAtivo.uf) votouNeste = true;
-        else if (candidatoAtivo.cargoKey === 'dep_estadual' && p.dep_estadual_numero === num && uf === candidatoAtivo.uf) votouNeste = true;
-
-        if (votouNeste) {
-          mapaUfs[uf].votos += 1;
-          totalVotosConsiderados += 1;
+        if (candidatoAtivo.cargoKey === 'presidente' && p.presidente_numero === num) votou = true;
+        else if (candidatoAtivo.cargoKey === 'governador' && p.governador_numero === num && uf === candidatoAtivo.uf) votou = true;
+        else if (candidatoAtivo.cargoKey === 'senador' && (p.senador1_numero === num || p.senador2_numero === num) && uf === candidatoAtivo.uf) votou = true;
+        else if (candidatoAtivo.cargoKey === 'dep_federal' && p.dep_federal_numero === num && uf === candidatoAtivo.uf) votou = true;
+        else if (candidatoAtivo.cargoKey === 'dep_estadual' && p.dep_estadual_numero === num && uf === candidatoAtivo.uf) votou = true;
+      } else if (camadaTipo === 'partido' && partidoSelecionado !== 'todos') {
+        const pt = partidoSelecionado.toUpperCase();
+        if (
+          p.presidente_partido?.toUpperCase() === pt ||
+          p.governador_partido?.toUpperCase() === pt ||
+          p.senador1_partido?.toUpperCase() === pt ||
+          p.senador2_partido?.toUpperCase() === pt ||
+          p.dep_federal_partido?.toUpperCase() === pt ||
+          p.dep_estadual_partido?.toUpperCase() === pt
+        ) {
+          votou = true;
         }
       } else {
-        // Se visão geral de toda a enquete
+        votou = true;
+      }
+
+      if (votou) {
         mapaUfs[uf].votos += 1;
         totalVotosConsiderados += 1;
       }
     });
 
-    // Calcular percentuais
     Object.keys(mapaUfs).forEach((uf) => {
       if (totalVotosConsiderados > 0) {
         mapaUfs[uf].percentual = (mapaUfs[uf].votos / totalVotosConsiderados) * 100;
@@ -278,32 +353,43 @@ export const PainelPesquisaEleitoral: React.FC = () => {
     });
 
     return { mapaUfs, totalVotosConsiderados };
-  }, [pesquisasFiltradas, candidatoAtivo]);
+  }, [pesquisasFiltradas, camadaTipo, candidatoAtivo, partidoSelecionado]);
 
-  // Detalhamento por Cidades, Bairros e CEPs
-  const detalhamentoCidades = useMemo(() => {
-    const mapaCidades: Record<string, { cidade: string; uf: string; bairro?: string; cep?: string; votos: number }> = {};
+  // Detalhamento e Mapeamento de Cidades e Bairros
+  const detalhamentoCidades = useMemo((): CidadeVotosData[] => {
+    const mapaCidades: Record<string, CidadeVotosData> = {};
 
     pesquisasFiltradas.forEach((p) => {
       const uf = (p.uf || '').toUpperCase();
       const cidade = p.municipio || 'Não informada';
-      const bairro = p.bairro || '';
+      const bairro = p.bairro || 'Geral';
       const cep = p.cep || '';
 
-      if (ufFiltroMapa && uf !== ufFiltroMapa) return;
-
-      let votouNeste = true;
-      if (candidatoAtivo) {
-        votouNeste = false;
+      let votou = false;
+      if (camadaTipo === 'candidato' && candidatoAtivo) {
         const num = candidatoAtivo.numero;
-        if (candidatoAtivo.cargoKey === 'presidente' && p.presidente_numero === num) votouNeste = true;
-        else if (candidatoAtivo.cargoKey === 'governador' && p.governador_numero === num && uf === candidatoAtivo.uf) votouNeste = true;
-        else if (candidatoAtivo.cargoKey === 'senador' && (p.senador1_numero === num || p.senador2_numero === num) && uf === candidatoAtivo.uf) votouNeste = true;
-        else if (candidatoAtivo.cargoKey === 'dep_federal' && p.dep_federal_numero === num && uf === candidatoAtivo.uf) votouNeste = true;
-        else if (candidatoAtivo.cargoKey === 'dep_estadual' && p.dep_estadual_numero === num && uf === candidatoAtivo.uf) votouNeste = true;
+        if (candidatoAtivo.cargoKey === 'presidente' && p.presidente_numero === num) votou = true;
+        else if (candidatoAtivo.cargoKey === 'governador' && p.governador_numero === num && uf === candidatoAtivo.uf) votou = true;
+        else if (candidatoAtivo.cargoKey === 'senador' && (p.senador1_numero === num || p.senador2_numero === num) && uf === candidatoAtivo.uf) votou = true;
+        else if (candidatoAtivo.cargoKey === 'dep_federal' && p.dep_federal_numero === num && uf === candidatoAtivo.uf) votou = true;
+        else if (candidatoAtivo.cargoKey === 'dep_estadual' && p.dep_estadual_numero === num && uf === candidatoAtivo.uf) votou = true;
+      } else if (camadaTipo === 'partido' && partidoSelecionado !== 'todos') {
+        const pt = partidoSelecionado.toUpperCase();
+        if (
+          p.presidente_partido?.toUpperCase() === pt ||
+          p.governador_partido?.toUpperCase() === pt ||
+          p.senador1_partido?.toUpperCase() === pt ||
+          p.senador2_partido?.toUpperCase() === pt ||
+          p.dep_federal_partido?.toUpperCase() === pt ||
+          p.dep_estadual_partido?.toUpperCase() === pt
+        ) {
+          votou = true;
+        }
+      } else {
+        votou = true;
       }
 
-      if (votouNeste) {
+      if (votou) {
         const chave = `${uf}_${cidade}_${bairro}`;
         if (!mapaCidades[chave]) {
           mapaCidades[chave] = { cidade, uf, bairro, cep, votos: 0 };
@@ -315,7 +401,19 @@ export const PainelPesquisaEleitoral: React.FC = () => {
     const lista = Object.values(mapaCidades);
     lista.sort((a, b) => b.votos - a.votos || a.cidade.localeCompare(b.cidade));
     return lista;
-  }, [pesquisasFiltradas, candidatoAtivo, ufFiltroMapa]);
+  }, [pesquisasFiltradas, camadaTipo, candidatoAtivo, partidoSelecionado]);
+
+  // Lista de Cidades Únicas para o Seletor de Escopo
+  const listaCidadesDisponiveis = useMemo(() => {
+    const setCidades = new Set<string>();
+    pesquisasAmostragem.forEach((p) => {
+      if (ufFiltro && (p.uf || '').toUpperCase() !== ufFiltro.toUpperCase()) return;
+      if (p.municipio && p.municipio !== 'Não informado') {
+        setCidades.add(p.municipio);
+      }
+    });
+    return Array.from(setCidades).sort();
+  }, [pesquisasAmostragem, ufFiltro]);
 
   const maxVotosEstado = useMemo(() => {
     return Math.max(1, ...Object.values(dadosGeograficosEstados.mapaUfs).map((e) => e.votos));
@@ -323,18 +421,19 @@ export const PainelPesquisaEleitoral: React.FC = () => {
 
   return (
     <div className="space-y-6 animate-fadeIn">
-      {/* CABEÇALHO DO PAINEL DE PESQUISA ELEITORAL */}
+      
+      {/* CABEÇALHO DO PAINEL DE PESQUISA */}
       <div className="bg-gradient-to-r from-slate-900 via-slate-950 to-slate-900 border border-slate-800 p-6 rounded-3xl shadow-xl text-white space-y-4">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div className="space-y-1">
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-orange-500/15 border border-orange-500/30 text-orange-400 text-xs font-black">
-              <TrendingUp className="size-3.5" /> Inteligência Geográfica & Analítica
+              <TrendingUp className="size-3.5" /> Inteligência Eleitoral & Georreferenciamento
             </div>
             <h2 className="text-2xl sm:text-3xl font-black tracking-tight">
-              Dashboard de Pesquisa & Mapa de Calor Eleitoral
+              Pesquisa & Inteligência Geográfica
             </h2>
             <p className="text-xs sm:text-sm text-slate-300">
-              Análise geoespacial da força eleitoral e intenção de votos dos candidatos consolidados na enquete.
+              Mapeamento de densidade eleitoral por Estado, Município e Bairro com filtros de candidatos e legendas.
             </p>
           </div>
 
@@ -362,328 +461,427 @@ export const PainelPesquisaEleitoral: React.FC = () => {
           </div>
         </div>
 
-        {/* MÉTRICAS GERAIS RESUMIDAS */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-2">
-          <div className="p-3.5 rounded-2xl bg-slate-900/90 border border-slate-800">
-            <p className="text-[11px] font-bold text-slate-400">Total de Pesquisas</p>
-            <p className="font-mono text-2xl font-black text-white mt-1">
-              {pesquisasFiltradas.length.toLocaleString('pt-BR')}
-            </p>
-          </div>
-
-          <div className="p-3.5 rounded-2xl bg-slate-900/90 border border-slate-800">
-            <p className="text-[11px] font-bold text-slate-400">Candidatos Pontuando</p>
-            <p className="font-mono text-2xl font-black text-orange-400 mt-1">
-              {listaCandidatosValidos.length}
-            </p>
-          </div>
-
-          <div className="p-3.5 rounded-2xl bg-slate-900/90 border border-slate-800">
-            <p className="text-[11px] font-bold text-slate-400">Votos no Filtro Atual</p>
-            <p className="font-mono text-2xl font-black text-emerald-400 mt-1">
-              {dadosGeograficosEstados.totalVotosConsiderados.toLocaleString('pt-BR')}
-            </p>
-          </div>
-
-          <div className="p-3.5 rounded-2xl bg-slate-900/90 border border-slate-800">
-            <p className="text-[11px] font-bold text-slate-400">Modo de Amostragem</p>
-            <div className="flex items-center gap-1 mt-1">
+        {/* BARRA DE FILTROS GLOBAIS DE ESCOPO */}
+        <div className="pt-3 border-t border-slate-800/80 grid grid-cols-1 sm:grid-cols-3 gap-3">
+          
+          {/* SELETOR DE ESCOPO */}
+          <div className="space-y-1.5">
+            <label className="text-[11px] font-bold text-slate-400 flex items-center gap-1.5">
+              <Globe className="size-3.5 text-orange-400" /> Escopo Geográfico:
+            </label>
+            <div className="grid grid-cols-3 gap-1 bg-slate-900 border border-slate-800 p-1 rounded-xl">
               <button
                 type="button"
-                onClick={() => setAmostragem('geral')}
-                className={`px-2.5 py-1 rounded-lg text-xs font-black transition-all ${
-                  amostragem === 'geral' ? 'bg-orange-500 text-white' : 'bg-slate-800 text-slate-400'
-                }`}
-              >
-                Geral
-              </button>
-              <button
-                type="button"
-                onClick={() => setAmostragem('voto_unico')}
-                className={`px-2.5 py-1 rounded-lg text-xs font-black transition-all ${
-                  amostragem === 'voto_unico' ? 'bg-orange-500 text-white' : 'bg-slate-800 text-slate-400'
-                }`}
-              >
-                Voto Único
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* SELETORES E FILTROS DE CANDIDATO */}
-      <div className="bg-white p-5 sm:p-6 rounded-3xl border border-slate-200 shadow-sm space-y-4">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 border-b border-slate-100 pb-4">
-          <div>
-            <h3 className="text-lg font-black text-slate-900 flex items-center gap-2">
-              <Filter className="size-4 text-primary" />
-              Seletor de Candidato para o Mapa de Calor
-            </h3>
-            <p className="text-xs text-slate-500">
-              Escolha um candidato de qualquer cargo para visualizar sua distribuição geográfica precisa.
-            </p>
-          </div>
-
-          {/* FILTRO RÁPIDO DE CARGOS */}
-          <div className="flex items-center gap-1.5 overflow-x-auto pb-1">
-            {[
-              { id: 'todos', label: 'Todos os Cargos' },
-              { id: 'presidente', label: 'Presidente' },
-              { id: 'governador', label: 'Governador(a)' },
-              { id: 'senador', label: 'Senador(a)' },
-              { id: 'dep_federal', label: 'Dep. Federal' },
-              { id: 'dep_estadual', label: 'Dep. Estadual' },
-            ].map((tab) => (
-              <button
-                key={tab.id}
                 onClick={() => {
-                  setCargoFiltro(tab.id as TipoCargo);
-                  setCandidatoSelecionadoId('todos');
+                  setEscopo('nacional');
+                  setUfFiltro(null);
+                  setCidadeFiltro(null);
                 }}
-                className={`px-3 py-1.5 rounded-xl text-xs font-bold shrink-0 transition-all ${
-                  cargoFiltro === tab.id
-                    ? 'bg-slate-900 text-white shadow-sm'
-                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                className={`py-1.5 rounded-lg text-xs font-bold transition-all ${
+                  escopo === 'nacional' ? 'bg-orange-500 text-white' : 'text-slate-400 hover:text-white'
                 }`}
               >
-                {tab.label}
+                Nacional
               </button>
-            ))}
-          </div>
-        </div>
-
-        {/* BUSCADOR E SELECTOR DE CANDIDATOS */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div className="space-y-1.5">
-            <Label className="text-xs font-bold uppercase text-slate-600">Buscar por Nome, Número ou Partido</Label>
-            <div className="relative">
-              <Search className="size-4 text-slate-400 absolute left-3 top-3.5" />
-              <Input
-                placeholder="Ex: Lula, Elmano, Cid Gomes, 13, 13123..."
-                value={buscaTexto}
-                onChange={(e) => setBuscaTexto(e.target.value)}
-                className="pl-9 h-11"
-              />
+              <button
+                type="button"
+                onClick={() => {
+                  setEscopo('estadual');
+                  if (!ufFiltro) setUfFiltro('CE');
+                  setCidadeFiltro(null);
+                }}
+                className={`py-1.5 rounded-lg text-xs font-bold transition-all ${
+                  escopo === 'estadual' ? 'bg-orange-500 text-white' : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                Estadual
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setEscopo('municipal');
+                  if (!ufFiltro) setUfFiltro('CE');
+                  if (!cidadeFiltro && listaCidadesDisponiveis.length > 0) setCidadeFiltro(listaCidadesDisponiveis[0]);
+                }}
+                className={`py-1.5 rounded-lg text-xs font-bold transition-all ${
+                  escopo === 'municipal' ? 'bg-orange-500 text-white' : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                Municipal
+              </button>
             </div>
           </div>
 
+          {/* SELETOR DE ESTADO (UF) */}
           <div className="space-y-1.5">
-            <Label className="text-xs font-bold uppercase text-slate-600">Selecione o Candidato Alvo</Label>
+            <label className="text-[11px] font-bold text-slate-400 flex items-center gap-1.5">
+              <MapPin className="size-3.5 text-orange-400" /> Filtrar Estado (UF):
+            </label>
             <select
-              value={candidatoSelecionadoId}
-              onChange={(e) => setCandidatoSelecionadoId(e.target.value)}
-              className="w-full h-11 px-3 rounded-md border border-input bg-background text-sm font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-primary cursor-pointer"
+              value={ufFiltro || ''}
+              onChange={(e) => {
+                const val = e.target.value || null;
+                setUfFiltro(val);
+                setCidadeFiltro(null);
+                if (val && escopo === 'nacional') setEscopo('estadual');
+              }}
+              className="w-full h-9 px-3 rounded-xl bg-slate-900 border border-slate-800 text-xs font-bold text-white focus:outline-none focus:ring-2 focus:ring-orange-500/50"
             >
-              <option value="todos">🌐 Panorama Geral (Todos os Votos da Enquete)</option>
-              {candidatosFiltradosSelect.map((cand) => (
-                <option key={cand.id} value={cand.id}>
-                  {cand.nomeUrna} ({cand.numero}) — {cand.cargo} ({cand.uf}) • {cand.totalVotos} votos
+              <option value="">Todos os Estados (Brasil)</option>
+              {Object.entries(ESTADOS_NOMES).map(([sigla, nome]) => (
+                <option key={sigla} value={sigla}>
+                  {sigla} - {nome}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* SELETOR DE MUNICÍPIO */}
+          <div className="space-y-1.5">
+            <label className="text-[11px] font-bold text-slate-400 flex items-center gap-1.5">
+              <Building2 className="size-3.5 text-orange-400" /> Filtrar Município / Cidade:
+            </label>
+            <select
+              value={cidadeFiltro || ''}
+              onChange={(e) => {
+                const val = e.target.value || null;
+                setCidadeFiltro(val);
+                if (val) setEscopo('municipal');
+              }}
+              className="w-full h-9 px-3 rounded-xl bg-slate-900 border border-slate-800 text-xs font-bold text-white focus:outline-none focus:ring-2 focus:ring-orange-500/50"
+            >
+              <option value="">Todas as Cidades {ufFiltro ? `em ${ufFiltro}` : ''}</option>
+              {listaCidadesDisponiveis.map((cid) => (
+                <option key={cid} value={cid}>
+                  {cid}
                 </option>
               ))}
             </select>
           </div>
         </div>
+      </div>
 
-        {/* CARD DO CANDIDATO ATIVO SE SELECIONADO */}
-        {candidatoAtivo && (
-          <div className="p-4 rounded-2xl bg-orange-50 border border-orange-200 flex flex-col sm:flex-row sm:items-center justify-between gap-4 animate-fadeIn">
-            <div className="flex items-center gap-3">
-              <div className="size-14 rounded-full overflow-hidden bg-white border-2 border-orange-500 shadow-sm flex items-center justify-center shrink-0">
-                {candidatoAtivo.fotoUrl ? (
-                  <img src={candidatoAtivo.fotoUrl} alt={candidatoAtivo.nomeUrna} className="size-full object-cover" />
-                ) : (
-                  <span className="font-black text-slate-700">{candidatoAtivo.nomeUrna.slice(0, 2).toUpperCase()}</span>
-                )}
-              </div>
+      {/* CARDS DE KPIS CONSOLIDADOS (VISÃO MACRO EM TEMPO REAL) */}
+      <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
+        <div className="p-4 rounded-3xl bg-white border border-slate-200 shadow-sm space-y-1">
+          <p className="text-[11px] font-extrabold uppercase text-slate-500 flex items-center gap-1.5">
+            <Users className="size-3.5 text-primary" /> Participações
+          </p>
+          <p className="text-2xl font-black font-mono text-slate-950">
+            {kpisGerais.totalParticipacoes.toLocaleString('pt-BR')}
+          </p>
+          <div className="flex items-center gap-1.5 pt-1">
+            <button
+              onClick={() => setAmostragem('geral')}
+              className={`text-[10px] font-bold px-2 py-0.5 rounded-full transition-all ${
+                amostragem === 'geral' ? 'bg-orange-500 text-white' : 'bg-slate-100 text-slate-600'
+              }`}
+            >
+              Geral
+            </button>
+            <button
+              onClick={() => setAmostragem('voto_unico')}
+              className={`text-[10px] font-bold px-2 py-0.5 rounded-full transition-all ${
+                amostragem === 'voto_unico' ? 'bg-orange-500 text-white' : 'bg-slate-100 text-slate-600'
+              }`}
+            >
+              Voto Único
+            </button>
+          </div>
+        </div>
 
-              <div>
-                <div className="flex items-center gap-2">
-                  <h4 className="text-base font-black text-slate-900">{candidatoAtivo.nomeUrna}</h4>
-                  <span className="text-[10px] font-mono font-bold bg-white text-slate-700 px-2 py-0.5 rounded border border-slate-200">
-                    {candidatoAtivo.partido}
-                  </span>
-                </div>
-                <p className="text-xs text-slate-600 font-medium">
-                  {candidatoAtivo.cargo} • Nº {candidatoAtivo.numero} • UF: {candidatoAtivo.uf}
-                </p>
-              </div>
+        <div className="p-4 rounded-3xl bg-white border border-slate-200 shadow-sm space-y-1">
+          <p className="text-[11px] font-extrabold uppercase text-emerald-600 flex items-center gap-1.5">
+            <CheckCircle2 className="size-3.5" /> Votos Válidos
+          </p>
+          <p className="text-2xl font-black font-mono text-emerald-600">
+            {kpisGerais.validos.toLocaleString('pt-BR')}
+          </p>
+          <p className="text-[11px] font-bold text-slate-500">
+            {kpisGerais.percValidos.toFixed(1)}% do total
+          </p>
+        </div>
+
+        <div className="p-4 rounded-3xl bg-white border border-slate-200 shadow-sm space-y-1">
+          <p className="text-[11px] font-extrabold uppercase text-rose-600 flex items-center gap-1.5">
+            <Ban className="size-3.5" /> Votos Nulos
+          </p>
+          <p className="text-2xl font-black font-mono text-rose-600">
+            {kpisGerais.nulos.toLocaleString('pt-BR')}
+          </p>
+          <p className="text-[11px] font-bold text-slate-500">
+            {kpisGerais.percNulos.toFixed(1)}% do total
+          </p>
+        </div>
+
+        <div className="p-4 rounded-3xl bg-white border border-slate-200 shadow-sm space-y-1">
+          <p className="text-[11px] font-extrabold uppercase text-slate-600 flex items-center gap-1.5">
+            <CircleDot className="size-3.5" /> Votos Brancos
+          </p>
+          <p className="text-2xl font-black font-mono text-slate-700">
+            {kpisGerais.brancos.toLocaleString('pt-BR')}
+          </p>
+          <p className="text-[11px] font-bold text-slate-500">
+            {kpisGerais.percBrancos.toFixed(1)}% do total
+          </p>
+        </div>
+
+        <div className="p-4 rounded-3xl bg-white border border-slate-200 shadow-sm space-y-1 col-span-2 lg:col-span-1">
+          <p className="text-[11px] font-extrabold uppercase text-orange-600 flex items-center gap-1.5">
+            <MapPin className="size-3.5" /> Cobertura Geo
+          </p>
+          <p className="text-2xl font-black font-mono text-orange-600">
+            {kpisGerais.totalCidades}
+          </p>
+          <p className="text-[11px] font-bold text-slate-500">
+            cidades • {kpisGerais.totalBairros} bairros
+          </p>
+        </div>
+      </div>
+
+      {/* FILTROS DE CAMADA DO MAPA (GERAL / CANDIDATO / PARTIDO) */}
+      <div className="bg-white p-5 sm:p-6 rounded-3xl border border-slate-200 shadow-sm space-y-5">
+        
+        {/* ABAS DE SELEÇÃO DE CAMADA */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-4">
+          <div>
+            <h3 className="text-base sm:text-lg font-black text-slate-900 flex items-center gap-2">
+              <Layers className="size-5 text-primary" />
+              Camada de Visualização do Heatmap
+            </h3>
+            <p className="text-xs text-slate-500">
+              Selecione se deseja ver a densidade geral de eleitores, a força de um candidato específico ou a legenda partidária.
+            </p>
+          </div>
+
+          <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-2xl shrink-0">
+            <button
+              type="button"
+              onClick={() => {
+                setCamadaTipo('geral');
+                setCandidatoSelecionadoId('todos');
+                setPartidoSelecionado('todos');
+              }}
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
+                camadaTipo === 'geral' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              Visão Geral
+            </button>
+            <button
+              type="button"
+              onClick={() => setCamadaTipo('candidato')}
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
+                camadaTipo === 'candidato' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              Por Candidato
+            </button>
+            <button
+              type="button"
+              onClick={() => setCamadaTipo('partido')}
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
+                camadaTipo === 'partido' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              Por Partido
+            </button>
+          </div>
+        </div>
+
+        {/* FILTROS ESPECÍFICOS QUANDO EM MODO CANDIDATO */}
+        {camadaTipo === 'candidato' && (
+          <div className="space-y-3 animate-fadeIn">
+            {/* FILTRO RÁPIDO DE CARGOS */}
+            <div className="flex items-center gap-1.5 overflow-x-auto pb-1">
+              {[
+                { id: 'todos', label: 'Todos os Cargos' },
+                { id: 'presidente', label: 'Presidente' },
+                { id: 'governador', label: 'Governador' },
+                { id: 'senador', label: 'Senador' },
+                { id: 'dep_federal', label: 'Dep. Federal' },
+                { id: 'dep_estadual', label: 'Deputado Estadual' },
+              ].map((tab) => (
+                <button
+                  key={tab.id}
+                  onClick={() => {
+                    setCargoFiltro(tab.id as TipoCargo);
+                    setCandidatoSelecionadoId('todos');
+                  }}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold shrink-0 transition-all ${
+                    cargoFiltro === tab.id
+                      ? 'bg-slate-900 text-white shadow-sm'
+                      : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                  }`}
+                >
+                  {tab.label}
+                </button>
+              ))}
             </div>
 
-            <div className="flex items-center gap-4">
-              <div className="text-left sm:text-right">
-                <span className="text-[10px] font-bold text-slate-500 block">Total de Votos no Painel</span>
-                <span className="font-mono text-2xl font-black text-orange-600">
-                  {candidatoAtivo.totalVotos}
-                </span>
+            {/* SELETOR DE CANDIDATO DROPDOWN */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+              <div className="relative">
+                <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 size-4 text-slate-400" />
+                <Input
+                  placeholder="Buscar candidato por nome ou número..."
+                  value={buscaTexto}
+                  onChange={(e) => setBuscaTexto(e.target.value)}
+                  className="pl-9 h-11 rounded-2xl text-xs"
+                />
               </div>
-              <button
-                type="button"
-                onClick={() => setCandidatoSelecionadoId('todos')}
-                className="px-3 py-1.5 text-xs font-bold bg-white hover:bg-slate-100 text-slate-700 rounded-xl border border-slate-200 shadow-sm"
+
+              <select
+                value={candidatoSelecionadoId}
+                onChange={(e) => setCandidatoSelecionadoId(e.target.value)}
+                className="h-11 px-4 rounded-2xl bg-slate-50 border border-slate-200 text-xs font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-orange-500/50"
               >
-                Limpar Filtro
-              </button>
+                <option value="todos">Todos os Candidatos no Mapa</option>
+                {listaCandidatosValidos
+                  .filter((c) => {
+                    if (cargoFiltro !== 'todos' && c.cargoKey !== cargoFiltro) return false;
+                    if (buscaTexto) {
+                      const t = buscaTexto.toLowerCase();
+                      return c.nomeUrna.toLowerCase().includes(t) || c.numero.includes(t) || c.partido.toLowerCase().includes(t);
+                    }
+                    return true;
+                  })
+                  .map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.cargo}: {c.nomeUrna} ({c.numero} - {c.partido}) • {c.totalVotos} votos
+                    </option>
+                  ))}
+              </select>
             </div>
           </div>
         )}
-      </div>
 
-      {/* DASHBOARD GEOGRÁFICO: MAPA DO BRASIL + DETALHAMENTO DE LOCALIDADES */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        {/* COLUNA ESQUERDA: MAPA DO BRASIL INTERATIVO */}
-        <div className="lg:col-span-7 bg-white p-5 sm:p-6 rounded-3xl border border-slate-200 shadow-sm space-y-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <h3 className="text-base font-black text-slate-900 flex items-center gap-2">
-                <Map className="size-4 text-primary" />
-                Mapa de Calor Georreferenciado do Brasil
-              </h3>
-              <p className="text-xs text-slate-500">
-                {candidatoAtivo
-                  ? `Concentração de votos de ${candidatoAtivo.nomeUrna} por estado`
-                  : 'Densidade geral de eleitores que responderam à enquete'}
-              </p>
+        {/* FILTROS ESPECÍFICOS QUANDO EM MODO PARTIDO */}
+        {camadaTipo === 'partido' && (
+          <div className="space-y-3 animate-fadeIn">
+            <div className="flex flex-wrap items-center gap-1.5">
+              <button
+                type="button"
+                onClick={() => setPartidoSelecionado('todos')}
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
+                  partidoSelecionado === 'todos' ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-600'
+                }`}
+              >
+                Todas as Legendas
+              </button>
+              {partidosDisponiveis.map((pt) => (
+                <button
+                  key={pt}
+                  type="button"
+                  onClick={() => setPartidoSelecionado(pt)}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all font-mono ${
+                    partidoSelecionado === pt ? 'bg-orange-500 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                  }`}
+                >
+                  {pt}
+                </button>
+              ))}
             </div>
-
-            {ufFiltroMapa && (
-              <span className="text-xs font-mono font-bold text-orange-600 bg-orange-100 px-2.5 py-1 rounded-full">
-                Filtro: {ufFiltroMapa}
-              </span>
-            )}
           </div>
+        )}
 
+        {/* MAPA DE CALOR INTERATIVO */}
+        <div className="pt-2">
           <MapaBrasilSvg
             dadosEstados={dadosGeograficosEstados.mapaUfs}
-            ufSelecionada={ufFiltroMapa}
-            onSelectUf={(uf) => setUfFiltroMapa(uf)}
+            dadosCidades={detalhamentoCidades}
+            ufSelecionada={ufFiltro}
+            cidadeSelecionada={cidadeFiltro}
+            onSelectUf={(uf) => {
+              setUfFiltro(uf);
+              setCidadeFiltro(null);
+              if (uf) setEscopo('estadual');
+              else setEscopo('nacional');
+            }}
+            onSelectCidade={(cid) => {
+              setCidadeFiltro(cid);
+              if (cid) setEscopo('municipal');
+            }}
             maxVotos={maxVotosEstado}
           />
         </div>
-
-        {/* COLUNA DIREITA: DETALHAMENTO DE CIDADES, BAIRROS E CEP */}
-        <div className="lg:col-span-5 bg-white p-5 sm:p-6 rounded-3xl border border-slate-200 shadow-sm space-y-4 flex flex-col justify-between">
-          <div className="space-y-3">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-              <div>
-                <h3 className="text-base font-black text-slate-900 flex items-center gap-2">
-                  <Building2 className="size-4 text-emerald-600" />
-                  Localidades com Votos Informados
-                </h3>
-                <p className="text-xs text-slate-500">
-                  {ufFiltroMapa ? `Filtrando apenas cidades de ${ufFiltroMapa}` : 'Todas as cidades registradas'}
-                </p>
-              </div>
-
-              <span className="text-xs font-bold text-slate-500 bg-slate-100 px-2.5 py-1 rounded-lg">
-                {detalhamentoCidades.length} {detalhamentoCidades.length === 1 ? 'local' : 'locais'}
-              </span>
-            </div>
-
-            {detalhamentoCidades.length === 0 ? (
-              <div className="py-12 text-center text-slate-400 space-y-2">
-                <MapPin className="size-8 mx-auto text-slate-300" />
-                <p className="text-xs font-bold">Nenhum voto georreferenciado encontrado para este filtro.</p>
-              </div>
-            ) : (
-              <div className="space-y-2 max-h-[440px] overflow-y-auto pr-1 custom-scrollbar">
-                {detalhamentoCidades.map((loc, idx) => (
-                  <div
-                    key={`${loc.uf}_${loc.cidade}_${loc.bairro}_${idx}`}
-                    className="p-3 rounded-xl bg-slate-50 hover:bg-slate-100 border border-slate-200 transition-colors flex items-center justify-between gap-3"
-                  >
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-1.5">
-                        <MapPin className="size-3.5 text-orange-500 shrink-0" />
-                        <span className="font-black text-slate-900 text-xs truncate">
-                          {loc.cidade} / {loc.uf}
-                        </span>
-                      </div>
-                      <p className="text-[11px] text-slate-500 mt-0.5">
-                        {loc.bairro ? `Bairro ${loc.bairro}` : 'Região Central / Geral'}
-                        {loc.cep ? ` • CEP ${loc.cep}` : ''}
-                      </p>
-                    </div>
-
-                    <div className="text-right shrink-0">
-                      <span className="font-mono font-black text-sm text-slate-900">
-                        {loc.votos} {loc.votos === 1 ? 'voto' : 'votos'}
-                      </span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-
-          {ufFiltroMapa && (
-            <div className="pt-3 border-t border-slate-100">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setUfFiltroMapa(null)}
-                className="w-full text-xs font-bold text-slate-700"
-              >
-                Limpar Filtro por Estado ({ufFiltroMapa})
-              </Button>
-            </div>
-          )}
-        </div>
       </div>
 
-      {/* RANKING COMPARATIVO DE TODOS OS CANDIDATOS DO CARGO */}
+      {/* TABELA DE RANKING E DETALHAMENTO GEOGRÁFICO */}
       <div className="bg-white p-5 sm:p-6 rounded-3xl border border-slate-200 shadow-sm space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-3">
           <div>
             <h3 className="text-base font-black text-slate-900 flex items-center gap-2">
-              <Award className="size-4 text-amber-500" />
-              Ranking Comparativo de Candidatos da Enquete
+              <Building2 className="size-4 text-primary" />
+              Detalhamento de Cidades e Bairros
             </h3>
             <p className="text-xs text-slate-500">
-              Listagem consolidada de todos os concorrentes oficiais com votos válidos computados.
+              Ranking de concentração de votos georreferenciados na pesquisa eleitoral.
             </p>
           </div>
 
-          <span className="text-xs font-bold text-slate-500">
-            Total: {candidatosFiltradosSelect.length} candidatos listados
+          <span className="text-xs font-bold text-slate-500 font-mono">
+            {detalhamentoCidades.length} {detalhamentoCidades.length === 1 ? 'registro' : 'registros'}
           </span>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-          {candidatosFiltradosSelect.slice(0, 15).map((cand, idx) => {
-            const isSelected = cand.id === candidatoSelecionadoId;
-            return (
-              <div
-                key={cand.id}
-                onClick={() => setCandidatoSelecionadoId(cand.id)}
-                className={`p-3.5 rounded-2xl border transition-all cursor-pointer shadow-sm flex items-center justify-between gap-3 ${
-                  isSelected
-                    ? 'bg-orange-500/10 border-orange-500 ring-2 ring-orange-500/30'
-                    : 'bg-slate-50 hover:bg-slate-100 border-slate-200'
-                }`}
-              >
-                <div className="flex items-center gap-3 min-w-0">
-                  <span className="size-7 rounded-full bg-slate-200 text-slate-800 text-xs font-black flex items-center justify-center shrink-0">
-                    {idx + 1}º
-                  </span>
+        {detalhamentoCidades.length === 0 ? (
+          <div className="p-8 text-center bg-slate-50 rounded-2xl border border-slate-200">
+            <p className="text-xs font-bold text-slate-500">
+              Nenhuma localidade registrada para os filtros selecionados.
+            </p>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs border-collapse">
+              <thead>
+                <tr className="border-b border-slate-200 text-slate-500 font-extrabold uppercase">
+                  <th className="py-2.5 px-3">Localidade</th>
+                  <th className="py-2.5 px-3">UF</th>
+                  <th className="py-2.5 px-3">Bairro / Região</th>
+                  <th className="py-2.5 px-3">Votos</th>
+                  <th className="py-2.5 px-3 text-right">Intensidade</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {detalhamentoCidades.slice(0, 25).map((loc, i) => {
+                  const maxV = detalhamentoCidades[0]?.votos || 1;
+                  const percRelativo = (loc.votos / maxV) * 100;
 
-                  <div className="min-w-0">
-                    <h4 className="font-black text-slate-900 text-xs truncate">{cand.nomeUrna}</h4>
-                    <p className="text-[10px] text-slate-500">
-                      Nº {cand.numero} • {cand.partido} • {cand.cargo}
-                    </p>
-                  </div>
-                </div>
-
-                <div className="text-right shrink-0">
-                  <span className="font-mono font-black text-sm text-orange-600">
-                    {cand.totalVotos} {cand.totalVotos === 1 ? 'voto' : 'votos'}
-                  </span>
-                </div>
-              </div>
-            );
-          })}
-        </div>
+                  return (
+                    <tr key={`${loc.cidade}_${loc.bairro}_${i}`} className="hover:bg-slate-50/80 transition-colors">
+                      <td className="py-3 px-3 font-bold text-slate-900">
+                        {loc.cidade}
+                      </td>
+                      <td className="py-3 px-3">
+                        <span className="px-2 py-0.5 rounded-full font-mono text-[10px] font-extrabold bg-slate-100 text-slate-700">
+                          {loc.uf}
+                        </span>
+                      </td>
+                      <td className="py-3 px-3 text-slate-600">
+                        {loc.bairro && loc.bairro !== 'Geral' ? loc.bairro : 'Centro / Geral'}
+                      </td>
+                      <td className="py-3 px-3 font-black font-mono text-orange-600">
+                        {loc.votos} {loc.votos === 1 ? 'voto' : 'votos'}
+                      </td>
+                      <td className="py-3 px-3 text-right">
+                        <div className="w-24 sm:w-36 h-2 rounded-full bg-slate-100 ml-auto overflow-hidden">
+                          <div
+                            className="h-full bg-gradient-to-r from-orange-400 to-amber-500 rounded-full"
+                            style={{ width: `${percRelativo}%` }}
+                          />
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
     </div>
   );
 };
+
+export default PainelPesquisaEleitoral;

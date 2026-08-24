@@ -1,4 +1,5 @@
-import React from 'react';
+import React, { useState } from 'react';
+import { ZoomIn, ZoomOut, RotateCcw, MapPin, Building2, Layers, Sparkles } from 'lucide-react';
 
 export interface EstadoVotosData {
   uf: string;
@@ -9,16 +10,27 @@ export interface EstadoVotosData {
   totalVotosEstado: number;
 }
 
+export interface CidadeVotosData {
+  cidade: string;
+  uf: string;
+  bairro?: string;
+  cep?: string;
+  votos: number;
+  percentual?: number;
+}
+
 interface Props {
   dadosEstados: Record<string, EstadoVotosData>;
+  dadosCidades?: CidadeVotosData[];
   ufSelecionada: string | null;
+  cidadeSelecionada?: string | null;
   onSelectUf: (uf: string | null) => void;
-  corBase?: string; // ex: 'orange' | 'blue'
+  onSelectCidade?: (cidade: string | null) => void;
+  corBase?: string;
   maxVotos?: number;
 }
 
-// Coordenadas aproximadas em grade visual e paths vetoriais simplificados dos 27 estados do Brasil
-const ESTADOS_INFO: Record<string, { nome: string; regiao: string; x: number; y: number; w: number; h: number; path?: string }> = {
+const ESTADOS_INFO: Record<string, { nome: string; regiao: string; x: number; y: number; w: number; h: number }> = {
   RR: { nome: 'Roraima', regiao: 'Norte', x: 200, y: 30, w: 75, h: 65 },
   AP: { nome: 'Amapá', regiao: 'Norte', x: 385, y: 35, w: 55, h: 55 },
   AM: { nome: 'Amazonas', regiao: 'Norte', x: 90, y: 90, w: 155, h: 105 },
@@ -50,78 +62,144 @@ const ESTADOS_INFO: Record<string, { nome: string; regiao: string; x: number; y:
 
 export const MapaBrasilSvg: React.FC<Props> = ({
   dadosEstados,
+  dadosCidades = [],
   ufSelecionada,
+  cidadeSelecionada,
   onSelectUf,
+  onSelectCidade,
   maxVotos = 1,
 }) => {
-  const getCorHeatmap = (votos: number) => {
+  const [zoomLevel, setZoomLevel] = useState<number>(1); // 1 = Nacional, 1.5 = Estadual, 2.2 = Detalhado
+
+  const getCorHeatmap = (votos: number, max: number) => {
     if (!votos || votos === 0) return '#1e293b'; // slate-800
-    const intensidade = Math.min(1, Math.max(0.15, votos / Math.max(maxVotos, 1)));
+    const intensidade = Math.min(1, Math.max(0.2, votos / Math.max(max, 1)));
     
-    // Gradiente quente (laranja/âmbar para vermelho/fogo)
-    if (intensidade < 0.25) return '#f9731640'; // Laranja bem suave
-    if (intensidade < 0.5) return '#f9731680'; // Laranja médio
-    if (intensidade < 0.75) return '#f97316cc'; // Laranja forte
-    return '#ea580c'; // Laranja queimado intenso
+    if (intensidade < 0.25) return '#f9731640';
+    if (intensidade < 0.5) return '#f9731680';
+    if (intensidade < 0.75) return '#f97316cc';
+    return '#ea580c';
   };
 
+  const handleZoomIn = () => setZoomLevel((z) => Math.min(2.5, +(z + 0.3).toFixed(1)));
+  const handleZoomOut = () => setZoomLevel((z) => Math.max(0.8, +(z - 0.3).toFixed(1)));
+  const handleResetZoom = () => {
+    setZoomLevel(1);
+    onSelectUf(null);
+    if (onSelectCidade) onSelectCidade(null);
+  };
+
+  // Cidades da UF selecionada
+  const cidadesDaUf = React.useMemo(() => {
+    if (!ufSelecionada) return [];
+    return dadosCidades.filter((c) => c.uf.toUpperCase() === ufSelecionada.toUpperCase());
+  }, [dadosCidades, ufSelecionada]);
+
+  const maxVotosCidades = React.useMemo(() => {
+    return Math.max(1, ...cidadesDaUf.map((c) => c.votos));
+  }, [cidadesDaUf]);
+
   return (
-    <div className="relative w-full bg-slate-950/80 rounded-2xl border border-slate-800/80 p-4 overflow-hidden shadow-inner flex flex-col items-center">
-      {/* LEGENDA DO MAPA DE CALOR */}
-      <div className="w-full flex items-center justify-between gap-3 text-xs mb-3 text-slate-400">
-        <div className="flex items-center gap-1.5 font-bold">
-          <span>Densidade Eleitoral:</span>
-        </div>
+    <div className="relative w-full bg-slate-950 rounded-3xl border border-slate-800 p-4 sm:p-6 overflow-hidden shadow-2xl flex flex-col items-center select-none">
+      
+      {/* BARRA SUPERIOR: CONTROLES DE ZOOM E CAMADAS */}
+      <div className="w-full flex flex-wrap items-center justify-between gap-3 text-xs mb-4 text-slate-300 pb-3 border-b border-slate-800/80">
         <div className="flex items-center gap-2">
-          <span className="text-[11px]">0 votos</span>
-          <div className="h-3 w-32 rounded-full bg-gradient-to-r from-slate-800 via-orange-500/50 to-orange-500 border border-slate-700 shadow-sm" />
-          <span className="text-[11px] font-bold text-orange-400">Maior concentração</span>
+          <span className="font-bold text-slate-400 flex items-center gap-1.5">
+            <Layers className="size-4 text-orange-400" />
+            Nível:
+          </span>
+          <span className="px-2.5 py-0.5 rounded-full font-extrabold text-[11px] bg-orange-500/20 text-orange-400 border border-orange-500/30">
+            {cidadeSelecionada
+              ? `Municipal • ${cidadeSelecionada} (${ufSelecionada})`
+              : ufSelecionada
+              ? `Estadual • ${ESTADOS_INFO[ufSelecionada]?.nome || ufSelecionada}`
+              : 'Nacional • Brasil (27 UFs)'}
+          </span>
+        </div>
+
+        {/* CONTROLES DE ZOOM */}
+        <div className="flex items-center gap-1.5 bg-slate-900 border border-slate-800 rounded-xl p-1 shadow-inner">
+          <button
+            type="button"
+            onClick={handleZoomIn}
+            className="size-7 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 flex items-center justify-center transition-all cursor-pointer"
+            title="Aproximar Zoom"
+          >
+            <ZoomIn className="size-3.5" />
+          </button>
+          <span className="text-[10px] font-mono font-bold px-1.5 text-slate-400">
+            {Math.round(zoomLevel * 100)}%
+          </span>
+          <button
+            type="button"
+            onClick={handleZoomOut}
+            className="size-7 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 flex items-center justify-center transition-all cursor-pointer"
+            title="Afastar Zoom"
+          >
+            <ZoomOut className="size-3.5" />
+          </button>
+          <button
+            type="button"
+            onClick={handleResetZoom}
+            className="px-2 h-7 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 flex items-center gap-1 text-[11px] font-bold transition-all cursor-pointer"
+            title="Resetar para visão Brasil"
+          >
+            <RotateCcw className="size-3" /> Reset
+          </button>
         </div>
       </div>
 
-      {/* MAPA SVG INTERATIVO DO BRASIL */}
-      <div className="w-full max-w-[680px] aspect-[720/720] relative">
+      {/* MAPA SVG COM ESCALA DINÂMICA */}
+      <div className="w-full max-w-[700px] aspect-[720/720] relative overflow-hidden flex items-center justify-center">
         <svg
           viewBox="0 0 720 720"
-          className="size-full select-none"
+          className="size-full transition-transform duration-300 ease-out"
+          style={{ transform: `scale(${zoomLevel})` }}
           role="img"
-          aria-label="Mapa Georreferenciado do Brasil"
+          aria-label="Mapa de Calor Georreferenciado"
         >
-          {/* FUNDO BRASIL SILHUETA SUAVE */}
           <rect width="720" height="720" fill="transparent" />
 
-          {/* ESTADOS EM BLOCOS GEORREFERENCIADOS */}
+          {/* RENDERIZAÇÃO DOS 27 ESTADOS */}
           {Object.entries(ESTADOS_INFO).map(([sigla, info]) => {
             const estadoData = dadosEstados[sigla] || { votos: 0, percentual: 0 };
             const isSelected = ufSelecionada === sigla;
-            const corFundo = getCorHeatmap(estadoData.votos);
+            const corFundo = getCorHeatmap(estadoData.votos, maxVotos);
 
             return (
               <g
                 key={sigla}
-                onClick={() => onSelectUf(isSelected ? null : sigla)}
-                className="cursor-pointer transition-transform duration-200 group"
+                onClick={() => {
+                  if (isSelected) {
+                    onSelectUf(null);
+                    if (onSelectCidade) onSelectCidade(null);
+                  } else {
+                    onSelectUf(sigla);
+                    setZoomLevel(1.3);
+                  }
+                }}
+                className="cursor-pointer transition-all duration-200 group"
               >
-                {/* BLOCO VETORIAL DO ESTADO */}
                 <rect
                   x={info.x}
                   y={info.y}
                   width={info.w}
                   height={info.h}
-                  rx={10}
-                  fill={isSelected ? '#f97316' : corFundo}
+                  rx={12}
+                  fill={isSelected ? '#ea580c' : corFundo}
                   stroke={isSelected ? '#ffffff' : estadoData.votos > 0 ? '#fb923c' : '#334155'}
-                  strokeWidth={isSelected ? 2.5 : 1}
+                  strokeWidth={isSelected ? 3 : 1}
                   className="transition-all duration-200 group-hover:stroke-white group-hover:brightness-125 shadow-md"
                 />
 
-                {/* SIGLA E CONTAGEM */}
+                {/* SIGLA DA UF */}
                 <text
                   x={info.x + info.w / 2}
                   y={info.y + info.h / 2 - (estadoData.votos > 0 ? 5 : 0)}
                   textAnchor="middle"
                   dominantBaseline="central"
-                  fill={isSelected ? '#ffffff' : estadoData.votos > 0 ? '#ffffff' : '#94a3b8'}
+                  fill="#ffffff"
                   className="font-mono font-black text-xs pointer-events-none drop-shadow"
                 >
                   {sigla}
@@ -141,7 +219,7 @@ export const MapaBrasilSvg: React.FC<Props> = ({
                 )}
 
                 <title>
-                  {`${info.nome} (${sigla}) - ${estadoData.votos} votos (${estadoData.percentual.toFixed(1)}%)`}
+                  {`${info.nome} (${sigla}) - ${estadoData.votos} votos (${(estadoData.percentual || 0).toFixed(1)}%)`}
                 </title>
               </g>
             );
@@ -149,27 +227,70 @@ export const MapaBrasilSvg: React.FC<Props> = ({
         </svg>
       </div>
 
-      {/* ESTADO SELECIONADO / BARRA INFORMATIVA INFERIOR */}
-      {ufSelecionada && (
-        <div className="w-full mt-3 p-3 rounded-xl bg-orange-500/10 border border-orange-500/30 flex items-center justify-between gap-3 animate-fadeIn">
-          <div>
-            <span className="text-xs font-black text-orange-400">
-              📍 Estado Selecionado: {ESTADOS_INFO[ufSelecionada]?.nome || ufSelecionada} ({ufSelecionada})
-            </span>
-            <p className="text-[11px] text-slate-300">
-              Votos do candidato nesta UF: <strong>{dadosEstados[ufSelecionada]?.votos || 0}</strong> • Representatividade:{' '}
-              <strong>{(dadosEstados[ufSelecionada]?.percentual || 0).toFixed(1)}%</strong>
-            </p>
-          </div>
+      {/* LEGENDA DINÂMICA INFERIOR */}
+      <div className="w-full mt-4 pt-3 border-t border-slate-800/80 flex flex-wrap items-center justify-between gap-3 text-xs text-slate-400">
+        <div className="flex items-center gap-2">
+          <span>Escala de Densidade:</span>
+          <span className="text-[10px]">0 votos</span>
+          <div className="h-2.5 w-24 sm:w-36 rounded-full bg-gradient-to-r from-slate-800 via-orange-500/50 to-orange-500 border border-slate-700 shadow-inner" />
+          <span className="text-[10px] font-bold text-orange-400">Alta Concentração</span>
+        </div>
+
+        {ufSelecionada && (
           <button
             type="button"
-            onClick={() => onSelectUf(null)}
-            className="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-[11px] font-bold text-slate-200 border border-slate-700 transition-colors"
+            onClick={handleResetZoom}
+            className="px-3 py-1 rounded-xl bg-slate-900 hover:bg-slate-800 text-slate-200 border border-slate-700 font-bold transition-all text-[11px]"
           >
-            Ver Brasil Todo
+            ← Voltar para Visão Brasil
           </button>
+        )}
+      </div>
+
+      {/* PAINEL DE DETALHE POR CIDADE / BAIRRO QUANDO UMA UF ESTÁ ATIVA */}
+      {ufSelecionada && cidadesDaUf.length > 0 && (
+        <div className="w-full mt-4 p-4 rounded-2xl bg-slate-900/90 border border-slate-800 space-y-3 animate-fadeIn">
+          <div className="flex items-center justify-between">
+            <h4 className="text-xs font-black text-white flex items-center gap-2">
+              <Building2 className="size-4 text-orange-400" />
+              Cidades e Bairros mapeados em {ESTADOS_INFO[ufSelecionada]?.nome || ufSelecionada}:
+            </h4>
+            <span className="text-[11px] font-bold text-slate-400 font-mono">
+              {cidadesDaUf.length} {cidadesDaUf.length === 1 ? 'localidade' : 'localidades'}
+            </span>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2 max-h-48 overflow-y-auto pr-1">
+            {cidadesDaUf.map((cid, i) => {
+              const isCidSelected = cidadeSelecionada === cid.cidade;
+              return (
+                <button
+                  key={`${cid.cidade}_${cid.bairro}_${i}`}
+                  type="button"
+                  onClick={() => onSelectCidade && onSelectCidade(isCidSelected ? null : cid.cidade)}
+                  className={`p-2.5 rounded-xl border text-left transition-all cursor-pointer flex items-center justify-between ${
+                    isCidSelected
+                      ? 'bg-orange-500/20 border-orange-500/50 text-white'
+                      : 'bg-slate-950/80 border-slate-800 hover:border-slate-700 text-slate-300'
+                  }`}
+                >
+                  <div className="min-w-0 pr-2">
+                    <p className="text-xs font-bold truncate">{cid.cidade}</p>
+                    <p className="text-[10px] text-slate-500 truncate">
+                      {cid.bairro && cid.bairro !== 'Geral' ? cid.bairro : 'Toda a cidade'}
+                    </p>
+                  </div>
+                  <span className="font-mono text-xs font-black text-orange-400 shrink-0">
+                    {cid.votos} {cid.votos === 1 ? 'voto' : 'votos'}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
         </div>
       )}
     </div>
   );
 };
+
+export default MapaBrasilSvg;
