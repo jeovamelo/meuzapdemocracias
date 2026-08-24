@@ -21,7 +21,6 @@ export const ColinhaResumo: React.FC<Props> = ({ respostas, onResponderNovamente
   ];
 
   const textoCompartilhamento = `🗳️ *MINHA ESCOLHA ELEITORAL 2026 — DEMOCRACIAS*\n\n` +
-    `👤 *Eleitor:* ${nome}\n` +
     `📍 *Local:* ${municipio}/${uf} (${bairro})\n\n` +
     `📋 *Votos Declarados (Ordem da Urna):*\n` +
     `1️⃣ *Dep. Federal:* ${votos.deputado_federal?.numero || '—'} - ${votos.deputado_federal?.nomeUrna || '—'}\n` +
