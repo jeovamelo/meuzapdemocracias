@@ -10,20 +10,22 @@ import {
   ChevronRight, 
   ShieldCheck, 
   Vote,
-  Sparkles
+  Sparkles,
+  CircleDot,
+  Ban
 } from 'lucide-react';
 import { Toaster, toast } from 'sonner';
 import { supabase } from './lib/supabase';
 import { formatarCpf } from './lib/cep';
 import { getHoraAtual } from './lib/date';
-import type { Candidato, EtapaChat, Mensagem, RespostaUsuario } from './types';
+import type { Candidato, EtapaChat, Mensagem, RespostaUsuario, CargoEtapa } from './types';
 import { ChatHeader } from './components/ChatHeader';
 import { MessageBubble } from './components/MessageBubble';
 import { TypingIndicator } from './components/TypingIndicator';
 import { CandidateCard } from './components/CandidateCard';
-import { CandidateSelect } from './components/CandidateSelect';
+import { MajoritarySelect } from './components/MajoritarySelect';
 import { LocationInput } from './components/LocationInput';
-import { ShareBanner } from './components/ShareBanner';
+import { ColinhaResumo } from './components/ColinhaResumo';
 
 const ESTADOS_BR = [
   'AC', 'AL', 'AP', 'AM', 'BA', 'CE', 'DF', 'ES', 'GO', 'MA', 'MT', 'MS', 'MG',
@@ -38,18 +40,23 @@ export function App() {
   const [carregandoCandidatos, setCarregandoCandidatos] = useState(false);
   const [salvando, setSalvando] = useState(false);
 
-  // Dados coletados
+  // Respostas do usuário
   const [respostas, setRespostas] = useState<RespostaUsuario>({
     nome: '',
     cpf: '',
     uf: 'CE',
     municipio: '',
     bairro: '',
+    votos: {},
   });
 
-  // Lista de candidatos carregados
-  const [candidatosDisponiveis, setCandidatosDisponiveis] = useState<Candidato[]>([]);
-  const [candidatoSelecionado, setCandidatoSelecionado] = useState<Candidato | null>(null);
+  // Listas de candidatos carregados por cargo
+  const [candidatosSenador, setCandidatosSenador] = useState<Candidato[]>([]);
+  const [candidatosGovernador, setCandidatosGovernador] = useState<Candidato[]>([]);
+  const [candidatosPresidente, setCandidatosPresidente] = useState<Candidato[]>([]);
+
+  // Candidato temporário em fase de confirmação
+  const [candidatoTemp, setCandidatoTemp] = useState<Candidato | null>(null);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -71,7 +78,7 @@ export function App() {
       const msg1: Mensagem = {
         id: '1',
         remetente: 'bot',
-        conteudo: '👋 Olá! Bem-vindo(a) à Pesquisa Cívica Oficial da plataforma Democracias.\n\nSua opinião e apoio ajudam a direcionar as ações estratégicas das campanhas da sua região.',
+        conteudo: '👋 Olá! Bem-vindo(a) à Pesquisa Eleitoral Oficial da plataforma Democracias.\n\nSua opinião é anônima, segura e ajuda a mapear a força eleitoral em cada região.',
         timestamp: getHoraAtual(),
       };
 
@@ -84,7 +91,7 @@ export function App() {
       const msg2: Mensagem = {
         id: '2',
         remetente: 'bot',
-        conteudo: 'Para começarmos, qual é o seu Nome Completo?',
+        conteudo: 'Para iniciarmos, por favor digite o seu Nome Completo:',
         timestamp: getHoraAtual(),
       };
 
@@ -95,8 +102,7 @@ export function App() {
     iniciarChat();
   }, []);
 
-  // Adiciona mensagem do bot com simulação natural de digitação
-  const adicionarMensagemBot = async (conteudo: string, delay = 600) => {
+  const adicionarMensagemBot = async (conteudo: string, delay = 500) => {
     setDigitando(true);
     await new Promise((r) => setTimeout(r, delay));
     setDigitando(false);
@@ -110,117 +116,387 @@ export function App() {
     setMensagens((prev) => [...prev, novaMsg]);
   };
 
-  // Carregar candidatos da UF
-  const carregarCandidatosPorUf = async (ufEscolhida: string) => {
+  // Carregar dados de candidatos das campanhas e do TSE
+  const carregarCandidatosMajoritarios = async (ufEscolhida: string) => {
     setCarregandoCandidatos(true);
     try {
-      // 1. Buscar campanhas registradas no Supabase
-      const { data: campanhasDb, error: errCamp } = await supabase
+      // 1. Buscar do banco Supabase da VPS
+      const { data: dbCamps } = await supabase
         .from('campaigns')
-        .select('*')
-        .eq('uf', ufEscolhida.toUpperCase().trim());
+        .select('*');
 
-      let lista: Candidato[] = [];
+      const mapeados: Candidato[] = (dbCamps || []).map((c: any) => ({
+        id: c.id,
+        nome: c.nome_candidato || c.nome_urna || 'Candidato',
+        nomeUrna: c.nome_urna || c.nome_candidato || 'Candidato',
+        numero: String(c.nr_candidato),
+        cargo: c.cargo || 'Candidato(a)',
+        partido: c.partido || '',
+        uf: c.uf,
+        fotoUrl: c.foto_candidato_url || '',
+        campaign_id: c.id,
+      }));
 
-      if (!errCamp && campanhasDb && campanhasDb.length > 0) {
-        lista = campanhasDb.map((c: any) => ({
-          id: c.id,
-          nome: c.nome_candidato || c.nome_urna || 'Candidato',
-          nomeUrna: c.nome_urna || c.nome_candidato || 'Candidato',
-          numero: c.nr_candidato,
-          cargo: c.cargo || 'Candidato(a)',
-          partido: c.partido || '',
-          uf: c.uf,
-          fotoUrl: c.foto_candidato_url || '',
-          campaign_id: c.id,
-        }));
-      }
+      // Senadores da UF
+      let senadores = mapeados.filter(
+        (c) => c.cargo.toLowerCase().includes('senad') && (c.uf === ufEscolhida || !c.uf)
+      );
 
-      // 2. Se não houver campanhas cadastradas nessa UF, buscar tabela tse_candidatos
-      if (lista.length === 0) {
-        const { data: tseData } = await supabase
-          .from('tse_candidatos')
-          .select('*')
-          .eq('sg_uf', ufEscolhida.toUpperCase().trim())
-          .limit(20);
+      // Governadores da UF
+      let governadores = mapeados.filter(
+        (c) => c.cargo.toLowerCase().includes('govern') && (c.uf === ufEscolhida || !c.uf)
+      );
 
-        if (tseData && tseData.length > 0) {
-          lista = tseData.map((t: any) => ({
-            id: t.id || `tse_${t.nr_candidato}`,
-            nome: t.nm_candidato || t.nm_urna_candidato,
-            nomeUrna: t.nm_urna_candidato || t.nm_candidato,
-            numero: String(t.nr_candidato),
-            cargo: t.ds_cargo || 'Candidato(a)',
-            partido: t.sg_partido || '',
-            uf: t.sg_uf,
-            fotoUrl: t.foto_url || '',
-          }));
+      // Presidentes (Nacional / BR)
+      let presidentes = mapeados.filter((c) => c.cargo.toLowerCase().includes('presid'));
+
+      // Fallback rico para Ceará e Nacional caso a base não possua todos
+      if (ufEscolhida === 'CE') {
+        if (governadores.length === 0) {
+          governadores = [
+            {
+              id: 'gov_13',
+              nome: 'Elmano de Freitas da Costa',
+              nomeUrna: 'Elmano de Freitas',
+              numero: '13',
+              cargo: 'Governador',
+              partido: 'PT',
+              uf: 'CE',
+              fotoUrl: 'https://divulgacandcontas.tse.jus.br/divulga/rest/v1/candidatura/buscar/foto/2/2026/CE/202600000001',
+            },
+            {
+              id: 'gov_44',
+              nome: 'Capitão Wagner Sousa Gomes',
+              nomeUrna: 'Capitão Wagner',
+              numero: '44',
+              cargo: 'Governador',
+              partido: 'União Brasil',
+              uf: 'CE',
+            },
+            {
+              id: 'gov_12',
+              nome: 'Roberto Cláudio Rodrigues Bezerra',
+              nomeUrna: 'Roberto Cláudio',
+              numero: '12',
+              cargo: 'Governador',
+              partido: 'PDT',
+              uf: 'CE',
+            },
+          ];
+        }
+
+        if (senadores.length === 0) {
+          senadores = [
+            {
+              id: 'sen_123',
+              nome: 'Cid Ferreira Gomes',
+              nomeUrna: 'Cid Gomes',
+              numero: '123',
+              cargo: 'Senador',
+              partido: 'PSB',
+              uf: 'CE',
+            },
+            {
+              id: 'sen_133',
+              nome: 'Camilo Sobreira de Santana',
+              nomeUrna: 'Camilo Santana',
+              numero: '133',
+              cargo: 'Senador',
+              partido: 'PT',
+              uf: 'CE',
+            },
+            {
+              id: 'sen_222',
+              nome: 'Eduardo Girão',
+              nomeUrna: 'Eduardo Girão',
+              numero: '222',
+              cargo: 'Senador',
+              partido: 'NOVO',
+              uf: 'CE',
+            },
+          ];
         }
       }
 
-      // 3. Fallback inteligente de candidatos de referência do Ceará caso a base esteja vazia
-      if (lista.length === 0 && ufEscolhida.toUpperCase() === 'CE') {
-        lista = [
+      if (presidentes.length === 0) {
+        presidentes = [
           {
-            id: 'elmano_13',
-            nome: 'Elmano de Freitas da Costa',
-            nomeUrna: 'Elmano de Freitas',
+            id: 'pres_13',
+            nome: 'Luiz Inácio Lula da Silva',
+            nomeUrna: 'Lula',
             numero: '13',
-            cargo: 'Governador',
-            partido: 'PT - Federação Brasil da Esperança',
-            uf: 'CE',
-            fotoUrl: 'https://divulgacandcontas.tse.jus.br/divulga/rest/v1/candidatura/buscar/foto/2/2026/CE/202600000001',
+            cargo: 'Presidente',
+            partido: 'PT',
+            uf: 'BR',
           },
           {
-            id: 'camilo_133',
-            nome: 'Camilo Sobreira de Santana',
-            nomeUrna: 'Camilo Santana',
-            numero: '133',
-            cargo: 'Senador',
-            partido: 'PT',
-            uf: 'CE',
-          }
+            id: 'pres_22',
+            nome: 'Jair Messias Bolsonaro',
+            nomeUrna: 'Jair Bolsonaro',
+            numero: '22',
+            cargo: 'Presidente',
+            partido: 'PL',
+            uf: 'BR',
+          },
+          {
+            id: 'pres_15',
+            nome: 'Simone Nassar Tebet',
+            nomeUrna: 'Simone Tebet',
+            numero: '15',
+            cargo: 'Presidente',
+            partido: 'MDB',
+            uf: 'BR',
+          },
+          {
+            id: 'pres_12',
+            nome: 'Ciro Ferreira Gomes',
+            nomeUrna: 'Ciro Gomes',
+            numero: '12',
+            cargo: 'Presidente',
+            partido: 'PDT',
+            uf: 'BR',
+          },
+          {
+            id: 'pres_30',
+            nome: 'Romeu Zema Neto',
+            nomeUrna: 'Romeu Zema',
+            numero: '30',
+            cargo: 'Presidente',
+            partido: 'NOVO',
+            uf: 'BR',
+          },
         ];
       }
 
-      setCandidatosDisponiveis(lista);
+      setCandidatosGovernador(governadores);
+      setCandidatosSenador(senadores);
+      setCandidatosPresidente(presidentes);
     } catch (e) {
-      console.warn('Erro ao carregar candidatos:', e);
+      console.warn('Erro ao carregar candidatos majoritários:', e);
     } finally {
       setCarregandoCandidatos(false);
     }
   };
 
-  // Submissão do Input de Texto (Nome, CPF)
+  // Buscar candidato proporcional por número e cargo
+  const buscarCandidatoPorNumero = async (numeroDigitado: string, cargoBuscado: string): Promise<Candidato> => {
+    const numLimpo = numeroDigitado.replace(/\D/g, '');
+
+    try {
+      // Buscar na tabela campaigns
+      const { data: dbCamp } = await supabase
+        .from('campaigns')
+        .select('*')
+        .eq('nr_candidato', numLimpo)
+        .limit(1)
+        .maybeSingle();
+
+      if (dbCamp) {
+        return {
+          id: dbCamp.id,
+          nome: dbCamp.nome_candidato || dbCamp.nome_urna,
+          nomeUrna: dbCamp.nome_urna || dbCamp.nome_candidato,
+          numero: dbCamp.nr_candidato,
+          cargo: dbCamp.cargo || cargoBuscado,
+          partido: dbCamp.partido || '',
+          uf: dbCamp.uf,
+          fotoUrl: dbCamp.foto_candidato_url || '',
+          campaign_id: dbCamp.id,
+        };
+      }
+
+      // Buscar na tabela tse_candidatos
+      const { data: dbTse } = await supabase
+        .from('tse_candidatos')
+        .select('*')
+        .eq('nr_candidato', numLimpo)
+        .limit(1)
+        .maybeSingle();
+
+      if (dbTse) {
+        return {
+          id: dbTse.id || `tse_${numLimpo}`,
+          nome: dbTse.nm_candidato || dbTse.nm_urna_candidato,
+          nomeUrna: dbTse.nm_urna_candidato || dbTse.nm_candidato,
+          numero: String(dbTse.nr_candidato),
+          cargo: dbTse.ds_cargo || cargoBuscado,
+          partido: dbTse.sg_partido || '',
+          uf: dbTse.sg_uf || respostas.uf,
+          fotoUrl: dbTse.foto_url || '',
+        };
+      }
+    } catch (err) {
+      console.warn('Erro ao buscar candidato:', err);
+    }
+
+    // Candidato genérico com o número digitado
+    return {
+      id: `cand_${numLimpo}`,
+      nome: `Candidato(a) Nº ${numLimpo}`,
+      nomeUrna: `Candidato ${numLimpo}`,
+      numero: numLimpo,
+      cargo: cargoBuscado,
+      partido: 'Voto Nominal / Legenda',
+      uf: respostas.uf,
+    };
+  };
+
+  // Enviar texto (Nome, CPF ou Número de Candidato)
   const handleEnviarTexto = async (e: React.FormEvent) => {
     e.preventDefault();
     const textoLimpo = inputText.trim();
     if (!textoLimpo && etapa !== 'cpf') return;
 
-    // Adiciona mensagem do usuário
-    const userMsg: Mensagem = {
-      id: Math.random().toString(36).substring(2, 9),
-      remetente: 'user',
-      conteudo: textoLimpo || 'Prefiro não informar',
-      timestamp: getHoraAtual(),
-    };
-    setMensagens((prev) => [...prev, userMsg]);
-    setInputText('');
-
     if (etapa === 'nome') {
+      const userMsg: Mensagem = {
+        id: Math.random().toString(36).substring(2, 9),
+        remetente: 'user',
+        conteudo: textoLimpo,
+        timestamp: getHoraAtual(),
+      };
+      setMensagens((prev) => [...prev, userMsg]);
+      setInputText('');
+
       setRespostas((prev) => ({ ...prev, nome: textoLimpo }));
       await adicionarMensagemBot(`Muito prazer, ${textoLimpo.split(' ')[0]}! 👍`);
-      await adicionarMensagemBot('Gostaria de informar o seu CPF? (É totalmente opcional para autenticação de apoio único)');
+      await adicionarMensagemBot('Informe o seu CPF (Opcional — clique em Avançar se preferir não informar):');
       setEtapa('cpf');
-    } else if (etapa === 'cpf') {
+      return;
+    }
+
+    if (etapa === 'cpf') {
       const cpfFormatado = formatarCpf(textoLimpo);
+      const userMsg: Mensagem = {
+        id: Math.random().toString(36).substring(2, 9),
+        remetente: 'user',
+        conteudo: cpfFormatado || 'Prefiro não informar',
+        timestamp: getHoraAtual(),
+      };
+      setMensagens((prev) => [...prev, userMsg]);
+      setInputText('');
+
       setRespostas((prev) => ({ ...prev, cpf: cpfFormatado }));
       await adicionarMensagemBot('Em qual Estado (UF) você vota ou reside atualmente?');
       setEtapa('uf');
+      return;
+    }
+
+    // VOTO DEPUTADO ESTADUAL POR NÚMERO
+    if (etapa === 'voto_dep_estadual') {
+      const userMsg: Mensagem = {
+        id: Math.random().toString(36).substring(2, 9),
+        remetente: 'user',
+        conteudo: `Número: ${textoLimpo}`,
+        timestamp: getHoraAtual(),
+      };
+      setMensagens((prev) => [...prev, userMsg]);
+      setInputText('');
+
+      const cand = await buscarCandidatoPorNumero(textoLimpo, 'Deputado Estadual');
+      setCandidatoTemp(cand);
+
+      await adicionarMensagemBot(`Localizamos o candidato abaixo. Confirma seu voto para Deputado Estadual?`);
+      setEtapa('confirm_dep_estadual');
+      return;
+    }
+
+    // VOTO DEPUTADO FEDERAL POR NÚMERO
+    if (etapa === 'voto_dep_federal') {
+      const userMsg: Mensagem = {
+        id: Math.random().toString(36).substring(2, 9),
+        remetente: 'user',
+        conteudo: `Número: ${textoLimpo}`,
+        timestamp: getHoraAtual(),
+      };
+      setMensagens((prev) => [...prev, userMsg]);
+      setInputText('');
+
+      const cand = await buscarCandidatoPorNumero(textoLimpo, 'Deputado Federal');
+      setCandidatoTemp(cand);
+
+      await adicionarMensagemBot(`Localizamos o candidato abaixo. Confirma seu voto para Deputado Federal?`);
+      setEtapa('confirm_dep_federal');
+      return;
+    }
+
+    // VOTO SENADOR 1 POR NÚMERO
+    if (etapa === 'voto_senador_1') {
+      const userMsg: Mensagem = {
+        id: Math.random().toString(36).substring(2, 9),
+        remetente: 'user',
+        conteudo: `Número: ${textoLimpo}`,
+        timestamp: getHoraAtual(),
+      };
+      setMensagens((prev) => [...prev, userMsg]);
+      setInputText('');
+
+      const cand = await buscarCandidatoPorNumero(textoLimpo, 'Senador (1ª Vaga)');
+      setCandidatoTemp(cand);
+
+      await adicionarMensagemBot(`Confirma seu voto para 1º Senador?`);
+      setEtapa('confirm_senador_1');
+      return;
+    }
+
+    // VOTO SENADOR 2 POR NÚMERO
+    if (etapa === 'voto_senador_2') {
+      const userMsg: Mensagem = {
+        id: Math.random().toString(36).substring(2, 9),
+        remetente: 'user',
+        conteudo: `Número: ${textoLimpo}`,
+        timestamp: getHoraAtual(),
+      };
+      setMensagens((prev) => [...prev, userMsg]);
+      setInputText('');
+
+      const cand = await buscarCandidatoPorNumero(textoLimpo, 'Senador (2ª Vaga)');
+      setCandidatoTemp(cand);
+
+      await adicionarMensagemBot(`Confirma seu voto para 2º Senador?`);
+      setEtapa('confirm_senador_2');
+      return;
+    }
+
+    // VOTO GOVERNADOR POR NÚMERO
+    if (etapa === 'voto_governador') {
+      const userMsg: Mensagem = {
+        id: Math.random().toString(36).substring(2, 9),
+        remetente: 'user',
+        conteudo: `Número: ${textoLimpo}`,
+        timestamp: getHoraAtual(),
+      };
+      setMensagens((prev) => [...prev, userMsg]);
+      setInputText('');
+
+      const cand = await buscarCandidatoPorNumero(textoLimpo, 'Governador');
+      setCandidatoTemp(cand);
+
+      await adicionarMensagemBot(`Confirma seu voto para Governador?`);
+      setEtapa('confirm_governador');
+      return;
+    }
+
+    // VOTO PRESIDENTE POR NÚMERO
+    if (etapa === 'voto_presidente') {
+      const userMsg: Mensagem = {
+        id: Math.random().toString(36).substring(2, 9),
+        remetente: 'user',
+        conteudo: `Número: ${textoLimpo}`,
+        timestamp: getHoraAtual(),
+      };
+      setMensagens((prev) => [...prev, userMsg]);
+      setInputText('');
+
+      const cand = await buscarCandidatoPorNumero(textoLimpo, 'Presidente');
+      setCandidatoTemp(cand);
+
+      await adicionarMensagemBot(`Confirma seu voto para Presidente da República?`);
+      setEtapa('confirm_presidente');
+      return;
     }
   };
 
-  // Pular etapa de CPF
+  // Pular CPF
   const handlePularCpf = async () => {
     const userMsg: Mensagem = {
       id: Math.random().toString(36).substring(2, 9),
@@ -247,54 +523,71 @@ export function App() {
     setMensagens((prev) => [...prev, userMsg]);
 
     setRespostas((prev) => ({ ...prev, uf: ufEscolhida }));
-    await carregarCandidatosPorUf(ufEscolhida);
+    await carregarCandidatosMajoritarios(ufEscolhida);
 
-    await adicionarMensagemBot(`Carregando os candidatos disponíveis no estado de ${ufEscolhida}...`);
-    await adicionarMensagemBot('Qual candidato(a) você apoia ou pretende votar nesta eleição?');
-    setEtapa('candidato_selecao');
+    await adicionarMensagemBot(`Perfeito! Vamos iniciar a pesquisa pela ordem oficial de votação da urna eletrônica.`);
+    await adicionarMensagemBot(`1️⃣ Digite o NÚMERO do seu candidato a DEPUTADO ESTADUAL (5 dígitos) ou escolha Branco / Nulo:`);
+    setEtapa('voto_dep_estadual');
   };
 
-  // Selecionar Candidato
-  const handleSelecionarCandidato = async (candidato: Candidato) => {
-    setCandidatoSelecionado(candidato);
-    setRespostas((prev) => ({ ...prev, candidato }));
+  // Voto em Branco ou Nulo genérico
+  const handleVotoBrancoNulo = async (tipo: 'BRANCO' | 'NULO', cargoNome: string, proximaEtapa: EtapaChat) => {
+    const cand: Candidato = {
+      id: `${tipo.toLowerCase()}_${Math.random()}`,
+      nome: tipo === 'BRANCO' ? 'Voto em Branco' : 'Voto Nulo',
+      nomeUrna: tipo === 'BRANCO' ? 'Branco' : 'Nulo',
+      numero: tipo,
+      cargo: cargoNome,
+      uf: respostas.uf,
+      isBrancoNulo: true,
+    };
+    setCandidatoTemp(cand);
 
     const userMsg: Mensagem = {
       id: Math.random().toString(36).substring(2, 9),
       remetente: 'user',
-      conteudo: `Escolhi: ${candidato.nomeUrna} (${candidato.numero})`,
+      conteudo: `Voto: ${cand.nomeUrna}`,
       timestamp: getHoraAtual(),
     };
     setMensagens((prev) => [...prev, userMsg]);
 
-    await adicionarMensagemBot(`Excelente escolha! Por favor, confirme o seu apoio:`);
-    setEtapa('candidato_confirmacao');
+    await adicionarMensagemBot(`Confirma o ${cand.nome} para ${cargoNome}?`);
+    setEtapa(proximaEtapa);
   };
 
-  // Confirmar Candidato
-  const handleConfirmarCandidato = async () => {
-    if (!candidatoSelecionado) return;
+  // CONFIRMAÇÕES DE VOTO
+  const handleConfirmarVoto = async (cargoChave: keyof typeof respostas.votos, proximaMsg: string, proximaEtapa: EtapaChat) => {
+    if (!candidatoTemp) return;
+
+    setRespostas((prev) => ({
+      ...prev,
+      votos: {
+        ...prev.votos,
+        [cargoChave]: candidatoTemp,
+      },
+    }));
 
     const userMsg: Mensagem = {
       id: Math.random().toString(36).substring(2, 9),
       remetente: 'user',
-      conteudo: `✅ Confirmado apoio a ${candidatoSelecionado.nomeUrna} (${candidatoSelecionado.numero})`,
+      conteudo: `✅ Voto confirmado: ${candidatoTemp.nomeUrna} (${candidatoTemp.numero})`,
       timestamp: getHoraAtual(),
     };
     setMensagens((prev) => [...prev, userMsg]);
+    setCandidatoTemp(null);
 
-    await adicionarMensagemBot('Perfeito! Para mapearmos os votos e demandas por região, informe a sua Cidade e Bairro:');
-    setEtapa('localizacao');
+    await adicionarMensagemBot(proximaMsg);
+    setEtapa(proximaEtapa);
   };
 
-  // Trocar Candidato
-  const handleTrocarCandidato = async () => {
-    setCandidatoSelecionado(null);
-    await adicionarMensagemBot('Selecione novamente o seu candidato(a) na lista abaixo:');
-    setEtapa('candidato_selecao');
+  // Corrigir Voto
+  const handleCorrigirVoto = async (etapaRetorno: EtapaChat, msgRetorno: string) => {
+    setCandidatoTemp(null);
+    await adicionarMensagemBot(msgRetorno);
+    setEtapa(etapaRetorno);
   };
 
-  // Confirmar Localização e Salvar no Supabase
+  // Confirmar Localização e Salvar tudo no Supabase
   const handleConfirmarLocalizacao = async (dadosLoc: { cidade: string; bairro: string; cep?: string }) => {
     setSalvando(true);
 
@@ -306,66 +599,90 @@ export function App() {
     };
     setMensagens((prev) => [...prev, userMsg]);
 
-    try {
-      const finalCampId = candidatoSelecionado?.campaign_id || null;
+    const respostasFinais: RespostaUsuario = {
+      ...respostas,
+      municipio: dadosLoc.cidade,
+      bairro: dadosLoc.bairro,
+      cep: dadosLoc.cep,
+    };
 
-      // 1. Salvar na tabela pessoas (Pessoa / Apoiador da Campanha)
-      const { data: pessoaCriada, error: errPessoa } = await supabase
-        .from('pessoas')
+    try {
+      // 1. Salvar na tabela pesquisas_chat
+      const { data: pesquisaSalva, error: errPesquisa } = await supabase
+        .from('pesquisas_chat')
         .insert([{
-          nome: respostas.nome.trim(),
-          cpf: respostas.cpf ? respostas.cpf.replace(/\D/g, '') : null,
-          tipo: 'apoiador',
-          funcao: 'Apoiador(a) / Participante Pesquisa Chat',
-          meta_votos: 1,
-          uf: respostas.uf,
+          nome: respostasFinais.nome.trim(),
+          cpf: respostasFinais.cpf ? respostasFinais.cpf.replace(/\D/g, '') : null,
+          uf: respostasFinais.uf,
           municipio: dadosLoc.cidade,
           bairro: dadosLoc.bairro,
-          cep: dadosLoc.cep || null,
-          campanha_id: finalCampId,
-          campaign_id: finalCampId,
-          status: 'ativo'
+          dep_estadual_numero: respostasFinais.votos.deputado_estadual?.numero,
+          dep_estadual_nome: respostasFinais.votos.deputado_estadual?.nomeUrna,
+          dep_estadual_foto: respostasFinais.votos.deputado_estadual?.fotoUrl,
+          dep_estadual_partido: respostasFinais.votos.deputado_estadual?.partido,
+          dep_federal_numero: respostasFinais.votos.deputado_federal?.numero,
+          dep_federal_nome: respostasFinais.votos.deputado_federal?.nomeUrna,
+          dep_federal_foto: respostasFinais.votos.deputado_federal?.fotoUrl,
+          dep_federal_partido: respostasFinais.votos.deputado_federal?.partido,
+          senador1_numero: respostasFinais.votos.senador_1?.numero,
+          senador1_nome: respostasFinais.votos.senador_1?.nomeUrna,
+          senador1_foto: respostasFinais.votos.senador_1?.fotoUrl,
+          senador1_partido: respostasFinais.votos.senador_1?.partido,
+          senador2_numero: respostasFinais.votos.senador_2?.numero,
+          senador2_nome: respostasFinais.votos.senador_2?.nomeUrna,
+          senador2_foto: respostasFinais.votos.senador_2?.fotoUrl,
+          senador2_partido: respostasFinais.votos.senador_2?.partido,
+          governador_numero: respostasFinais.votos.governador?.numero,
+          governador_nome: respostasFinais.votos.governador?.nomeUrna,
+          governador_foto: respostasFinais.votos.governador?.fotoUrl,
+          governador_partido: respostasFinais.votos.governador?.partido,
+          presidente_numero: respostasFinais.votos.presidente?.numero,
+          presidente_nome: respostasFinais.votos.presidente?.nomeUrna,
+          presidente_foto: respostasFinais.votos.presidente?.fotoUrl,
+          presidente_partido: respostasFinais.votos.presidente?.partido,
+          origem_url: 'chat.democracias.org',
         }])
         .select()
         .single();
 
-      if (errPessoa) {
-        console.warn('Erro ao persistir em pessoas:', errPessoa);
+      if (errPesquisa) {
+        console.warn('Erro ao salvar pesquisa_chat:', errPesquisa);
       }
 
-      // 2. Salvar na tabela de inteligência pesquisas_chat
-      const { error: errPesquisa } = await supabase
-        .from('pesquisas_chat')
+      // 2. Salvar na tabela pessoas (Apoiador da Campanha)
+      const primaryCampId = 
+        respostasFinais.votos.deputado_estadual?.campaign_id ||
+        respostasFinais.votos.deputado_federal?.campaign_id ||
+        respostasFinais.votos.governador?.campaign_id ||
+        null;
+
+      await supabase
+        .from('pessoas')
         .insert([{
-          pessoa_id: pessoaCriada?.id || null,
-          campaign_id: finalCampId,
-          nome: respostas.nome.trim(),
-          cpf: respostas.cpf || null,
-          uf: respostas.uf,
+          nome: respostasFinais.nome.trim(),
+          cpf: respostasFinais.cpf ? respostasFinais.cpf.replace(/\D/g, '') : null,
+          tipo: 'apoiador',
+          funcao: 'Apoiador(a) / Pesquisa Chat',
+          meta_votos: 1,
+          uf: respostasFinais.uf,
           municipio: dadosLoc.cidade,
           bairro: dadosLoc.bairro,
-          candidato_nome: candidatoSelecionado?.nome,
-          candidato_urna: candidatoSelecionado?.nomeUrna,
-          candidato_numero: candidatoSelecionado?.numero,
-          candidato_cargo: candidatoSelecionado?.cargo,
-          candidato_partido: candidatoSelecionado?.partido,
-          candidato_foto: candidatoSelecionado?.fotoUrl,
-          origem_url: 'chat.democracias.org',
+          cep: dadosLoc.cep || null,
+          campanha_id: primaryCampId,
+          campaign_id: primaryCampId,
+          status: 'ativo'
         }]);
 
-      if (errPesquisa) {
-        console.warn('Erro ao registrar pesquisa_chat:', errPesquisa);
-      }
-
+      setRespostas(respostasFinais);
       toast.success('Pesquisa registrada com sucesso!');
 
-      await adicionarMensagemBot(`🎉 Obrigado por sua participação cívica, ${respostas.nome.split(' ')[0]}!`);
-      await adicionarMensagemBot(`Seus dados foram integrados com sucesso e direcionados para a coordenação da campanha de ${candidatoSelecionado?.nomeUrna}.`);
+      await adicionarMensagemBot(`🎉 Obrigado por sua participação cívica, ${respostasFinais.nome.split(' ')[0]}!`);
+      await adicionarMensagemBot('Aqui está o resumo da sua Colinha Eleitoral Oficial. Você pode compartilhar no WhatsApp com amigos e familiares:');
 
       setEtapa('concluido');
     } catch (err) {
       console.error(err);
-      toast.error('Não foi possível registrar os dados.');
+      toast.error('Erro ao salvar dados.');
     } finally {
       setSalvando(false);
     }
@@ -376,7 +693,7 @@ export function App() {
       <Toaster position="top-center" richColors />
 
       {/* HEADER */}
-      <ChatHeader candidatoAtivo={candidatoSelecionado} />
+      <ChatHeader />
 
       {/* ÁREA PRINCIPAL DO CHAT */}
       <main className="flex-1 w-full max-w-xl mx-auto px-4 py-4 overflow-y-auto flex flex-col justify-between">
@@ -397,7 +714,6 @@ export function App() {
                 </h4>
               </div>
 
-              {/* ATALHOS RÁPIDOS */}
               <div className="flex flex-wrap gap-1.5">
                 {['CE', 'SP', 'RJ', 'MG', 'BA', 'PE', 'PR', 'RS', 'DF'].map((sigla) => (
                   <button
@@ -425,42 +741,322 @@ export function App() {
             </div>
           )}
 
-          {/* ETAPA: SELEÇÃO DE CANDIDATO */}
-          {etapa === 'candidato_selecao' && !digitando && (
-            <div className="my-3">
-              {carregandoCandidatos ? (
-                <div className="flex flex-col items-center justify-center p-8 text-slate-400 gap-2">
-                  <Loader2 className="size-6 animate-spin text-orange-400" />
-                  <span className="text-xs font-semibold">Buscando candidatos de {respostas.uf}...</span>
-                </div>
-              ) : (
-                <CandidateSelect
-                  candidatos={candidatosDisponiveis}
-                  uf={respostas.uf}
-                  onSelecionar={handleSelecionarCandidato}
-                />
-              )}
+          {/* ETAPAS PROPORCIONAIS (BOTÕES BRANCO E NULO RÁPIDOS) */}
+          {(etapa === 'voto_dep_estadual' || etapa === 'voto_dep_federal') && !digitando && (
+            <div className="flex gap-2 my-2 animate-message">
+              <button
+                type="button"
+                onClick={() =>
+                  handleVotoBrancoNulo(
+                    'BRANCO',
+                    etapa === 'voto_dep_estadual' ? 'Deputado Estadual' : 'Deputado Federal',
+                    etapa === 'voto_dep_estadual' ? 'confirm_dep_estadual' : 'confirm_dep_federal'
+                  )
+                }
+                className="flex-1 h-10 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 font-bold text-xs shadow-sm flex items-center justify-center gap-1.5 transition-all"
+              >
+                <CircleDot className="size-3.5 text-slate-300" /> Votar em Branco
+              </button>
+
+              <button
+                type="button"
+                onClick={() =>
+                  handleVotoBrancoNulo(
+                    'NULO',
+                    etapa === 'voto_dep_estadual' ? 'Deputado Estadual' : 'Deputado Federal',
+                    etapa === 'voto_dep_estadual' ? 'confirm_dep_estadual' : 'confirm_dep_federal'
+                  )
+                }
+                className="flex-1 h-10 rounded-xl bg-rose-950/40 hover:bg-rose-900/60 border border-rose-800/50 text-rose-300 font-bold text-xs shadow-sm flex items-center justify-center gap-1.5 transition-all"
+              >
+                <Ban className="size-3.5 text-rose-400" /> Votar Nulo
+              </button>
             </div>
           )}
 
-          {/* ETAPA: CONFIRMAÇÃO DE CANDIDATO */}
-          {etapa === 'candidato_confirmacao' && candidatoSelecionado && !digitando && (
+          {/* ETAPA CONFIRMAÇÃO: DEP ESTADUAL */}
+          {etapa === 'confirm_dep_estadual' && candidatoTemp && !digitando && (
             <div className="space-y-3 my-3 animate-message">
-              <CandidateCard candidato={candidatoSelecionado} modoConfirmacao />
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+              <CandidateCard candidato={candidatoTemp} tituloCargo="Deputado Estadual" modoConfirmacao />
+              <div className="grid grid-cols-2 gap-2.5">
                 <button
-                  onClick={handleConfirmarCandidato}
-                  className="h-12 rounded-xl bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white font-bold text-sm shadow-lg flex items-center justify-center gap-2 transition-all"
+                  onClick={() =>
+                    handleConfirmarVoto(
+                      'deputado_estadual',
+                      '2️⃣ Agora digite o NÚMERO do seu candidato a DEPUTADO FEDERAL (4 dígitos) ou escolha Branco / Nulo:',
+                      'voto_dep_federal'
+                    )
+                  }
+                  className="h-11 rounded-xl bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 text-white font-bold text-xs shadow-lg flex items-center justify-center gap-1.5"
                 >
-                  <Check className="size-4" /> Confirmar Escolha
+                  <Check className="size-4" /> Confirmar
                 </button>
-
                 <button
-                  onClick={handleTrocarCandidato}
-                  className="h-12 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 font-bold text-sm shadow-md flex items-center justify-center gap-2 transition-all"
+                  onClick={() =>
+                    handleCorrigirVoto(
+                      'voto_dep_estadual',
+                      'Digite novamente o número do seu Deputado Estadual (5 dígitos):'
+                    )
+                  }
+                  className="h-11 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 font-bold text-xs flex items-center justify-center gap-1.5"
                 >
-                  <RotateCcw className="size-4" /> Escolher Outro
+                  <RotateCcw className="size-4" /> Corrigir
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* ETAPA CONFIRMAÇÃO: DEP FEDERAL */}
+          {etapa === 'confirm_dep_federal' && candidatoTemp && !digitando && (
+            <div className="space-y-3 my-3 animate-message">
+              <CandidateCard candidato={candidatoTemp} tituloCargo="Deputado Federal" modoConfirmacao />
+              <div className="grid grid-cols-2 gap-2.5">
+                <button
+                  onClick={() =>
+                    handleConfirmarVoto(
+                      'deputado_federal',
+                      '3️⃣ Escolha o seu 1º SENADOR (3 dígitos). Apresentamos as opções por ordem de número abaixo:',
+                      'voto_senador_1'
+                    )
+                  }
+                  className="h-11 rounded-xl bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 text-white font-bold text-xs shadow-lg flex items-center justify-center gap-1.5"
+                >
+                  <Check className="size-4" /> Confirmar
+                </button>
+                <button
+                  onClick={() =>
+                    handleCorrigirVoto(
+                      'voto_dep_federal',
+                      'Digite novamente o número do seu Deputado Federal (4 dígitos):'
+                    )
+                  }
+                  className="h-11 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 font-bold text-xs flex items-center justify-center gap-1.5"
+                >
+                  <RotateCcw className="size-4" /> Corrigir
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* ETAPA: SELEÇÃO MAJORITÁRIA - 1º SENADOR */}
+          {etapa === 'voto_senador_1' && !digitando && (
+            <div className="my-3">
+              <MajoritarySelect
+                cargoTitulo="1º Senador"
+                candidatos={candidatosSenador}
+                onSelecionar={async (cand) => {
+                  setCandidatoTemp(cand);
+                  const userMsg: Mensagem = {
+                    id: Math.random().toString(36).substring(2, 9),
+                    remetente: 'user',
+                    conteudo: `Escolhi: ${cand.nomeUrna} (${cand.numero})`,
+                    timestamp: getHoraAtual(),
+                  };
+                  setMensagens((prev) => [...prev, userMsg]);
+                  await adicionarMensagemBot(`Confirma seu voto para 1º Senador em ${cand.nomeUrna} (${cand.numero})?`);
+                  setEtapa('confirm_senador_1');
+                }}
+                onVotoBranco={() => handleVotoBrancoNulo('BRANCO', '1º Senador', 'confirm_senador_1')}
+                onVotoNulo={() => handleVotoBrancoNulo('NULO', '1º Senador', 'confirm_senador_1')}
+              />
+            </div>
+          )}
+
+          {/* ETAPA CONFIRMAÇÃO: 1º SENADOR */}
+          {etapa === 'confirm_senador_1' && candidatoTemp && !digitando && (
+            <div className="space-y-3 my-3 animate-message">
+              <CandidateCard candidato={candidatoTemp} tituloCargo="1º Senador" modoConfirmacao />
+              <div className="grid grid-cols-2 gap-2.5">
+                <button
+                  onClick={() =>
+                    handleConfirmarVoto(
+                      'senador_1',
+                      '4️⃣ Agora escolha o seu 2º SENADOR (3 dígitos) entre as opções por ordem de número:',
+                      'voto_senador_2'
+                    )
+                  }
+                  className="h-11 rounded-xl bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 text-white font-bold text-xs shadow-lg flex items-center justify-center gap-1.5"
+                >
+                  <Check className="size-4" /> Confirmar
+                </button>
+                <button
+                  onClick={() =>
+                    handleCorrigirVoto(
+                      'voto_senador_1',
+                      'Selecione novamente o seu candidato a 1º Senador:'
+                    )
+                  }
+                  className="h-11 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 font-bold text-xs flex items-center justify-center gap-1.5"
+                >
+                  <RotateCcw className="size-4" /> Corrigir
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* ETAPA: SELEÇÃO MAJORITÁRIA - 2º SENADOR */}
+          {etapa === 'voto_senador_2' && !digitando && (
+            <div className="my-3">
+              <MajoritarySelect
+                cargoTitulo="2º Senador"
+                candidatos={candidatosSenador.filter((c) => c.numero !== respostas.votos.senador_1?.numero)}
+                onSelecionar={async (cand) => {
+                  setCandidatoTemp(cand);
+                  const userMsg: Mensagem = {
+                    id: Math.random().toString(36).substring(2, 9),
+                    remetente: 'user',
+                    conteudo: `Escolhi: ${cand.nomeUrna} (${cand.numero})`,
+                    timestamp: getHoraAtual(),
+                  };
+                  setMensagens((prev) => [...prev, userMsg]);
+                  await adicionarMensagemBot(`Confirma seu voto para 2º Senador em ${cand.nomeUrna} (${cand.numero})?`);
+                  setEtapa('confirm_senador_2');
+                }}
+                onVotoBranco={() => handleVotoBrancoNulo('BRANCO', '2º Senador', 'confirm_senador_2')}
+                onVotoNulo={() => handleVotoBrancoNulo('NULO', '2º Senador', 'confirm_senador_2')}
+              />
+            </div>
+          )}
+
+          {/* ETAPA CONFIRMAÇÃO: 2º SENADOR */}
+          {etapa === 'confirm_senador_2' && candidatoTemp && !digitando && (
+            <div className="space-y-3 my-3 animate-message">
+              <CandidateCard candidato={candidatoTemp} tituloCargo="2º Senador" modoConfirmacao />
+              <div className="grid grid-cols-2 gap-2.5">
+                <button
+                  onClick={() =>
+                    handleConfirmarVoto(
+                      'senador_2',
+                      '5️⃣ Escolha o seu candidato a GOVERNADOR (2 dígitos). Veja as opções por ordem de número abaixo:',
+                      'voto_governador'
+                    )
+                  }
+                  className="h-11 rounded-xl bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 text-white font-bold text-xs shadow-lg flex items-center justify-center gap-1.5"
+                >
+                  <Check className="size-4" /> Confirmar
+                </button>
+                <button
+                  onClick={() =>
+                    handleCorrigirVoto(
+                      'voto_senador_2',
+                      'Selecione novamente o seu candidato a 2º Senador:'
+                    )
+                  }
+                  className="h-11 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 font-bold text-xs flex items-center justify-center gap-1.5"
+                >
+                  <RotateCcw className="size-4" /> Corrigir
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* ETAPA: SELEÇÃO MAJORITÁRIA - GOVERNADOR */}
+          {etapa === 'voto_governador' && !digitando && (
+            <div className="my-3">
+              <MajoritarySelect
+                cargoTitulo="Governador"
+                candidatos={candidatosGovernador}
+                onSelecionar={async (cand) => {
+                  setCandidatoTemp(cand);
+                  const userMsg: Mensagem = {
+                    id: Math.random().toString(36).substring(2, 9),
+                    remetente: 'user',
+                    conteudo: `Escolhi: ${cand.nomeUrna} (${cand.numero})`,
+                    timestamp: getHoraAtual(),
+                  };
+                  setMensagens((prev) => [...prev, userMsg]);
+                  await adicionarMensagemBot(`Confirma seu voto para Governador em ${cand.nomeUrna} (${cand.numero})?`);
+                  setEtapa('confirm_governador');
+                }}
+                onVotoBranco={() => handleVotoBrancoNulo('BRANCO', 'Governador', 'confirm_governador')}
+                onVotoNulo={() => handleVotoBrancoNulo('NULO', 'Governador', 'confirm_governador')}
+              />
+            </div>
+          )}
+
+          {/* ETAPA CONFIRMAÇÃO: GOVERNADOR */}
+          {etapa === 'confirm_governador' && candidatoTemp && !digitando && (
+            <div className="space-y-3 my-3 animate-message">
+              <CandidateCard candidato={candidatoTemp} tituloCargo="Governador" modoConfirmacao />
+              <div className="grid grid-cols-2 gap-2.5">
+                <button
+                  onClick={() =>
+                    handleConfirmarVoto(
+                      'governador',
+                      '6️⃣ Por fim, escolha o seu candidato a PRESIDENTE DA REPÚBLICA (2 dígitos):',
+                      'voto_presidente'
+                    )
+                  }
+                  className="h-11 rounded-xl bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 text-white font-bold text-xs shadow-lg flex items-center justify-center gap-1.5"
+                >
+                  <Check className="size-4" /> Confirmar
+                </button>
+                <button
+                  onClick={() =>
+                    handleCorrigirVoto(
+                      'voto_governador',
+                      'Selecione novamente o seu candidato a Governador:'
+                    )
+                  }
+                  className="h-11 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 font-bold text-xs flex items-center justify-center gap-1.5"
+                >
+                  <RotateCcw className="size-4" /> Corrigir
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* ETAPA: SELEÇÃO MAJORITÁRIA - PRESIDENTE */}
+          {etapa === 'voto_presidente' && !digitando && (
+            <div className="my-3">
+              <MajoritarySelect
+                cargoTitulo="Presidente da República"
+                candidatos={candidatosPresidente}
+                onSelecionar={async (cand) => {
+                  setCandidatoTemp(cand);
+                  const userMsg: Mensagem = {
+                    id: Math.random().toString(36).substring(2, 9),
+                    remetente: 'user',
+                    conteudo: `Escolhi: ${cand.nomeUrna} (${cand.numero})`,
+                    timestamp: getHoraAtual(),
+                  };
+                  setMensagens((prev) => [...prev, userMsg]);
+                  await adicionarMensagemBot(`Confirma seu voto para Presidente da República em ${cand.nomeUrna} (${cand.numero})?`);
+                  setEtapa('confirm_presidente');
+                }}
+                onVotoBranco={() => handleVotoBrancoNulo('BRANCO', 'Presidente', 'confirm_presidente')}
+                onVotoNulo={() => handleVotoBrancoNulo('NULO', 'Presidente', 'confirm_presidente')}
+              />
+            </div>
+          )}
+
+          {/* ETAPA CONFIRMAÇÃO: PRESIDENTE */}
+          {etapa === 'confirm_presidente' && candidatoTemp && !digitando && (
+            <div className="space-y-3 my-3 animate-message">
+              <CandidateCard candidato={candidatoTemp} tituloCargo="Presidente" modoConfirmacao />
+              <div className="grid grid-cols-2 gap-2.5">
+                <button
+                  onClick={() =>
+                    handleConfirmarVoto(
+                      'presidente',
+                      '📍 Para finalizarmos o mapeamento regional dos votos, informe a sua Cidade e Bairro:',
+                      'localizacao'
+                    )
+                  }
+                  className="h-11 rounded-xl bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 text-white font-bold text-xs shadow-lg flex items-center justify-center gap-1.5"
+                >
+                  <Check className="size-4" /> Confirmar
+                </button>
+                <button
+                  onClick={() =>
+                    handleCorrigirVoto(
+                      'voto_presidente',
+                      'Selecione novamente o seu candidato a Presidente:'
+                    )
+                  }
+                  className="h-11 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 font-bold text-xs flex items-center justify-center gap-1.5"
+                >
+                  <RotateCcw className="size-4" /> Corrigir
                 </button>
               </div>
             </div>
@@ -476,13 +1072,10 @@ export function App() {
             </div>
           )}
 
-          {/* ETAPA: CONCLUÍDO E COMPARTILHAMENTO */}
-          {etapa === 'concluido' && candidatoSelecionado && (
+          {/* ETAPA: CONCLUÍDO / COLINHA ELEITORAL */}
+          {etapa === 'concluido' && (
             <div className="my-4">
-              <ShareBanner
-                candidato={candidatoSelecionado}
-                nomeUsuario={respostas.nome}
-              />
+              <ColinhaResumo respostas={respostas} />
             </div>
           )}
 
@@ -490,17 +1083,27 @@ export function App() {
         </div>
 
         {/* BARRA INFERIOR DE RESPOSTA */}
-        {(etapa === 'nome' || etapa === 'cpf') && (
+        {(etapa === 'nome' ||
+          etapa === 'cpf' ||
+          etapa === 'voto_dep_estadual' ||
+          etapa === 'voto_dep_federal' ||
+          etapa === 'voto_senador_1' ||
+          etapa === 'voto_senador_2' ||
+          etapa === 'voto_governador' ||
+          etapa === 'voto_presidente') && (
           <div className="sticky bottom-0 mt-4 bg-slate-950/95 backdrop-blur-md pt-2 pb-1 border-t border-slate-800">
             <form onSubmit={handleEnviarTexto} className="space-y-2">
               <div className="flex items-center gap-2">
                 <input
-                  type={etapa === 'cpf' ? 'text' : 'text'}
+                  type={etapa === 'cpf' || etapa.startsWith('voto_') ? 'text' : 'text'}
+                  inputMode={etapa === 'cpf' || etapa.startsWith('voto_') ? 'numeric' : 'text'}
                   autoFocus
                   value={inputText}
                   onChange={(e) => {
                     if (etapa === 'cpf') {
                       setInputText(formatarCpf(e.target.value));
+                    } else if (etapa.startsWith('voto_')) {
+                      setInputText(e.target.value.replace(/\D/g, ''));
                     } else {
                       setInputText(e.target.value);
                     }
@@ -508,7 +1111,19 @@ export function App() {
                   placeholder={
                     etapa === 'nome'
                       ? 'Digite seu nome completo...'
-                      : '000.000.000-00 (Opcional)'
+                      : etapa === 'cpf'
+                      ? '000.000.000-00 (Opcional)'
+                      : etapa === 'voto_dep_estadual'
+                      ? 'Digite o número do Dep. Estadual (5 dígitos)...'
+                      : etapa === 'voto_dep_federal'
+                      ? 'Digite o número do Dep. Federal (4 dígitos)...'
+                      : etapa === 'voto_senador_1'
+                      ? 'Digite o número do 1º Senador (3 dígitos)...'
+                      : etapa === 'voto_senador_2'
+                      ? 'Digite o número do 2º Senador (3 dígitos)...'
+                      : etapa === 'voto_governador'
+                      ? 'Digite o número do Governador (2 dígitos)...'
+                      : 'Digite o número do Presidente (2 dígitos)...'
                   }
                   className="flex-1 h-12 px-4 rounded-2xl bg-slate-900 border border-slate-700 text-sm text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-orange-500/50 font-medium"
                 />

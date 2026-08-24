@@ -8,15 +8,34 @@ export interface Candidato {
   uf: string;
   fotoUrl?: string;
   campaign_id?: string;
+  isBrancoNulo?: boolean;
 }
+
+export type CargoEtapa =
+  | 'deputado_estadual'
+  | 'deputado_federal'
+  | 'senador_1'
+  | 'senador_2'
+  | 'governador'
+  | 'presidente';
 
 export type EtapaChat =
   | 'boas_vindas'
   | 'nome'
   | 'cpf'
   | 'uf'
-  | 'candidato_selecao'
-  | 'candidato_confirmacao'
+  | 'voto_dep_estadual'
+  | 'confirm_dep_estadual'
+  | 'voto_dep_federal'
+  | 'confirm_dep_federal'
+  | 'voto_senador_1'
+  | 'confirm_senador_1'
+  | 'voto_senador_2'
+  | 'confirm_senador_2'
+  | 'voto_governador'
+  | 'confirm_governador'
+  | 'voto_presidente'
+  | 'confirm_presidente'
   | 'localizacao'
   | 'concluido';
 
@@ -29,12 +48,21 @@ export interface Mensagem {
   timestamp: string;
 }
 
+export interface VotosPesquisa {
+  deputado_estadual?: Candidato | null;
+  deputado_federal?: Candidato | null;
+  senador_1?: Candidato | null;
+  senador_2?: Candidato | null;
+  governador?: Candidato | null;
+  presidente?: Candidato | null;
+}
+
 export interface RespostaUsuario {
   nome: string;
   cpf?: string;
   uf: string;
-  candidato?: Candidato;
   municipio: string;
   bairro: string;
   cep?: string;
+  votos: VotosPesquisa;
 }
