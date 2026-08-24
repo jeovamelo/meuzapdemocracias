@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
-import { Share2, Send, CheckCircle2, Sparkles, Heart, FileCheck, Loader2, User, Ban, CircleDot } from 'lucide-react';
+import { Share2, Send, CheckCircle2, Sparkles, Heart, FileCheck, Loader2, User, Ban, CircleDot, BarChart3 } from 'lucide-react';
 import { toast } from 'sonner';
 import type { RespostaUsuario, Candidato } from '../types';
 import { gerarColinhaJpg } from '../lib/gerarColinhaJpg';
+import { ResultadosPesquisa } from './ResultadosPesquisa';
 
 interface Props {
   respostas: RespostaUsuario;
@@ -31,7 +32,18 @@ export const resolverFotoCandidato = (cand?: Candidato | null, ufPadrao?: string
 export const ColinhaResumo: React.FC<Props> = ({ respostas, onResponderNovamente }) => {
   const [gerandoJpg, setGerandoJpg] = useState(false);
   const [compartilhado, setCompartilhado] = useState(false);
+  const [mostrarResultados, setMostrarResultados] = useState(false);
   const { votos, nome, uf, municipio, bairro } = respostas;
+
+  // Se o usuário alternou para a visualização dos resultados
+  if (mostrarResultados) {
+    return (
+      <ResultadosPesquisa
+        respostas={respostas}
+        onVoltarParaColinha={() => setMostrarResultados(false)}
+      />
+    );
+  }
 
   const itensColinha: { cargo: string; cand?: Candidato | null; digitos: string; ordem: string }[] = [
     { cargo: 'Deputado(a) Federal', cand: votos.deputado_federal, digitos: '4 dígitos', ordem: '1º' },
@@ -270,6 +282,14 @@ export const ColinhaResumo: React.FC<Props> = ({ respostas, onResponderNovamente
             {gerandoJpg ? 'Gerando Imagem...' : compartilhado ? 'Colinha Pronta!' : 'Compartilhar Colinha'}
           </button>
         </div>
+
+        <button
+          type="button"
+          onClick={() => setMostrarResultados(true)}
+          className="w-full h-12 rounded-2xl bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white font-black text-sm shadow-xl flex items-center justify-center gap-2 transition-all active:scale-95 border border-indigo-400/30"
+        >
+          <BarChart3 className="size-4.5 text-blue-200" /> 📊 Ver Resultados da Pesquisa em {municipio || uf}
+        </button>
 
         {onResponderNovamente && (
           <button
