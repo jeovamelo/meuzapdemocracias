@@ -34,10 +34,13 @@ export const MajoritarySelect: React.FC<Props> = ({
           <Vote className="size-4 text-orange-400" />
           Opções para {cargoTitulo} (Por Número)
         </div>
+        <span className="text-[10px] font-mono font-bold text-orange-400/90 bg-orange-500/10 px-2 py-0.5 rounded-md border border-orange-500/20">
+          {ordenados.length} opções disponíveis
+        </span>
       </div>
 
       {/* LISTA DE CANDIDATOS ORDENADOS POR NÚMERO */}
-      <div className="max-h-[300px] overflow-y-auto space-y-2 pr-1">
+      <div className="max-h-[380px] overflow-y-auto space-y-2 pr-1 custom-scrollbar">
         {ordenados.map((cand) => (
           <CandidateCard
             key={cand.id}

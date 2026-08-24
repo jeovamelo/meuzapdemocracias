@@ -97,6 +97,7 @@ export function App() {
 
       setMensagens((prev) => [...prev, msg2]);
       setEtapa('nome');
+      carregarCandidatosMajoritarios('CE');
     };
 
     iniciarChat();
@@ -131,6 +132,7 @@ export function App() {
   // Carregar dados de candidatos majoritários do banco interno (tse_candidatos + campaigns)
   const carregarCandidatosMajoritarios = async (ufEscolhida: string) => {
     setCarregandoCandidatos(true);
+    const ufUpper = (ufEscolhida || 'CE').toUpperCase();
     try {
       // 1. Buscar campanhas registradas para obter vínculos e fotos customizadas
       const { data: dbCamps } = await supabase
@@ -144,24 +146,26 @@ export function App() {
         campMap.set(`${camp.nr_candidato}`, camp);
       });
 
-      // 2. Buscar TODOS os candidatos de Governador e Senador no banco interno
-      const { data: tseEstaduais } = await supabase
+      // 2. Buscar TODOS os candidatos de Governador e Senador no banco interno para o estado
+      const { data: tseEstaduais, error: errEst } = await supabase
         .from('tse_candidatos')
         .select('*')
-        .eq('sg_uf', ufEscolhida.toUpperCase())
-        .in('ds_cargo', ['GOVERNADOR', 'SENADOR'])
-        .order('nr_candidato');
+        .eq('sg_uf', ufUpper)
+        .in('ds_cargo', ['GOVERNADOR', 'SENADOR']);
+
+      if (errEst) console.warn('Erro tseEstaduais:', errEst);
 
       // 3. Buscar TODOS os candidatos a Presidente no banco interno
-      const { data: tsePresidentes } = await supabase
+      const { data: tsePresidentes, error: errPres } = await supabase
         .from('tse_candidatos')
         .select('*')
-        .eq('ds_cargo', 'PRESIDENTE')
-        .order('nr_candidato');
+        .eq('ds_cargo', 'PRESIDENTE');
+
+      if (errPres) console.warn('Erro tsePresidentes:', errPres);
 
       // Mapear Governadores
       const governadores: Candidato[] = (tseEstaduais || [])
-        .filter((t: any) => t.ds_cargo === 'GOVERNADOR')
+        .filter((t: any) => (t.ds_cargo || '').toUpperCase() === 'GOVERNADOR')
         .map((t: any) => {
           const campVinculada = campMap.get(`${t.sg_uf}_GOVERNADOR_${t.nr_candidato}`.toUpperCase()) || campMap.get(`${t.nr_candidato}`);
           return {
@@ -171,15 +175,15 @@ export function App() {
             numero: String(t.nr_candidato),
             cargo: 'Governador',
             partido: t.sg_partido || t.nm_partido || '',
-            uf: t.sg_uf || ufEscolhida,
-            fotoUrl: campVinculada?.foto_candidato_url || buildFotoCandidato(t, ufEscolhida),
+            uf: t.sg_uf || ufUpper,
+            fotoUrl: campVinculada?.foto_candidato_url || buildFotoCandidato(t, ufUpper),
             campaign_id: campVinculada?.id,
           };
         });
 
-      // Mapear Senadores
+      // Mapear Senadores (todos os cadastrados no banco para o estado)
       const senadores: Candidato[] = (tseEstaduais || [])
-        .filter((t: any) => t.ds_cargo === 'SENADOR')
+        .filter((t: any) => (t.ds_cargo || '').toUpperCase() === 'SENADOR')
         .map((t: any) => {
           const campVinculada = campMap.get(`${t.sg_uf}_SENADOR_${t.nr_candidato}`.toUpperCase()) || campMap.get(`${t.nr_candidato}`);
           return {
@@ -189,13 +193,13 @@ export function App() {
             numero: String(t.nr_candidato),
             cargo: 'Senador',
             partido: t.sg_partido || t.nm_partido || '',
-            uf: t.sg_uf || ufEscolhida,
-            fotoUrl: campVinculada?.foto_candidato_url || buildFotoCandidato(t, ufEscolhida),
+            uf: t.sg_uf || ufUpper,
+            fotoUrl: campVinculada?.foto_candidato_url || buildFotoCandidato(t, ufUpper),
             campaign_id: campVinculada?.id,
           };
         });
 
-      // Mapear Presidentes
+      // Mapear Presidentes (todos os cadastrados no banco nacional)
       const presidentes: Candidato[] = (tsePresidentes || []).map((t: any) => {
         const campVinculada = campMap.get(`${t.nr_candidato}`);
         return {
@@ -925,7 +929,13 @@ export function App() {
             <div className="my-3">
               <MajoritarySelect
                 cargoTitulo="2º Senador"
-                candidatos={candidatosSenador.filter((c) => c.numero !== respostas.votos.senador_1?.numero)}
+                candidatos={candidatosSenador.filter((c) => {
+                  const voto1 = respostas.votos.senador_1;
+                  if (!voto1 || voto1.isBrancoNulo || voto1.numero === 'BRANCO' || voto1.numero === 'NULO') {
+                    return true;
+                  }
+                  return c.numero !== voto1.numero && c.id !== voto1.id;
+                })}
                 onSelecionar={async (cand) => {
                   setCandidatoTemp(cand);
                   const userMsg: Mensagem = {
