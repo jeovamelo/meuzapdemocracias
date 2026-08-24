@@ -11,7 +11,6 @@ import {
   Search, 
   Filter, 
   Sparkles,
-  Map,
   Building2,
   Calendar,
   Layers,
