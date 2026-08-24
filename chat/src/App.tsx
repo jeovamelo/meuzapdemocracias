@@ -706,7 +706,7 @@ export function App() {
       setRespostas(respostasFinais);
       toast.success('Pesquisa registrada e atualizada com sucesso!');
 
-      await adicionarMensagemBot(`🎉 Obrigado por sua participação cívica, ${respostasFinais.nome.split(' ')[0]}!`);
+      await adicionarMensagemBot(`🎉 Obrigado por sua participação na pesquisa, ${respostasFinais.nome.split(' ')[0]}!`);
       await adicionarMensagemBot('Aqui está o resumo da sua Colinha Eleitoral Oficial. Seus votos foram atualizados e você pode compartilhar no WhatsApp:');
 
       setEtapa('concluido');

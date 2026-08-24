@@ -18,7 +18,7 @@ export const ChatHeader: React.FC<Props> = ({ candidatoAtivo }) => {
             <div className="flex items-center gap-1.5">
               <h1 className="text-sm font-black tracking-tight text-white">Democracias</h1>
               <span className="inline-flex items-center gap-0.5 rounded-full bg-orange-500/10 border border-orange-500/30 px-2 py-0.5 text-[10px] font-bold text-orange-400">
-                <Sparkles className="size-2.5" /> Pesquisa Cívica
+                <Sparkles className="size-2.5" /> Pesquisa
               </span>
             </div>
             <p className="text-[11px] font-medium text-slate-400 flex items-center gap-1">
