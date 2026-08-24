@@ -92,7 +92,7 @@ export function App() {
       const msg2: Mensagem = {
         id: '2',
         remetente: 'bot',
-        conteudo: 'Para iniciarmos, por favor digite o seu Nome Completo:',
+        conteudo: 'Para iniciarmos, como posso te chamar?',
         timestamp: getHoraAtual(),
       };
 
@@ -1211,7 +1211,7 @@ export function App() {
                   }}
                   placeholder={
                     etapa === 'nome'
-                      ? 'Digite seu nome completo...'
+                      ? 'Como posso te chamar? (Digite seu nome)...'
                       : etapa === 'cpf'
                       ? '000.000.000-00 (Obrigatório p/ evitar duplicidade)'
                       : etapa === 'whatsapp'

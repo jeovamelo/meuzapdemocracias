@@ -283,12 +283,17 @@ export const ColinhaResumo: React.FC<Props> = ({ respostas, onResponderNovamente
           </button>
         </div>
 
+        {/* BOTÃO RESULTADO PARCIAL */}
         <button
           type="button"
           onClick={() => setMostrarResultados(true)}
-          className="w-full h-12 rounded-2xl bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white font-black text-sm shadow-xl flex items-center justify-center gap-2 transition-all active:scale-95 border border-indigo-400/30"
+          className="w-full h-13 rounded-2xl bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 text-white font-black text-sm sm:text-base shadow-xl flex items-center justify-center gap-2.5 transition-all active:scale-95 border border-indigo-400/40"
         >
-          <BarChart3 className="size-4.5 text-blue-200" /> 📊 Ver Resultados da Pesquisa em {municipio || uf}
+          <BarChart3 className="size-5 text-indigo-200" />
+          <span>Resultado Parcial</span>
+          <span className="text-[10px] font-bold font-mono bg-white/20 px-2 py-0.5 rounded-full text-white ml-1">
+            {uf}
+          </span>
         </button>
 
         {onResponderNovamente && (
