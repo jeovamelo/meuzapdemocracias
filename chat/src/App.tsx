@@ -587,7 +587,33 @@ export function App() {
     setEtapa(etapaRetorno);
   };
 
-  // Confirmar Localização e Salvar tudo no Supabase
+  // Obter ou gerar token persistente do respondente
+  const getRespondenteToken = () => {
+    try {
+      let token = localStorage.getItem('democracias_chat_token');
+      if (!token) {
+        token = 'resp_' + Math.random().toString(36).substring(2, 12) + '_' + Date.now().toString(36);
+        localStorage.setItem('democracias_chat_token', token);
+      }
+      return token;
+    } catch {
+      return 'resp_' + Math.random().toString(36).substring(2, 12);
+    }
+  };
+
+  // Responder Novamente / Alterar Votos
+  const handleResponderNovamente = async () => {
+    setCandidatoTemp(null);
+    setRespostas((prev) => ({
+      ...prev,
+      votos: {},
+    }));
+    await adicionarMensagemBot(`🔄 Vamos atualizar a sua votação! Seus votos anteriores serão substituídos pelas novas escolhas.`);
+    await adicionarMensagemBot(`1️⃣ Digite o NÚMERO do seu candidato a DEPUTADO ESTADUAL (5 dígitos) ou escolha Branco / Nulo:`);
+    setEtapa('voto_dep_estadual');
+  };
+
+  // Confirmar Localização e Salvar tudo no Supabase (com sobrescrita da pesquisa anterior)
   const handleConfirmarLocalizacao = async (dadosLoc: { cidade: string; bairro: string; cep?: string }) => {
     setSalvando(true);
 
@@ -607,46 +633,80 @@ export function App() {
     };
 
     try {
-      // 1. Salvar na tabela pesquisas_chat
-      const { data: pesquisaSalva, error: errPesquisa } = await supabase
-        .from('pesquisas_chat')
-        .insert([{
-          nome: respostasFinais.nome.trim(),
-          cpf: respostasFinais.cpf ? respostasFinais.cpf.replace(/\D/g, '') : null,
-          uf: respostasFinais.uf,
-          municipio: dadosLoc.cidade,
-          bairro: dadosLoc.bairro,
-          dep_estadual_numero: respostasFinais.votos.deputado_estadual?.numero,
-          dep_estadual_nome: respostasFinais.votos.deputado_estadual?.nomeUrna,
-          dep_estadual_foto: respostasFinais.votos.deputado_estadual?.fotoUrl,
-          dep_estadual_partido: respostasFinais.votos.deputado_estadual?.partido,
-          dep_federal_numero: respostasFinais.votos.deputado_federal?.numero,
-          dep_federal_nome: respostasFinais.votos.deputado_federal?.nomeUrna,
-          dep_federal_foto: respostasFinais.votos.deputado_federal?.fotoUrl,
-          dep_federal_partido: respostasFinais.votos.deputado_federal?.partido,
-          senador1_numero: respostasFinais.votos.senador_1?.numero,
-          senador1_nome: respostasFinais.votos.senador_1?.nomeUrna,
-          senador1_foto: respostasFinais.votos.senador_1?.fotoUrl,
-          senador1_partido: respostasFinais.votos.senador_1?.partido,
-          senador2_numero: respostasFinais.votos.senador_2?.numero,
-          senador2_nome: respostasFinais.votos.senador_2?.nomeUrna,
-          senador2_foto: respostasFinais.votos.senador_2?.fotoUrl,
-          senador2_partido: respostasFinais.votos.senador_2?.partido,
-          governador_numero: respostasFinais.votos.governador?.numero,
-          governador_nome: respostasFinais.votos.governador?.nomeUrna,
-          governador_foto: respostasFinais.votos.governador?.fotoUrl,
-          governador_partido: respostasFinais.votos.governador?.partido,
-          presidente_numero: respostasFinais.votos.presidente?.numero,
-          presidente_nome: respostasFinais.votos.presidente?.nomeUrna,
-          presidente_foto: respostasFinais.votos.presidente?.fotoUrl,
-          presidente_partido: respostasFinais.votos.presidente?.partido,
-          origem_url: 'chat.democracias.org',
-        }])
-        .select()
-        .single();
+      const token = getRespondenteToken();
+      const cpfLimpo = respostasFinais.cpf ? respostasFinais.cpf.replace(/\D/g, '') : null;
 
-      if (errPesquisa) {
-        console.warn('Erro ao salvar pesquisa_chat:', errPesquisa);
+      // Verificar se já existe pesquisa anterior pelo CPF ou pelo token do respondente
+      let pesquisaExistenteId: string | null = null;
+
+      if (cpfLimpo) {
+        const { data: porCpf } = await supabase
+          .from('pesquisas_chat')
+          .select('id')
+          .eq('cpf', cpfLimpo)
+          .order('criado_em', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        if (porCpf?.id) pesquisaExistenteId = porCpf.id;
+      }
+
+      if (!pesquisaExistenteId && token) {
+        const { data: porToken } = await supabase
+          .from('pesquisas_chat')
+          .select('id')
+          .eq('respondente_token', token)
+          .order('criado_em', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        if (porToken?.id) pesquisaExistenteId = porToken.id;
+      }
+
+      const payloadPesquisa = {
+        respondente_token: token,
+        nome: respostasFinais.nome.trim(),
+        cpf: cpfLimpo,
+        uf: respostasFinais.uf,
+        municipio: dadosLoc.cidade,
+        bairro: dadosLoc.bairro,
+        dep_estadual_numero: respostasFinais.votos.deputado_estadual?.numero || null,
+        dep_estadual_nome: respostasFinais.votos.deputado_estadual?.nomeUrna || null,
+        dep_estadual_foto: respostasFinais.votos.deputado_estadual?.fotoUrl || null,
+        dep_estadual_partido: respostasFinais.votos.deputado_estadual?.partido || null,
+        dep_federal_numero: respostasFinais.votos.deputado_federal?.numero || null,
+        dep_federal_nome: respostasFinais.votos.deputado_federal?.nomeUrna || null,
+        dep_federal_foto: respostasFinais.votos.deputado_federal?.fotoUrl || null,
+        dep_federal_partido: respostasFinais.votos.deputado_federal?.partido || null,
+        senador1_numero: respostasFinais.votos.senador_1?.numero || null,
+        senador1_nome: respostasFinais.votos.senador_1?.nomeUrna || null,
+        senador1_foto: respostasFinais.votos.senador_1?.fotoUrl || null,
+        senador1_partido: respostasFinais.votos.senador_1?.partido || null,
+        senador2_numero: respostasFinais.votos.senador_2?.numero || null,
+        senador2_nome: respostasFinais.votos.senador_2?.nomeUrna || null,
+        senador2_foto: respostasFinais.votos.senador_2?.fotoUrl || null,
+        senador2_partido: respostasFinais.votos.senador_2?.partido || null,
+        governador_numero: respostasFinais.votos.governador?.numero || null,
+        governador_nome: respostasFinais.votos.governador?.nomeUrna || null,
+        governador_foto: respostasFinais.votos.governador?.fotoUrl || null,
+        governador_partido: respostasFinais.votos.governador?.partido || null,
+        presidente_numero: respostasFinais.votos.presidente?.numero || null,
+        presidente_nome: respostasFinais.votos.presidente?.nomeUrna || null,
+        presidente_foto: respostasFinais.votos.presidente?.fotoUrl || null,
+        presidente_partido: respostasFinais.votos.presidente?.partido || null,
+        origem_url: 'chat.democracias.org',
+        atualizado_em: new Date().toISOString(),
+      };
+
+      if (pesquisaExistenteId) {
+        // Sobrescreve a pesquisa anterior
+        await supabase
+          .from('pesquisas_chat')
+          .update(payloadPesquisa)
+          .eq('id', pesquisaExistenteId);
+      } else {
+        // Insere novo registro
+        await supabase
+          .from('pesquisas_chat')
+          .insert([payloadPesquisa]);
       }
 
       // 2. Salvar na tabela pessoas (Apoiador da Campanha)
@@ -660,7 +720,7 @@ export function App() {
         .from('pessoas')
         .insert([{
           nome: respostasFinais.nome.trim(),
-          cpf: respostasFinais.cpf ? respostasFinais.cpf.replace(/\D/g, '') : null,
+          cpf: cpfLimpo,
           tipo: 'apoiador',
           funcao: 'Apoiador(a) / Pesquisa Chat',
           meta_votos: 1,
@@ -674,10 +734,10 @@ export function App() {
         }]);
 
       setRespostas(respostasFinais);
-      toast.success('Pesquisa registrada com sucesso!');
+      toast.success('Pesquisa registrada e atualizada com sucesso!');
 
       await adicionarMensagemBot(`🎉 Obrigado por sua participação cívica, ${respostasFinais.nome.split(' ')[0]}!`);
-      await adicionarMensagemBot('Aqui está o resumo da sua Colinha Eleitoral Oficial. Você pode compartilhar no WhatsApp com amigos e familiares:');
+      await adicionarMensagemBot('Aqui está o resumo da sua Colinha Eleitoral Oficial. Seus votos foram atualizados e você pode compartilhar no WhatsApp:');
 
       setEtapa('concluido');
     } catch (err) {
@@ -1075,7 +1135,10 @@ export function App() {
           {/* ETAPA: CONCLUÍDO / COLINHA ELEITORAL */}
           {etapa === 'concluido' && (
             <div className="my-4">
-              <ColinhaResumo respostas={respostas} />
+              <ColinhaResumo
+                respostas={respostas}
+                onResponderNovamente={handleResponderNovamente}
+              />
             </div>
           )}
 

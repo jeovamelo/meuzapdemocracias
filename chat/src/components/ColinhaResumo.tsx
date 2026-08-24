@@ -4,9 +4,10 @@ import type { RespostaUsuario } from '../types';
 
 interface Props {
   respostas: RespostaUsuario;
+  onResponderNovamente?: () => void;
 }
 
-export const ColinhaResumo: React.FC<Props> = ({ respostas }) => {
+export const ColinhaResumo: React.FC<Props> = ({ respostas, onResponderNovamente }) => {
   const [copiado, setCopiado] = useState(false);
   const { votos, nome, uf, municipio, bairro } = respostas;
 
@@ -81,24 +82,36 @@ export const ColinhaResumo: React.FC<Props> = ({ respostas }) => {
         </div>
       </div>
 
-      {/* AÇÕES DE COMPARTILHAMENTO */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-1">
-        <a
-          href={linkWhatsapp}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="h-12 rounded-xl bg-[#25D366] hover:bg-[#1EBE5D] text-white font-bold text-sm shadow-lg flex items-center justify-center gap-2 transition-all"
-        >
-          <Send className="size-4" /> Compartilhar no WhatsApp
-        </a>
+      {/* AÇÕES DE COMPARTILHAMENTO E REPETIÇÃO */}
+      <div className="space-y-2.5 pt-1">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+          <a
+            href={linkWhatsapp}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="h-12 rounded-xl bg-[#25D366] hover:bg-[#1EBE5D] text-white font-bold text-sm shadow-lg flex items-center justify-center gap-2 transition-all"
+          >
+            <Send className="size-4" /> Compartilhar no WhatsApp
+          </a>
 
-        <button
-          onClick={handleCopiar}
-          className="h-12 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 font-bold text-sm shadow-md flex items-center justify-center gap-2 transition-all"
-        >
-          {copiado ? <CheckCircle2 className="size-4 text-emerald-400" /> : <Copy className="size-4" />}
-          {copiado ? 'Copiado com Sucesso!' : 'Copiar Colinha'}
-        </button>
+          <button
+            onClick={handleCopiar}
+            className="h-12 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 font-bold text-sm shadow-md flex items-center justify-center gap-2 transition-all"
+          >
+            {copiado ? <CheckCircle2 className="size-4 text-emerald-400" /> : <Copy className="size-4" />}
+            {copiado ? 'Copiado com Sucesso!' : 'Copiar Colinha'}
+          </button>
+        </div>
+
+        {onResponderNovamente && (
+          <button
+            type="button"
+            onClick={onResponderNovamente}
+            className="w-full h-11 rounded-xl bg-slate-800/80 hover:bg-slate-700 border border-slate-700/80 text-xs font-bold text-orange-400 flex items-center justify-center gap-2 transition-all"
+          >
+            <Sparkles className="size-3.5" /> Responder Novamente / Atualizar Meus Votos
+          </button>
+        )}
       </div>
     </div>
   );
