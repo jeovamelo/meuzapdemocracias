@@ -1437,8 +1437,8 @@ export function App() {
           {etapa === 'localizacao' && !digitando && (
             <div className="my-2">
               <LocationInput
-                uf={respostas.uf}
-                onConfirmarLocalizacao={handleConfirmarLocalizacao}
+                ufInicial={respostas.uf}
+                onConfirmar={handleConfirmarLocalizacao}
               />
             </div>
           )}
@@ -1550,3 +1550,5 @@ export function App() {
     </div>
   );
 }
+
+export default App;

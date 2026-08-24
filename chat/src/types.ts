@@ -39,6 +39,7 @@ export type EtapaChat =
   | 'voto_presidente'
   | 'confirm_presidente'
   | 'localizacao'
+  | 'colinha'
   | 'concluido';
 
 export interface Mensagem {
