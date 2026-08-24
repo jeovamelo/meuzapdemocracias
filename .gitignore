@@ -36,3 +36,6 @@ dist-ssr
 .env.*
 whatsapp-service/auth_info_baileys/
 importados/
+scratch/
+chat/public/candidatos/
+public/candidatos/
