@@ -420,11 +420,46 @@ export function App() {
     };
   };
 
-  // Enviar texto (Nome, CPF ou Número de Candidato)
+  // Enviar texto (Nome, CPF, Número de Candidato ou Voto Nulo/Branco)
   const handleEnviarTexto = async (e: React.FormEvent) => {
     e.preventDefault();
     const textoLimpo = inputText.trim();
-    if (!textoLimpo && etapa !== 'cpf') return;
+    if (!textoLimpo && etapa !== 'cpf' && !etapa.startsWith('voto_')) return;
+
+    // Tratamento direto de resposta vazia, zerada ou 'nulo' / 'branco' em etapas de voto
+    if (etapa.startsWith('voto_')) {
+      const isVazioOuZerado = !textoLimpo || /^0+$/.test(textoLimpo) || textoLimpo.toLowerCase() === 'nulo';
+      const isBranco = textoLimpo.toLowerCase() === 'branco';
+
+      if (isVazioOuZerado || isBranco) {
+        setInputText('');
+        const tipo = isBranco ? 'BRANCO' : 'NULO';
+        if (etapa === 'voto_dep_federal') {
+          await handleVotoBrancoNulo(tipo, 'Dep. Federal', 'confirm_dep_federal');
+          return;
+        }
+        if (etapa === 'voto_dep_estadual') {
+          await handleVotoBrancoNulo(tipo, 'Deputado Estadual', 'confirm_dep_estadual');
+          return;
+        }
+        if (etapa === 'voto_senador_1') {
+          await handleVotoBrancoNulo(tipo, 'Senador', 'confirm_senador_1');
+          return;
+        }
+        if (etapa === 'voto_senador_2') {
+          await handleVotoBrancoNulo(tipo, 'Senador', 'confirm_senador_2');
+          return;
+        }
+        if (etapa === 'voto_governador') {
+          await handleVotoBrancoNulo(tipo, 'Governador', 'confirm_governador');
+          return;
+        }
+        if (etapa === 'voto_presidente') {
+          await handleVotoBrancoNulo(tipo, 'Presidente', 'confirm_presidente');
+          return;
+        }
+      }
+    }
 
     if (etapa === 'nome') {
       const userMsg: Mensagem = {
@@ -1530,7 +1565,7 @@ export function App() {
                 disabled={
                   digitando ||
                   salvando ||
-                  (!inputText.trim() && etapa !== 'cpf' && etapa !== 'whatsapp') ||
+                  (!inputText.trim() && etapa !== 'cpf' && etapa !== 'whatsapp' && !etapa.startsWith('voto_')) ||
                   etapa.startsWith('confirm_') ||
                   etapa === 'uf' ||
                   etapa === 'localizacao'
