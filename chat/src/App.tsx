@@ -36,6 +36,21 @@ const ESTADOS_BR = [
   'PA', 'PB', 'PR', 'PE', 'PI', 'RJ', 'RN', 'RS', 'RO', 'RR', 'SC', 'SP', 'SE', 'TO'
 ];
 
+const PROMPTS_VOTACAO = {
+  deputadoFederal:
+    '1️⃣ Digite o NÚMERO da sua candidatura a DEPUTADO(A) FEDERAL (4 dígitos), consulte a lista ou escolha Branco / Nulo:',
+  deputadoEstadual:
+    '2️⃣ Digite o NÚMERO da sua candidatura a DEPUTADO(A) ESTADUAL (5 dígitos), consulte a lista ou escolha Branco / Nulo:',
+  senadorPrimeiraVaga:
+    '3️⃣ Digite o NÚMERO da sua candidatura a SENADOR(A) — 1ª vaga (3 dígitos), consulte a lista ou escolha Branco / Nulo:',
+  senadorSegundaVaga:
+    '4️⃣ Digite o NÚMERO da sua candidatura a SENADOR(A) — 2ª vaga (3 dígitos), consulte a lista ou escolha Branco / Nulo:',
+  governador:
+    '5️⃣ Digite o NÚMERO da sua candidatura a GOVERNADOR(A) (2 dígitos), consulte a lista ou escolha Branco / Nulo:',
+  presidente:
+    '6️⃣ Digite o NÚMERO da sua candidatura a PRESIDENTE (2 dígitos), consulte a lista ou escolha Branco / Nulo:',
+} as const;
+
 export function App() {
   const [rotaAtual, setRotaAtual] = useState(() => {
     if (typeof window !== 'undefined') {
@@ -719,7 +734,7 @@ export function App() {
     await carregarTodosCandidatos(ufEscolhida);
 
     await adicionarMensagemBot(`Perfeito! Vamos iniciar a pesquisa seguindo a ordem oficial da cola e da urna eletrônica:`);
-    await adicionarMensagemBot(`1️⃣ Digite o NÚMERO da sua candidata ou candidato a DEPUTADA OU DEPUTADO FEDERAL (4 dígitos), consulte a lista ou escolha Branco / Nulo:`);
+    await adicionarMensagemBot(PROMPTS_VOTACAO.deputadoFederal);
     setEtapa('voto_dep_federal');
   };
 
@@ -1147,7 +1162,7 @@ export function App() {
                   onClick={() =>
                     handleConfirmarVoto(
                       'deputado_federal',
-                      '2️⃣ Agora digite o NÚMERO da sua candidata ou candidato a DEPUTADO ESTADUAL (5 dígitos), consulte a lista ou escolha Branco / Nulo:',
+                      PROMPTS_VOTACAO.deputadoEstadual,
                       'voto_dep_estadual'
                     )
                   }
@@ -1159,7 +1174,7 @@ export function App() {
                   onClick={() =>
                     handleCorrigirVoto(
                       'voto_dep_federal',
-                      'Digite novamente o número da sua escolha para Dep. Federal (4 dígitos) ou consulte a lista abaixo:'
+                      PROMPTS_VOTACAO.deputadoFederal
                     )
                   }
                   className="h-11 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 font-bold text-xs flex items-center justify-center gap-1.5 cursor-pointer"
@@ -1179,7 +1194,7 @@ export function App() {
                   onClick={() =>
                     handleConfirmarVoto(
                       'deputado_estadual',
-                      '3️⃣ Escolha para SENADOR(A) (1ª vaga - 3 dígitos). Apresentamos as opções por ordem de número abaixo:',
+                      PROMPTS_VOTACAO.senadorPrimeiraVaga,
                       'voto_senador_1'
                     )
                   }
@@ -1191,7 +1206,7 @@ export function App() {
                   onClick={() =>
                     handleCorrigirVoto(
                       'voto_dep_estadual',
-                      'Digite novamente o número da sua escolha para Deputado Estadual (5 dígitos) ou consulte a lista abaixo:'
+                      PROMPTS_VOTACAO.deputadoEstadual
                     )
                   }
                   className="h-11 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 font-bold text-xs flex items-center justify-center gap-1.5 cursor-pointer"
@@ -1244,7 +1259,7 @@ export function App() {
                   onClick={() =>
                     handleConfirmarVoto(
                       'senador_1',
-                      '4️⃣ Agora escolha a sua opção para SENADORA OU SENADOR (2ª vaga - 3 dígitos) entre as opções restantes:',
+                      PROMPTS_VOTACAO.senadorSegundaVaga,
                       'voto_senador_2'
                     )
                   }
@@ -1256,7 +1271,7 @@ export function App() {
                   onClick={() =>
                     handleCorrigirVoto(
                       'voto_senador_1',
-                      'Selecione novamente o seu candidato a 1º Senador:'
+                      PROMPTS_VOTACAO.senadorPrimeiraVaga
                     )
                   }
                   className="h-11 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 font-bold text-xs flex items-center justify-center gap-1.5 cursor-pointer"
@@ -1315,7 +1330,7 @@ export function App() {
                   onClick={() =>
                     handleConfirmarVoto(
                       'senador_2',
-                      '5️⃣ Escolha a sua candidata ou candidato a GOVERNADORA OU GOVERNADOR (2 dígitos). Veja as opções abaixo:',
+                      PROMPTS_VOTACAO.governador,
                       'voto_governador'
                     )
                   }
@@ -1327,7 +1342,7 @@ export function App() {
                   onClick={() =>
                     handleCorrigirVoto(
                       'voto_senador_2',
-                      'Selecione novamente o seu candidato a 2º Senador:'
+                      PROMPTS_VOTACAO.senadorSegundaVaga
                     )
                   }
                   className="h-11 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 font-bold text-xs flex items-center justify-center gap-1.5 cursor-pointer"
@@ -1380,7 +1395,7 @@ export function App() {
                   onClick={() =>
                     handleConfirmarVoto(
                       'governador',
-                      '6️⃣ Por fim, escolha a sua candidata ou candidato a PRESIDENTE (2 dígitos):',
+                      PROMPTS_VOTACAO.presidente,
                       'voto_presidente'
                     )
                   }
@@ -1392,7 +1407,7 @@ export function App() {
                   onClick={() =>
                     handleCorrigirVoto(
                       'voto_governador',
-                      'Selecione novamente o seu candidato a Governador:'
+                      PROMPTS_VOTACAO.governador
                     )
                   }
                   className="h-11 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 font-bold text-xs flex items-center justify-center gap-1.5 cursor-pointer"
@@ -1457,7 +1472,7 @@ export function App() {
                   onClick={() =>
                     handleCorrigirVoto(
                       'voto_presidente',
-                      'Selecione novamente o seu candidato a Presidente:'
+                      PROMPTS_VOTACAO.presidente
                     )
                   }
                   className="h-11 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 font-bold text-xs flex items-center justify-center gap-1.5 cursor-pointer"
