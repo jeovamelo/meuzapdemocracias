@@ -318,7 +318,7 @@ export const PaginaResultadosPublicos: React.FC = () => {
     const dadosEst = processarCargo(
       pesquisasUf.map((p) => ({ numero: p.dep_estadual_numero, nome: p.dep_estadual_nome })),
       'dep_estadual',
-      'Deputado Estadual',
+      'Dep. Estadual',
       ufSelecionada.toUpperCase()
     );
 
@@ -404,7 +404,7 @@ export const PaginaResultadosPublicos: React.FC = () => {
     { key: 'governador', titulo: 'Governador', icon: '🏛️', subtitulo: `Estado: ${ufSelecionada}` },
     { key: 'senador', titulo: 'Senador', icon: '🏛️', subtitulo: `Estado: ${ufSelecionada}` },
     { key: 'dep_federal', titulo: 'Dep. Federal', icon: '📋', subtitulo: `Estado: ${ufSelecionada}` },
-    { key: 'dep_estadual', titulo: 'Deputado Estadual', icon: '📋', subtitulo: `Estado: ${ufSelecionada}` },
+    { key: 'dep_estadual', titulo: 'Dep. Estadual', icon: '📋', subtitulo: `Estado: ${ufSelecionada}` },
   ];
 
   return (
@@ -533,7 +533,7 @@ export const PaginaResultadosPublicos: React.FC = () => {
         </div>
 
         {/* NAVEGAÇÃO DE VISUALIZAÇÃO: GERAL VS DETALHES POR CARGO */}
-        <div className="flex gap-2 overflow-x-auto pb-1 custom-scrollbar">
+        <div className="grid grid-cols-2 gap-2 pb-1 sm:grid-cols-3 xl:grid-cols-6">
           {/* BOTÃO SIMPLIFICADO GERAL */}
           <button
             type="button"
@@ -541,14 +541,14 @@ export const PaginaResultadosPublicos: React.FC = () => {
               setModo('panorama');
               setCargoSelecionado('todos');
             }}
-            className={`px-4 py-2.5 rounded-2xl text-xs font-black shrink-0 transition-all flex items-center gap-2 border cursor-pointer ${
+            className={`flex min-w-0 w-full items-center justify-center gap-2 rounded-2xl border px-2 py-2.5 text-xs font-black transition-all cursor-pointer sm:px-3 ${
               modo === 'panorama' && cargoSelecionado === 'todos'
                 ? 'bg-gradient-to-r from-orange-500 to-amber-500 text-white border-orange-400 shadow-md ring-2 ring-orange-500/30'
                 : 'bg-slate-900/90 text-slate-400 hover:text-slate-200 border-slate-800'
             }`}
           >
             <BarChart3 className="size-4" />
-            <span>Geral</span>
+            <span className="min-w-0 text-center leading-tight">Geral</span>
           </button>
 
           {secoesCargo.map((sec) => (
@@ -559,14 +559,14 @@ export const PaginaResultadosPublicos: React.FC = () => {
                 setModo('detalhado');
                 setCargoSelecionado(sec.key as CargoFiltro);
               }}
-              className={`px-4 py-2.5 rounded-2xl text-xs font-black shrink-0 transition-all flex items-center gap-1.5 border cursor-pointer ${
+              className={`flex min-w-0 w-full items-center justify-center gap-1.5 rounded-2xl border px-2 py-2.5 text-xs font-black transition-all cursor-pointer sm:px-3 ${
                 modo === 'detalhado' && cargoSelecionado === sec.key
                   ? 'bg-gradient-to-r from-orange-500 to-amber-500 text-white border-orange-400 shadow-md ring-2 ring-orange-500/30'
                   : 'bg-slate-900/90 text-slate-400 hover:text-slate-200 border-slate-800'
               }`}
             >
               <span>{sec.icon}</span>
-              <span>{sec.titulo}</span>
+              <span className="min-w-0 text-center leading-tight">{sec.titulo}</span>
             </button>
           ))}
         </div>

@@ -46,8 +46,8 @@ export const ColinhaResumo: React.FC<Props> = ({ respostas, onResponderNovamente
   }
 
   const itensColinha: { cargo: string; cand?: Candidato | null; digitos: string; ordem: string }[] = [
-    { cargo: 'Dep. Federal (Dep. A)', cand: votos.deputado_federal, digitos: '4 dígitos', ordem: '1º' },
-    { cargo: 'Deputado Estadual', cand: votos.deputado_estadual, digitos: '5 dígitos', ordem: '2º' },
+    { cargo: 'Dep. Federal', cand: votos.deputado_federal, digitos: '4 dígitos', ordem: '1º' },
+    { cargo: 'Dep. Estadual', cand: votos.deputado_estadual, digitos: '5 dígitos', ordem: '2º' },
     { cargo: 'Senador(a) — 1ª Vaga', cand: votos.senador_1, digitos: '3 dígitos', ordem: '3º' },
     { cargo: 'Senador(a) — 2ª Vaga', cand: votos.senador_2, digitos: '3 dígitos', ordem: '4º' },
     { cargo: 'Governador(a)', cand: votos.governador, digitos: '2 dígitos', ordem: '5º' },
@@ -57,8 +57,8 @@ export const ColinhaResumo: React.FC<Props> = ({ respostas, onResponderNovamente
   const textoCompartilhamento = `🗳️ *MINHA ESCOLHA ELEITORAL 2026 — DEMOCRACIAS*\n\n` +
     `📍 *Local:* ${municipio}/${uf} (${bairro})\n\n` +
     `📋 *Votos Declarados (Ordem da Urna):*\n` +
-    `1️⃣ *Dep. Federal (Dep. A):* ${votos.deputado_federal?.numero || '—'} - ${votos.deputado_federal?.nomeUrna || '—'} ${votos.deputado_federal?.partido ? `(${votos.deputado_federal.partido})` : ''}\n` +
-    `2️⃣ *Deputado Estadual:* ${votos.deputado_estadual?.numero || '—'} - ${votos.deputado_estadual?.nomeUrna || '—'} ${votos.deputado_estadual?.partido ? `(${votos.deputado_estadual.partido})` : ''}\n` +
+    `1️⃣ *Dep. Federal:* ${votos.deputado_federal?.numero || '—'} - ${votos.deputado_federal?.nomeUrna || '—'} ${votos.deputado_federal?.partido ? `(${votos.deputado_federal.partido})` : ''}\n` +
+    `2️⃣ *Dep. Estadual:* ${votos.deputado_estadual?.numero || '—'} - ${votos.deputado_estadual?.nomeUrna || '—'} ${votos.deputado_estadual?.partido ? `(${votos.deputado_estadual.partido})` : ''}\n` +
     `3️⃣ *Senador(a) 1ª Vaga:* ${votos.senador_1?.numero || '—'} - ${votos.senador_1?.nomeUrna || '—'} ${votos.senador_1?.partido ? `(${votos.senador_1.partido})` : ''}\n` +
     `4️⃣ *Senador(a) 2ª Vaga:* ${votos.senador_2?.numero || '—'} - ${votos.senador_2?.nomeUrna || '—'} ${votos.senador_2?.partido ? `(${votos.senador_2.partido})` : ''}\n` +
     `5️⃣ *Governador(a):* ${votos.governador?.numero || '—'} - ${votos.governador?.nomeUrna || '—'} ${votos.governador?.partido ? `(${votos.governador.partido})` : ''}\n` +

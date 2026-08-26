@@ -139,7 +139,7 @@ export const LocationInput: React.FC<Props> = ({ ufInicial, onConfirmar }) => {
               list="datalist-municipios"
               value={cidade}
               onChange={(e) => setCidade(e.target.value)}
-              placeholder={`Digite ou selecione o município em ${ufInicial}...`}
+              placeholder="Digite sua cidade..."
               className="w-full h-10 pl-9 pr-3 rounded-xl bg-slate-950 border border-slate-700 text-sm text-white placeholder:text-slate-600 focus:outline-none focus:ring-2 focus:ring-orange-500/50"
             />
             <datalist id="datalist-municipios">
