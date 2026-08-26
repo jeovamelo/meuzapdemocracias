@@ -72,7 +72,7 @@ function calcularIdade(dataNascimento?: string | null): number | null {
 function OnboardingPage() {
   const navigate = useNavigate();
   const { setCampaign } = useCampaignScope();
-  const { addCampanhaRegistro, verificarCampanhaExiste, addPessoa } = useStore();
+  const { addCampanhaRegistro, verificarCampanhaExiste, addPessoa, addSolicitacaoAdesao } = useStore();
 
   // Etapas Sequenciais:
   // 1: Validação obrigatória de Responsabilidade
@@ -84,6 +84,8 @@ function OnboardingPage() {
 
   // Pergunta 1
   const [isResponsavel, setIsResponsavel] = useState<boolean | null>(null);
+  const [escolhaNaoFiliar, setEscolhaNaoFiliar] = useState(false);
+  const [metaVotosApoiador, setMetaVotosApoiador] = useState('1');
 
   // Busca e Dados da Campanha
   const [uf, setUf] = useState('');
@@ -485,12 +487,12 @@ function OnboardingPage() {
     }
   };
 
-  // 4. Concluir Cadastro de Campanha com Validação de Foto do Administrador
+  // 4. Concluir Cadastro de Campanha ou de Membro / Apoiador
   const handleFinalizarCadastro = async (e: React.FormEvent) => {
     e.preventDefault();
 
     if (!adminNome.trim() || !adminCpf.trim()) {
-      toast.error('Preencha o Nome Completo e o CPF do Administrador da Campanha.');
+      toast.error('Preencha seu Nome Completo e CPF.');
       return;
     }
 
@@ -499,6 +501,112 @@ function OnboardingPage() {
       return;
     }
 
+    // CASO 1: Apoiador avulso (escolheu "Não, só sou apoiador e não quero me filiar à campanha")
+    if (escolhaNaoFiliar) {
+      setIsSubmitting(true);
+      try {
+        await addPessoa({
+          nome: adminNome,
+          cpf: adminCpf,
+          telefone: adminTelefone,
+          tipo: 'eleitor',
+          meta_votos: Number(metaVotosApoiador) > 0 ? Number(metaVotosApoiador) : 1,
+          papel_campanha: 'Apoiador(a) / Eleitor(a) Simpatizante',
+          funcao: 'Apoiador(a) / Eleitor(a) Simpatizante',
+          status: 'ativo',
+          municipio: adminCidade || '',
+          uf: adminEstado || uf,
+          cep: adminCep || undefined,
+          endereco: adminLogradouro || undefined,
+          numero: adminNumeroEnd || undefined,
+          complemento: adminComplemento || undefined,
+          bairro: adminBairro || undefined,
+          titulo_eleitor: adminTituloEleitor || undefined,
+          zona: adminZona || undefined,
+          secao: adminSecao || undefined,
+        });
+
+        sessionStorage.removeItem('democracias_onboarding_draft');
+        setEtapa(5);
+        toast.success('Apoio registrado com sucesso!');
+      } catch (err) {
+        console.error(err);
+        toast.error('Erro ao salvar registro de apoiador.');
+      } finally {
+        setIsSubmitting(false);
+      }
+      return;
+    }
+
+    // CASO 2: Membro se vinculando a uma campanha já existente
+    if (!isResponsavel && campanhaJaCadastrada) {
+      setIsSubmitting(true);
+      try {
+        const isApoiador = adminPapel === 'Apoiador(a) / Eleitor(a) Simpatizante' || adminPapel === 'Eleitor e Outros';
+        const tipoPessoa = isApoiador ? 'apoiador' : 'responsavel';
+        const pessoaMembro = await addPessoa({
+          nome: adminNome,
+          cpf: adminCpf,
+          telefone: adminTelefone,
+          tipo: tipoPessoa,
+          meta_votos: Number(metaVotosApoiador) > 0 ? Number(metaVotosApoiador) : 1,
+          papel_campanha: adminPapel,
+          papel_personalizado: adminPapel === 'Eleitor e Outros' ? adminPapelPersonalizado : undefined,
+          campanha_id: campanhaJaCadastrada.id,
+          funcao: adminPapel === 'Eleitor e Outros' && adminPapelPersonalizado ? adminPapelPersonalizado : adminPapel,
+          status: 'pendente_aprovacao',
+          foto_validacao_url: fotoValidacaoPreview || undefined,
+          municipio: adminCidade || '',
+          uf: adminEstado || uf,
+          cep: adminCep || undefined,
+          endereco: adminLogradouro || undefined,
+          numero: adminNumeroEnd || undefined,
+          complemento: adminComplemento || undefined,
+          bairro: adminBairro || undefined,
+          titulo_eleitor: adminTituloEleitor || undefined,
+          zona: adminZona || undefined,
+          secao: adminSecao || undefined,
+        });
+
+        if (pessoaMembro) {
+          await addSolicitacaoAdesao({
+            campanha_id: campanhaJaCadastrada.id,
+            pessoa_id: pessoaMembro.id,
+            nome: adminNome,
+            cpf: adminCpf,
+            telefone: adminTelefone,
+            papel_campanha: adminPapel,
+            papel_personalizado: adminPapelPersonalizado,
+          });
+        }
+
+        const { data: sessionData } = await supabase.auth.getSession();
+        if (sessionData?.session?.user) {
+          try {
+            await supabase.from("campaign_members").insert([{
+              campaign_id: campanhaJaCadastrada.id,
+              user_id: sessionData.session.user.id,
+              role: adminPapel,
+              status: "pendente_aprovacao"
+            } as any]);
+          } catch (e) {
+            console.warn("Vínculo campaign_members:", e);
+          }
+        }
+
+        sessionStorage.removeItem('democracias_onboarding_draft');
+        setEtapa(5);
+        toast.success('Solicitação de adesão enviada para a coordenação!');
+      } catch (err) {
+        console.error(err);
+        toast.error('Erro ao enviar solicitação.');
+      } finally {
+        setIsSubmitting(false);
+      }
+      return;
+    }
+
+    // CASO 3: Administrador criando e validando uma nova campanha
     if (!fotoValidacaoPreview) {
       toast.error('O envio/captura da foto de validação do Administrador é OBRIGATÓRIO.');
       return;
@@ -625,17 +733,17 @@ function OnboardingPage() {
           </div>
           <h2 className="text-3xl font-extrabold text-slate-900">
             {etapa === 1 && "Validação de Responsabilidade"}
-            {etapa === 2 && "Registro e Unicidade da Campanha"}
-            {etapa === 3 && "Identificação e Autenticação do Administrador"}
-            {etapa === 4 && "Cadastro da Conta do Administrador"}
-            {etapa === 5 && "Cadastro concluído"}
+            {etapa === 2 && "Identificação da Campanha Eleitoral"}
+            {etapa === 3 && (escolhaNaoFiliar ? "Identificação do Apoiador" : (!isResponsavel ? "Identificação do Membro / Colaborador" : "Identificação e Autenticação do Administrador"))}
+            {etapa === 4 && (escolhaNaoFiliar ? "Dados do Apoiador" : (!isResponsavel ? "Dados do Membro / Colaborador" : "Cadastro da Conta do Administrador"))}
+            {etapa === 5 && (escolhaNaoFiliar ? "Apoio Registrado!" : (!isResponsavel ? "Solicitação Enviada!" : "Cadastro Concluído com Sucesso!"))}
           </h2>
           <p className="mt-2 text-slate-600 text-sm">
-            {etapa === 1 && "Verificação de perfil de acesso para coordenação e administração."}
-            {etapa === 2 && "Identifique o pleito, cargo e número eleitoral da campanha."}
-            {etapa === 3 && "Escolha como deseja se identificar para administrar a campanha (Google ou WhatsApp)."}
-            {etapa === 4 && "Identificação, endereço, dados eleitorais e foto oficial para validação."}
-            {etapa === 5 && "Seu cadastro foi registrado e está pronto para conectar o WhatsApp da Campanha."}
+            {etapa === 1 && "Verificação de perfil de acesso para coordenação ou apoio à campanha."}
+            {etapa === 2 && "Informe o Estado (UF), Cargo e Número do candidato."}
+            {etapa === 3 && "Escolha como deseja se identificar para acessar a plataforma (Google ou WhatsApp)."}
+            {etapa === 4 && (escolhaNaoFiliar ? "Informe seus dados básicos para registrar seu apoio." : (!isResponsavel ? "Preencha seus dados para solicitar adesão à equipe da campanha." : "Identificação, endereço, dados eleitorais e foto oficial para validação."))}
+            {etapa === 5 && (escolhaNaoFiliar ? "Seu compromisso de apoio foi computado com sucesso." : (!isResponsavel ? "Seu cadastro está pendente de autorização prévia pela coordenação." : "Sua campanha foi criada e está pronta para uso."))}
           </p>
         </div>
 
@@ -652,29 +760,21 @@ function OnboardingPage() {
                   Você é responsável, coordenador ou candidato da campanha?
                 </h3>
                 <p className="text-sm text-slate-600 max-w-md mx-auto">
-                  A criação de campanhas no sistema é restrita a coordenadores, dirigentes ou ao próprio candidato(a).
+                  A criação de novas campanhas é voltada a coordenadores e dirigentes. Voluntários e apoiadores podem localizar sua campanha para se associar ou registrar seu apoio.
                 </p>
               </div>
-
-              {isResponsavel === false && (
-                <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 text-left flex gap-3 items-start">
-                  <AlertTriangle className="h-5 w-5 text-amber-600 flex-shrink-0 mt-0.5" />
-                  <div className="text-sm text-amber-900">
-                    <p className="font-semibold">Acesso como Eleitor / Membro de Equipe</p>
-                    <p className="mt-1 text-xs text-amber-800">
-                      Caso você seja voluntário ou apoiador, solicite o link de adesão diretamente ao coordenador da sua campanha.
-                    </p>
-                  </div>
-                </div>
-              )}
 
               <div className="flex flex-col sm:flex-row gap-4 justify-center pt-4">
                 <Button
                   type="button"
                   variant="outline"
                   size="lg"
-                  onClick={() => setIsResponsavel(false)}
-                  className="w-full sm:w-1/2 h-12"
+                  onClick={() => {
+                    setIsResponsavel(false);
+                    setEscolhaNaoFiliar(false);
+                    setEtapa(2);
+                  }}
+                  className="w-full sm:w-1/2 h-12 border-slate-300 font-bold"
                 >
                   Não sou responsável
                 </Button>
@@ -683,9 +783,10 @@ function OnboardingPage() {
                   size="lg"
                   onClick={() => {
                     setIsResponsavel(true);
+                    setEscolhaNaoFiliar(false);
                     setEtapa(2);
                   }}
-                  className="w-full sm:w-1/2 h-12 bg-primary hover:bg-primary/90"
+                  className="w-full sm:w-1/2 h-12 bg-primary hover:bg-primary/90 font-bold"
                 >
                   Sim, sou responsável
                 </Button>
@@ -750,18 +851,50 @@ function OnboardingPage() {
                 />
               </div>
 
-              {/* AVISO SE A CAMPANHA JÁ EXISTIR NO SISTEMA (UNICIDADE) */}
-              {campanhaJaCadastrada && (
-                <div className="bg-rose-50 border-2 border-rose-300 rounded-xl p-5 space-y-3">
+              {/* AVISO SE A CAMPANHA JÁ EXISTIR NO SISTEMA */}
+              {campanhaJaCadastrada && isResponsavel && (
+                <div className="bg-rose-50 border-2 border-rose-300 rounded-xl p-5 space-y-3 animate-in fade-in">
                   <div className="flex gap-3 items-center text-rose-800">
                     <ShieldAlert className="h-6 w-6 text-rose-600 flex-shrink-0" />
                     <div>
                       <h4 className="font-extrabold text-base">Campanha Já Cadastrada no Democracias!</h4>
                       <p className="text-xs text-rose-700 mt-0.5">
-                        Esta campanha já possui um coordenador responsável registrado. Solicite acesso ao administrador da campanha.
+                        Esta campanha já possui um coordenador responsável registrado. Se você for membro ou apoiador, solicite acesso ao administrador da campanha.
                       </p>
                     </div>
                   </div>
+                </div>
+              )}
+
+              {/* QUANDO A CAMPANHA JÁ EXISTE E O USUÁRIO É MEMBRO/APOIADOR (NÃO RESPONSÁVEL) */}
+              {campanhaJaCadastrada && !isResponsavel && (
+                <div className="bg-emerald-50 border-2 border-emerald-300 rounded-xl p-5 space-y-3 animate-in fade-in">
+                  <div className="flex gap-3 items-center text-emerald-900">
+                    <ShieldCheck className="h-6 w-6 text-emerald-600 flex-shrink-0" />
+                    <div>
+                      <h4 className="font-extrabold text-base">Campanha Localizada no Sistema!</h4>
+                      <p className="text-xs text-emerald-800 mt-0.5">
+                        Esta campanha já está cadastrada na plataforma. Você pode se vincular a ela como membro da equipe ou apoiador.
+                      </p>
+                    </div>
+                  </div>
+                  <Button
+                    type="button"
+                    onClick={() => {
+                      setEscolhaNaoFiliar(false);
+                      setCandidateData({
+                        nome: campanhaJaCadastrada.candidato_nome || campanhaJaCadastrada.candidato_urna || 'Candidato',
+                        nomeUrna: campanhaJaCadastrada.candidato_urna || 'Candidato',
+                        cargo: campanhaJaCadastrada.cargo || cargoSelecionado,
+                        partido: campanhaJaCadastrada.partido_coligacao || '',
+                        fotoUrl: campanhaJaCadastrada.foto_candidato_url || '',
+                      });
+                      setEtapa(3);
+                    }}
+                    className="w-full h-12 bg-emerald-600 hover:bg-emerald-700 text-white font-bold"
+                  >
+                    Avançar para Cadastrar-se nesta Campanha <ArrowRight className="ml-2 h-4 w-4" />
+                  </Button>
                 </div>
               )}
 
@@ -884,40 +1017,102 @@ function OnboardingPage() {
                   </div>
                 </div>
 
-                <div className="flex gap-3 pt-2">
-                  <Button
-                    variant="outline"
-                    onClick={() => {
-                      setCandidateData(null);
-                      setCandidateLookupMessage('');
-                      setCandidatePhotoUnavailable(false);
-                    }}
-                    className="flex-1 h-12"
-                  >
-                    Alterar Busca
-                  </Button>
-                  <Button
-                    onClick={() => setEtapa(3)}
-                    className="flex-1 h-12 text-md bg-primary hover:bg-primary/90 font-bold"
-                  >
-                    Avançar
-                    <ArrowRight className="ml-2 h-4 w-4" />
-                  </Button>
-                </div>
+                {/* SELEÇÃO DE AÇÃO QUANDO CANDIDATO ENCONTRADO */}
+                {!isResponsavel ? (
+                  <div className="bg-amber-50 border-2 border-amber-300 rounded-xl p-5 space-y-4 animate-in fade-in">
+                    <div className="flex gap-3 items-start text-amber-950">
+                      <AlertTriangle className="h-6 w-6 text-amber-600 flex-shrink-0 mt-0.5" />
+                      <div>
+                        <h4 className="font-extrabold text-base">Esta campanha ainda não está cadastrada na plataforma</h4>
+                        <p className="text-xs text-amber-900 mt-1">
+                          Como você indicou que não é o responsável pela campanha, escolha como deseja prosseguir:
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="space-y-3 pt-2">
+                      <Button
+                        type="button"
+                        className="w-full h-auto py-3 bg-primary hover:bg-primary/90 text-white font-bold flex items-center justify-between px-4 text-left"
+                        onClick={() => {
+                          setIsResponsavel(true);
+                          setEscolhaNaoFiliar(false);
+                          setEtapa(3);
+                        }}
+                      >
+                        <span className="text-sm">Desejo cadastrar esta nova campanha e ser o Administrador Responsável</span>
+                        <ShieldCheck className="h-5 w-5 ml-3 shrink-0" />
+                      </Button>
+
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className="w-full h-auto py-3 font-bold text-slate-800 border-slate-300 hover:bg-slate-100 flex items-center justify-between px-4 text-left"
+                        onClick={() => {
+                          setEscolhaNaoFiliar(true);
+                          setEtapa(3);
+                        }}
+                      >
+                        <span className="text-sm">Não, só sou apoiador e não quero me filiar à campanha, só sou apoiador</span>
+                        <Users className="h-5 w-5 ml-3 shrink-0 text-emerald-600" />
+                      </Button>
+                    </div>
+
+                    <div className="pt-2">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          setCandidateData(null);
+                          setCandidateLookupMessage('');
+                          setCandidatePhotoUnavailable(false);
+                        }}
+                        className="text-xs text-slate-600"
+                      >
+                        Alterar Busca
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex gap-3 pt-2">
+                    <Button
+                      variant="outline"
+                      onClick={() => {
+                        setCandidateData(null);
+                        setCandidateLookupMessage('');
+                        setCandidatePhotoUnavailable(false);
+                      }}
+                      className="flex-1 h-12"
+                    >
+                      Alterar Busca
+                    </Button>
+                    <Button
+                      onClick={() => setEtapa(3)}
+                      className="flex-1 h-12 text-md bg-primary hover:bg-primary/90 font-bold"
+                    >
+                      Avançar
+                      <ArrowRight className="ml-2 h-4 w-4" />
+                    </Button>
+                  </div>
+                )}
               </div>
             )}
           </div>
         )}
 
-        {/* ETAPA 3: IDENTIFICAÇÃO E AUTENTICAÇÃO PRÉVIA DO ADMINISTRADOR */}
+        {/* ETAPA 3: IDENTIFICAÇÃO E AUTENTICAÇÃO PRÉVIA */}
         {etapa === 3 && (
           <div className="bg-white p-8 rounded-2xl shadow-xl border border-slate-100 space-y-6">
             <div className="text-center space-y-2 pb-2 border-b">
               <h3 className="text-xl font-bold text-slate-900">
-                Como você deseja acessar o painel da campanha?
+                Como você deseja acessar a plataforma?
               </h3>
               <p className="text-sm text-slate-600 max-w-md mx-auto">
-                Identifique-se como administrador da campanha de <strong>{candidateData?.nomeUrna || 'Candidato'}</strong> para liberar o cadastro.
+                {escolhaNaoFiliar
+                  ? `Identifique-se para registrar seu apoio a ${candidateData?.nomeUrna || 'Candidato'}.`
+                  : (!isResponsavel
+                    ? `Identifique-se para solicitar adesão à equipe de ${candidateData?.nomeUrna || 'Candidato'}.`
+                    : `Identifique-se como administrador da campanha de ${candidateData?.nomeUrna || 'Candidato'} para liberar o cadastro.`)}
               </p>
             </div>
 
@@ -947,32 +1142,41 @@ function OnboardingPage() {
                     )}
                   </div>
                   <div>
-                    <div className="font-bold text-slate-900 text-base">Entrar com Google</div>
-                    <div className="text-xs text-slate-500 mt-0.5">
-                      Login rápido com um clique usando sua conta Google oficial.
-                    </div>
+                    <h4 className="font-bold text-slate-900">Conta Google / Gmail</h4>
+                    <p className="text-xs text-slate-500 mt-1">
+                      Acesso rápido e seguro com sua conta oficial Google.
+                    </p>
                   </div>
                 </div>
 
                 <div className="pt-4">
                   {googleAutenticado ? (
-                    <Button
-                      type="button"
-                      onClick={() => setEtapa(4)}
-                      className="w-full h-11 bg-emerald-600 hover:bg-emerald-700 text-white font-bold"
-                    >
-                      Avançar com Google <ArrowRight className="ml-2 h-4 w-4" />
-                    </Button>
+                    <div className="space-y-2">
+                      <div className="text-xs font-semibold text-emerald-700 bg-emerald-50 p-2 rounded-lg border border-emerald-200">
+                        {localStorage.getItem('democracias_admin_google_email') || 'Usuário Google Autenticado'}
+                      </div>
+                      <Button
+                        type="button"
+                        onClick={() => setEtapa(4)}
+                        className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold h-10"
+                      >
+                        Continuar <ArrowRight className="ml-1.5 h-4 w-4" />
+                      </Button>
+                    </div>
                   ) : (
                     <Button
                       type="button"
+                      variant="outline"
                       onClick={iniciarGoogleOAuth}
                       disabled={googleCarregando}
-                      variant="outline"
-                      className="w-full h-11 font-bold border-slate-300 hover:bg-slate-100"
+                      className="w-full font-bold border-slate-300 hover:bg-slate-100 h-10"
                     >
-                      {googleCarregando ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                      Conectar Conta Google
+                      {googleCarregando ? (
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      ) : (
+                        <ArrowRight className="mr-2 h-4 w-4" />
+                      )}
+                      Conectar com Google
                     </Button>
                   )}
                 </div>
@@ -982,7 +1186,7 @@ function OnboardingPage() {
               <div
                 onClick={() => setAuthMethod('whatsapp')}
                 className={`p-5 rounded-2xl border-2 cursor-pointer transition-all flex flex-col justify-between ${authMethod === 'whatsapp'
-                  ? 'border-emerald-500 bg-emerald-50/40 shadow-md ring-2 ring-emerald-500/20'
+                  ? 'border-emerald-600 bg-emerald-50/40 shadow-md ring-2 ring-emerald-500/20'
                   : 'border-slate-200 hover:border-slate-300 hover:bg-slate-50/60'
                   }`}
               >
@@ -998,36 +1202,34 @@ function OnboardingPage() {
                     )}
                   </div>
                   <div>
-                    <div className="font-bold text-slate-900 text-base">Validação via WhatsApp</div>
-                    <div className="text-xs text-slate-500 mt-0.5">
-                      Receba um código de 4 dígitos no seu número e crie uma senha.
-                    </div>
+                    <h4 className="font-bold text-slate-900">Validação via WhatsApp</h4>
+                    <p className="text-xs text-slate-500 mt-1">
+                      Informe seu número de WhatsApp e crie sua senha de acesso.
+                    </p>
                   </div>
                 </div>
 
                 <div className="pt-4">
-                  <Button
-                    type="button"
-                    onClick={() => setAuthMethod('whatsapp')}
-                    variant={authMethod === 'whatsapp' ? 'default' : 'outline'}
-                    className={`w-full h-11 font-bold ${authMethod === 'whatsapp' ? 'bg-emerald-600 hover:bg-emerald-700 text-white' : ''}`}
-                  >
-                    Identificar via WhatsApp
-                  </Button>
+                  <span className="text-xs font-semibold text-emerald-800">
+                    {whatsappValidado ? 'Número Validado' : 'Clique para validar seu número'}
+                  </span>
                 </div>
               </div>
             </div>
 
-            {/* FORMULÁRIO DE VALIDAÇÃO WHATSAPP QUANDO SELECIONADO */}
+            {/* SELECIONOU WHATSAPP */}
             {authMethod === 'whatsapp' && (
-              <div className="bg-emerald-50/60 border border-emerald-200 rounded-2xl p-6 space-y-4 animate-in fade-in duration-200">
-                <div className="border-b border-emerald-200/70 pb-3">
-                  <span className="text-xs font-extrabold uppercase tracking-wider text-emerald-800 flex items-center gap-1.5">
-                    <MessageCircle className="h-4 w-4" /> Validação do WhatsApp do Administrador
-                  </span>
-                  <p className="text-xs text-emerald-700 mt-0.5">
-                    Informe seu número e defina uma senha de acesso ao painel.
-                  </p>
+              <div className="p-5 border rounded-2xl bg-slate-50 space-y-4 animate-in fade-in duration-200">
+                <div className="flex items-center justify-between">
+                  <h4 className="font-bold text-sm text-slate-900 flex items-center gap-2">
+                    <Phone className="h-4 w-4 text-emerald-600" />
+                    Validação do WhatsApp
+                  </h4>
+                  {whatsappValidado && (
+                    <span className="text-xs font-bold text-emerald-600 bg-emerald-100 px-2.5 py-1 rounded-full flex items-center gap-1">
+                      <CheckCircle2 className="h-3.5 w-3.5" /> Número Validado
+                    </span>
+                  )}
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -1112,7 +1314,7 @@ function OnboardingPage() {
                       onClick={() => setEtapa(4)}
                       className="w-full h-12 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-md"
                     >
-                      Continuar para Dados do Administrador <ArrowRight className="ml-2 h-4 w-4" />
+                      Continuar para Dados Pessoais <ArrowRight className="ml-2 h-4 w-4" />
                     </Button>
                   </div>
                 )}
@@ -1127,7 +1329,7 @@ function OnboardingPage() {
           </div>
         )}
 
-        {/* ETAPA 4: CADASTRO DOS DADOS DO ADMINISTRADOR (SEM BLOCO DE CREDENCIAIS ANTIGO) */}
+        {/* ETAPA 4: CADASTRO DOS DADOS */}
         {etapa === 4 && (
           <form onSubmit={handleFinalizarCadastro} className="bg-white p-8 rounded-2xl shadow-xl border border-slate-100 space-y-6">
 
@@ -1136,7 +1338,9 @@ function OnboardingPage() {
               <div className="flex items-center gap-3">
                 <CheckCircle2 className="h-6 w-6 text-emerald-600 flex-shrink-0" />
                 <div className="text-sm text-emerald-950">
-                  <div className="font-bold">Administrador Autenticado</div>
+                  <div className="font-bold">
+                    {escolhaNaoFiliar ? 'Apoiador Autenticado' : (!isResponsavel ? 'Membro / Colaborador Autenticado' : 'Administrador Autenticado')}
+                  </div>
                   <div className="text-xs text-emerald-700">
                     {authMethod === 'google'
                       ? `Conectado via Google (${localStorage.getItem('democracias_admin_google_email') || 'Conta Google'})`
@@ -1156,7 +1360,9 @@ function OnboardingPage() {
             </div>
 
             <div className="space-y-4">
-              <h3 className="font-bold text-slate-900 border-b pb-2">1. Dados Pessoais do Administrador</h3>
+              <h3 className="font-bold text-slate-900 border-b pb-2">
+                {escolhaNaoFiliar ? '1. Seus Dados de Apoiador' : (!isResponsavel ? '1. Seus Dados de Membro' : '1. Dados Pessoais do Administrador')}
+              </h3>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-1">
@@ -1189,22 +1395,35 @@ function OnboardingPage() {
                   />
                 </div>
 
-                <div className="space-y-1">
-                  <Label>Papel / Função na Campanha <span className="text-rose-500">*</span></Label>
-                  <Select value={adminPapel} onValueChange={(val: any) => setAdminPapel(val)}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Selecione seu papel" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {PAPEIS_CAMPANHA_OPCOES.map(p => (
-                        <SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
+                {!escolhaNaoFiliar ? (
+                  <div className="space-y-1">
+                    <Label>Papel / Função na Campanha <span className="text-rose-500">*</span></Label>
+                    <Select value={adminPapel} onValueChange={(val: any) => setAdminPapel(val)}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Selecione seu papel" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {PAPEIS_CAMPANHA_OPCOES.map(p => (
+                          <SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                ) : (
+                  <div className="space-y-1">
+                    <Label>Compromisso de Votos (Estimativa)</Label>
+                    <Input
+                      type="number"
+                      min="1"
+                      placeholder="Ex: 5"
+                      value={metaVotosApoiador}
+                      onChange={e => setMetaVotosApoiador(e.target.value)}
+                    />
+                  </div>
+                )}
               </div>
 
-              {adminPapel === "Eleitor e Outros" && (
+              {!escolhaNaoFiliar && adminPapel === "Eleitor e Outros" && (
                 <div className="space-y-1 pt-2">
                   <Label>Especifique o Cargo / Denominação Personalizada</Label>
                   <Input
@@ -1216,16 +1435,18 @@ function OnboardingPage() {
               )}
             </div>
 
-            {/* SEÇÃO 2: ENDEREÇO DO ADMINISTRADOR */}
+            {/* SEÇÃO 2: ENDEREÇO */}
             <div className="space-y-4 pt-4 border-t">
               <div className="flex items-center justify-between border-b pb-2">
-                <h3 className="font-bold text-slate-900">2. Endereço do Administrador</h3>
+                <h3 className="font-bold text-slate-900">
+                  2. Endereço {escolhaNaoFiliar ? '(Opcional)' : ''}
+                </h3>
                 <span className="text-xs text-slate-500">Inicie informando o CEP</span>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div className="space-y-1">
-                  <Label>CEP <span className="text-rose-500">*</span></Label>
+                  <Label>CEP {!escolhaNaoFiliar && <span className="text-rose-500">*</span>}</Label>
                   <div className="relative">
                     <Input
                       placeholder="00000-000"
@@ -1237,7 +1458,7 @@ function OnboardingPage() {
                           handleBuscarCep(formatted);
                         }
                       }}
-                      required
+                      required={!escolhaNaoFiliar && isResponsavel}
                     />
                     {buscandoCep && (
                       <Loader2 className="absolute right-3 top-2.5 h-4 w-4 animate-spin text-primary" />
@@ -1246,22 +1467,22 @@ function OnboardingPage() {
                 </div>
 
                 <div className="sm:col-span-2 space-y-1">
-                  <Label>Logradouro / Rua <span className="text-rose-500">*</span></Label>
+                  <Label>Logradouro / Rua {!escolhaNaoFiliar && isResponsavel && <span className="text-rose-500">*</span>}</Label>
                   <Input
                     placeholder="Avenida, Rua, Travessa..."
                     value={adminLogradouro}
                     onChange={e => setAdminLogradouro(e.target.value)}
-                    required
+                    required={!escolhaNaoFiliar && isResponsavel}
                   />
                 </div>
 
                 <div className="space-y-1">
-                  <Label>Número <span className="text-rose-500">*</span></Label>
+                  <Label>Número {!escolhaNaoFiliar && isResponsavel && <span className="text-rose-500">*</span>}</Label>
                   <Input
                     placeholder="Nº ou S/N"
                     value={adminNumeroEnd}
                     onChange={e => setAdminNumeroEnd(e.target.value)}
-                    required
+                    required={!escolhaNaoFiliar && isResponsavel}
                   />
                 </div>
 
@@ -1275,43 +1496,43 @@ function OnboardingPage() {
                 </div>
 
                 <div className="space-y-1">
-                  <Label>Bairro <span className="text-rose-500">*</span></Label>
+                  <Label>Bairro {!escolhaNaoFiliar && isResponsavel && <span className="text-rose-500">*</span>}</Label>
                   <Input
                     placeholder="Bairro"
                     value={adminBairro}
                     onChange={e => setAdminBairro(e.target.value)}
-                    required
+                    required={!escolhaNaoFiliar && isResponsavel}
                   />
                 </div>
 
                 <div className="sm:col-span-2 space-y-1">
-                  <Label>Cidade <span className="text-rose-500">*</span></Label>
+                  <Label>Cidade {!escolhaNaoFiliar && isResponsavel && <span className="text-rose-500">*</span>}</Label>
                   <Input
                     placeholder="Cidade"
                     value={adminCidade}
                     onChange={e => setAdminCidade(e.target.value)}
-                    required
+                    required={!escolhaNaoFiliar && isResponsavel}
                   />
                 </div>
 
                 <div className="space-y-1">
-                  <Label>Estado (UF) <span className="text-rose-500">*</span></Label>
+                  <Label>Estado (UF) {!escolhaNaoFiliar && isResponsavel && <span className="text-rose-500">*</span>}</Label>
                   <Input
                     placeholder="UF"
                     value={adminEstado}
                     onChange={e => setAdminEstado(e.target.value.toUpperCase())}
                     maxLength={2}
-                    required
+                    required={!escolhaNaoFiliar && isResponsavel}
                   />
                 </div>
               </div>
             </div>
 
-            {/* SEÇÃO 3: DADOS ELEITORAIS DO ADMINISTRADOR (OPCIONAIS) */}
+            {/* SEÇÃO 3: DADOS ELEITORAIS (OPCIONAIS) */}
             <div className="space-y-4 pt-4 border-t">
               <div className="border-b pb-2">
-                <h3 className="font-bold text-slate-900">3. Dados Eleitorais do Administrador</h3>
-                <p className="text-xs text-slate-500">Campos opcionais para cruzamento e identificação na zona eleitoral.</p>
+                <h3 className="font-bold text-slate-900">3. Dados Eleitorais</h3>
+                <p className="text-xs text-slate-500">Campos opcionais para identificação na zona e seção eleitoral.</p>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -1342,77 +1563,79 @@ function OnboardingPage() {
               </div>
             </div>
 
-            {/* SEÇÃO 4: VALIDAÇÃO COM FOTO OBRIGATÓRIA */}
-            <div className="space-y-4 pt-4 border-t">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h3 className="font-bold text-slate-900 flex items-center gap-2">
-                    <Camera className="h-5 w-5 text-primary" />
-                    4. Foto de Validação do Responsável <span className="text-rose-500">*</span>
-                  </h3>
-                  <p className="text-xs text-slate-500 mt-0.5">
-                    Tire uma selfie ou envie uma foto nítida do seu rosto para autenticação.
-                  </p>
-                </div>
-                {fotoValidacaoPreview && (
-                  <span className="text-xs font-semibold text-emerald-600 bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-200 flex items-center gap-1">
-                    <CheckCircle2 className="h-3.5 w-3.5" /> Foto Anexada
-                  </span>
-                )}
-              </div>
-
-              {/* ÁREA DE CAPTURA / PREVIEW */}
-              <div className="flex flex-col items-center justify-center p-6 border-2 border-dashed rounded-2xl bg-slate-50 text-center">
-                {usandoCamera ? (
-                  <div className="space-y-4 w-full max-w-sm">
-                    <video ref={videoRef} autoPlay playsInline className="w-full h-64 object-cover rounded-xl border bg-black" />
-                    <Button type="button" onClick={handleTirarFoto} className="w-full bg-emerald-600 hover:bg-emerald-700 text-white">
-                      <Camera className="mr-2 h-5 w-5" /> Capturar Foto Agora
-                    </Button>
+            {/* SEÇÃO 4: FOTO (OBRIGATÓRIA PARA ADMIN, OPCIONAL PARA OUTROS) */}
+            {isResponsavel && (
+              <div className="space-y-4 pt-4 border-t">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="font-bold text-slate-900 flex items-center gap-2">
+                      <Camera className="h-5 w-5 text-primary" />
+                      4. Foto de Validação do Responsável <span className="text-rose-500">*</span>
+                    </h3>
+                    <p className="text-xs text-slate-500 mt-0.5">
+                      Tire uma selfie ou envie uma foto nítida do seu rosto para autenticação.
+                    </p>
                   </div>
-                ) : fotoValidacaoPreview ? (
-                  <div className="space-y-4">
-                    <img
-                      src={fotoValidacaoPreview}
-                      alt="Foto de validação"
-                      className="w-48 h-56 object-cover rounded-xl border-2 border-primary shadow-md mx-auto"
-                    />
-                    <div className="flex gap-2">
-                      <Button type="button" variant="outline" size="sm" onClick={() => setFotoValidacaoPreview('')}>
-                        <RefreshCw className="mr-1 h-4 w-4" /> Trocar Foto
+                  {fotoValidacaoPreview && (
+                    <span className="text-xs font-semibold text-emerald-600 bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-200 flex items-center gap-1">
+                      <CheckCircle2 className="h-3.5 w-3.5" /> Foto Anexada
+                    </span>
+                  )}
+                </div>
+
+                {/* ÁREA DE CAPTURA / PREVIEW */}
+                <div className="flex flex-col items-center justify-center p-6 border-2 border-dashed rounded-2xl bg-slate-50 text-center">
+                  {usandoCamera ? (
+                    <div className="space-y-4 w-full max-w-sm">
+                      <video ref={videoRef} autoPlay playsInline className="w-full h-64 object-cover rounded-xl border bg-black" />
+                      <Button type="button" onClick={handleTirarFoto} className="w-full bg-emerald-600 hover:bg-emerald-700 text-white">
+                        <Camera className="mr-2 h-5 w-5" /> Capturar Foto Agora
                       </Button>
                     </div>
-                  </div>
-                ) : (
-                  <div className="space-y-4">
-                    <div className="w-16 h-16 bg-primary/10 text-primary rounded-full flex items-center justify-center mx-auto">
-                      <Camera className="h-8 w-8" />
-                    </div>
-                    <div>
-                      <div className="font-semibold text-slate-800">Foto Obrigatória de Identificação</div>
-                      <div className="text-xs text-slate-500 max-w-xs mt-1">
-                        Utilize a câmera do dispositivo ou anexe um arquivo de imagem (PNG/JPG).
+                  ) : fotoValidacaoPreview ? (
+                    <div className="space-y-4">
+                      <img
+                        src={fotoValidacaoPreview}
+                        alt="Foto de validação"
+                        className="w-48 h-56 object-cover rounded-xl border-2 border-primary shadow-md mx-auto"
+                      />
+                      <div className="flex gap-2">
+                        <Button type="button" variant="outline" size="sm" onClick={() => setFotoValidacaoPreview('')}>
+                          <RefreshCw className="mr-1 h-4 w-4" /> Trocar Foto
+                        </Button>
                       </div>
                     </div>
-                    <div className="flex flex-wrap justify-center gap-3">
-                      <Button type="button" variant="secondary" onClick={handleIniciarCamera}>
-                        <Camera className="mr-2 h-4 w-4" /> Abrir Câmera
-                      </Button>
-                      <Button type="button" variant="outline" onClick={() => fileInputRef.current?.click()}>
-                        <UploadCloud className="mr-2 h-4 w-4" /> Enviar Arquivo
-                      </Button>
-                      <input
-                        type="file"
-                        ref={fileInputRef}
-                        accept="image/*"
-                        className="hidden"
-                        onChange={handleUploadFoto}
-                      />
+                  ) : (
+                    <div className="space-y-4">
+                      <div className="w-16 h-16 bg-primary/10 text-primary rounded-full flex items-center justify-center mx-auto">
+                        <Camera className="h-8 w-8" />
+                      </div>
+                      <div>
+                        <div className="font-semibold text-slate-800">Foto Obrigatória de Identificação</div>
+                        <div className="text-xs text-slate-500 max-w-xs mt-1">
+                          Utilize a câmera do dispositivo ou anexe um arquivo de imagem (PNG/JPG).
+                        </div>
+                      </div>
+                      <div className="flex flex-wrap justify-center gap-3">
+                        <Button type="button" variant="secondary" onClick={handleIniciarCamera}>
+                          <Camera className="mr-2 h-4 w-4" /> Abrir Câmera
+                        </Button>
+                        <Button type="button" variant="outline" onClick={() => fileInputRef.current?.click()}>
+                          <UploadCloud className="mr-2 h-4 w-4" /> Enviar Arquivo
+                        </Button>
+                        <input
+                          type="file"
+                          ref={fileInputRef}
+                          accept="image/*"
+                          className="hidden"
+                          onChange={handleUploadFoto}
+                        />
+                      </div>
                     </div>
-                  </div>
-                )}
+                  )}
+                </div>
               </div>
-            </div>
+            )}
 
             <div className="flex gap-4 pt-4">
               <Button type="button" variant="outline" onClick={() => setEtapa(3)} className="w-1/3">
@@ -1424,7 +1647,11 @@ function OnboardingPage() {
                 ) : (
                   <ShieldCheck className="mr-2 h-5 w-5" />
                 )}
-                Finalizar Cadastro da Campanha
+                {escolhaNaoFiliar
+                  ? "Confirmar Registro de Apoiador"
+                  : (!isResponsavel
+                    ? "Enviar Solicitação de Adesão"
+                    : "Finalizar Cadastro da Campanha")}
               </Button>
             </div>
           </form>
@@ -1437,30 +1664,81 @@ function OnboardingPage() {
               <CheckCircle2 className="h-10 w-10" />
             </div>
 
-            <div className="space-y-2">
-              <h3 className="text-2xl font-extrabold text-slate-900">
-                Cadastro concluído com sucesso!
-              </h3>
-              <p className="text-slate-600 text-sm max-w-md mx-auto">
-                A conta de <strong>{adminNome}</strong> foi criada como administrador da campanha. Agora você pode configurar o WhatsApp e acessar o painel.
-              </p>
-            </div>
+            {escolhaNaoFiliar ? (
+              <div className="space-y-2">
+                <h3 className="text-2xl font-extrabold text-slate-900">
+                  Apoio registrado com sucesso!
+                </h3>
+                <p className="text-slate-600 text-sm max-w-md mx-auto">
+                  Obrigado, <strong>{adminNome}</strong>! Seu apoio à candidatura de <strong>{candidateData?.nomeUrna || candidateData?.nome}</strong> ({candidateData?.cargo} - {uf}) foi registrado no sistema.
+                </p>
+              </div>
+            ) : !isResponsavel ? (
+              <div className="space-y-2">
+                <h3 className="text-2xl font-extrabold text-slate-900">
+                  Solicitação de Adesão Enviada!
+                </h3>
+                <p className="text-slate-600 text-sm max-w-md mx-auto">
+                  Olá, <strong>{adminNome}</strong>! Seu cadastro para integrar a equipe de <strong>{candidateData?.nomeUrna || candidateData?.nome}</strong> como <strong>{adminPapel}</strong> foi enviado e está <strong>pendente de autorização prévia</strong> pela coordenação da campanha.
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                <h3 className="text-2xl font-extrabold text-slate-900">
+                  Cadastro concluído com sucesso!
+                </h3>
+                <p className="text-slate-600 text-sm max-w-md mx-auto">
+                  A conta de <strong>{adminNome}</strong> foi criada como administrador da campanha. Agora você pode configurar o WhatsApp e acessar o painel.
+                </p>
+              </div>
+            )}
 
             <div className="bg-slate-50 border rounded-xl p-4 text-left text-xs text-slate-600 space-y-1">
-              <div><strong>Campanha:</strong> {candidateData?.nomeUrna} ({candidateData?.cargo} - {uf})</div>
-              <div><strong>Administrador:</strong> {adminNome} (CPF: {adminCpf})</div>
-              <div><strong>Status:</strong> <span className="text-emerald-600 font-semibold">Administrador ativo</span></div>
+              <div><strong>Campanha:</strong> {candidateData?.nomeUrna || candidateData?.nome} ({candidateData?.cargo || cargoSelecionado} - {uf})</div>
+              <div><strong>Nome:</strong> {adminNome} (CPF: {adminCpf})</div>
+              <div>
+                <strong>Status de Acesso:</strong>{" "}
+                {escolhaNaoFiliar ? (
+                  <span className="text-emerald-600 font-semibold">Apoiador registrado</span>
+                ) : !isResponsavel ? (
+                  <span className="text-amber-600 font-semibold">Pendente de aprovação pela coordenação</span>
+                ) : (
+                  <span className="text-emerald-600 font-semibold">Administrador ativo</span>
+                )}
+              </div>
             </div>
 
             <div className="pt-2 flex flex-col sm:flex-row gap-3 justify-center">
-              <Button onClick={() => navigate({ to: '/whatsapp' })} className="h-12 px-8 text-md bg-emerald-600 hover:bg-emerald-700 text-white font-bold flex items-center gap-2">
-                <MessageCircle className="h-5 w-5" />
-                WhatsApp da Campanha
-                <ArrowRight className="h-4 w-4" />
-              </Button>
-              <Button onClick={() => navigate({ to: '/dashboard' })} variant="outline" className="h-12 px-8 text-md">
-                Acessar Campanha
-              </Button>
+              {escolhaNaoFiliar ? (
+                <>
+                  <Button onClick={() => navigate({ to: '/' })} className="h-12 px-8 text-md bg-emerald-600 hover:bg-emerald-700 text-white font-bold">
+                    Página Inicial
+                  </Button>
+                  <Button onClick={() => window.open('https://chat.democracias.org/resultado', '_blank')} variant="outline" className="h-12 px-8 text-md">
+                    Ver Enquete / Resultado
+                  </Button>
+                </>
+              ) : !isResponsavel ? (
+                <>
+                  <Button onClick={() => navigate({ to: '/auth' })} className="h-12 px-8 text-md bg-primary hover:bg-primary/90 text-white font-bold flex items-center gap-2">
+                    Ir para Tela de Login <ArrowRight className="h-4 w-4" />
+                  </Button>
+                  <Button onClick={() => navigate({ to: '/' })} variant="outline" className="h-12 px-8 text-md">
+                    Página Inicial
+                  </Button>
+                </>
+              ) : (
+                <>
+                  <Button onClick={() => navigate({ to: '/whatsapp' })} className="h-12 px-8 text-md bg-emerald-600 hover:bg-emerald-700 text-white font-bold flex items-center gap-2">
+                    <MessageCircle className="h-5 w-5" />
+                    WhatsApp da Campanha
+                    <ArrowRight className="h-4 w-4" />
+                  </Button>
+                  <Button onClick={() => navigate({ to: '/dashboard' })} variant="outline" className="h-12 px-8 text-md">
+                    Acessar Campanha
+                  </Button>
+                </>
+              )}
             </div>
           </div>
         )}

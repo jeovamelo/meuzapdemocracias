@@ -13,7 +13,10 @@ import {
   Copy, 
   ExternalLink,
   Truck,
-  Target
+  Target,
+  QrCode,
+  Download,
+  Printer
 } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
 import { useStore } from "@/lib/store";
@@ -56,6 +59,7 @@ function SaidasPage() {
   const { campaign } = useCampaignScope();
   const [despachandoId, setDespachandoId] = useState<string | null>(null);
   const [openLinkModal, setOpenLinkModal] = useState(false);
+  const [openQrModal, setOpenQrModal] = useState(false);
 
   const linkSolicitacao = typeof window !== "undefined" 
     ? `${window.location.origin}/public/solicitar?campanha=${campaign?.id || ""}&uf=${campaign?.uf || "CE"}&nr=${campaign?.numero || ""}`
@@ -63,11 +67,11 @@ function SaidasPage() {
 
   const mensagemWhatsApp = `Olá! 🚩 Acesse o link oficial da nossa campanha para solicitar materiais (adesivos, santinhos, bandeiras) e mobilizar sua região:\n\n👉 ${linkSolicitacao}\n\nPreencha seus dados e escolha seus materiais!`;
 
-  const saidasFiltradas = db.saidas
+  const saidasFiltradas = (db.saidas || [])
     .filter((s) => !campaign?.id || !s.campaign_id || s.campaign_id === campaign.id)
     .sort((a, b) => new Date(b.criado_em).getTime() - new Date(a.criado_em).getTime());
 
-  const solicitacoesPendentes = db.solicitacoes
+  const solicitacoesPendentes = (db.solicitacoes || [])
     .filter((s) => (!campaign?.id || !s.campaign_id || s.campaign_id === campaign.id) && s.status !== "entregue" && s.status !== "cancelado")
     .sort((a, b) => new Date(b.criado_em).getTime() - new Date(a.criado_em).getTime());
 
@@ -78,6 +82,152 @@ function SaidasPage() {
     } catch {
       toast.error("Não foi possível copiar o link.");
     }
+  };
+
+  const baixarQrCode = async () => {
+    try {
+      const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=800x800&data=${encodeURIComponent(linkSolicitacao)}`;
+      const response = await fetch(qrUrl);
+      const blob = await response.blob();
+      const blobUrl = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = blobUrl;
+      link.download = `qrcode-solicitar-${campaign?.numero || "campanha"}.png`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(blobUrl);
+      toast.success("Download do QR Code em alta resolução iniciado!");
+    } catch (e) {
+      toast.error("Não foi possível baixar o QR Code.");
+    }
+  };
+
+  const imprimirQrCode = () => {
+    const printWindow = window.open("", "_blank");
+    if (!printWindow) {
+      toast.error("Permita popups no navegador para imprimir o cartaz.");
+      return;
+    }
+    const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=600x600&data=${encodeURIComponent(linkSolicitacao)}`;
+    const nomeCandidato = campaign?.candidato_urna || campaign?.nomeUrna || "Campanha Oficial";
+    const numeroCandidato = campaign?.numero ? `• ${campaign.numero}` : "";
+    const ufCandidato = campaign?.uf ? `(${campaign.uf})` : "";
+
+    printWindow.document.write(`
+      <!DOCTYPE html>
+      <html lang="pt-BR">
+        <head>
+          <meta charset="utf-8" />
+          <title>Cartaz QR Code - Solicitar Materiais - ${nomeCandidato}</title>
+          <style>
+            @page { size: A4 portrait; margin: 15mm; }
+            * { box-sizing: border-box; margin: 0; padding: 0; }
+            body { 
+              font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+              display: flex; 
+              flex-direction: column; 
+              align-items: center; 
+              justify-content: center; 
+              min-height: 95vh; 
+              text-align: center; 
+              color: #0f172a; 
+              padding: 20px;
+            }
+            .card {
+              border: 3px solid #0f172a;
+              border-radius: 28px;
+              padding: 36px 28px;
+              max-width: 480px;
+              width: 100%;
+              display: flex;
+              flex-direction: column;
+              align-items: center;
+            }
+            .badge { 
+              background: #ea580c; 
+              color: #ffffff; 
+              padding: 8px 20px; 
+              border-radius: 9999px; 
+              font-weight: 800; 
+              font-size: 13px; 
+              text-transform: uppercase; 
+              letter-spacing: 1.5px; 
+              display: inline-block;
+              margin-bottom: 16px;
+            }
+            h1 { 
+              font-size: 26px; 
+              font-weight: 900; 
+              color: #0f172a; 
+              line-height: 1.2;
+              margin-bottom: 4px;
+            }
+            .sub { 
+              color: #64748b; 
+              font-size: 15px; 
+              margin-bottom: 24px; 
+              font-weight: 600; 
+            }
+            .qr-container { 
+              background: #ffffff; 
+              border: 2px solid #e2e8f0; 
+              padding: 16px; 
+              border-radius: 20px; 
+              box-shadow: 0 4px 12px rgba(0,0,0,0.06);
+              margin-bottom: 24px;
+            }
+            .qr-container img { 
+              width: 260px; 
+              height: 260px; 
+              display: block; 
+            }
+            .desc { 
+              font-size: 17px; 
+              font-weight: 800; 
+              color: #0f172a; 
+              max-width: 360px; 
+              line-height: 1.4; 
+              margin-bottom: 12px;
+            }
+            .link-text { 
+              font-size: 11px; 
+              color: #64748b; 
+              font-family: monospace; 
+              word-break: break-all;
+              max-width: 380px;
+            }
+            .footer-brand {
+              margin-top: 24px;
+              font-size: 11px;
+              color: #94a3b8;
+              font-weight: 700;
+              text-transform: uppercase;
+              letter-spacing: 1px;
+            }
+          </style>
+        </head>
+        <body>
+          <div class="card">
+            <span class="badge">Mobilização Oficial</span>
+            <h1>${nomeCandidato} ${numeroCandidato}</h1>
+            <p class="sub">Portal de Solicitação de Materiais ${ufCandidato}</p>
+            <div class="qr-container">
+              <img src="${qrUrl}" alt="QR Code" />
+            </div>
+            <p class="desc">Aponte a câmera do celular no QR Code para solicitar materiais de campanha</p>
+            <p class="link-text">${linkSolicitacao}</p>
+            <p class="footer-brand">democracias.org • Plataforma Eleitoral</p>
+          </div>
+          <script>
+            window.onload = () => {
+              window.print();
+            };
+          </script>
+        </body>
+      </html>
+    `);
+    printWindow.document.close();
   };
 
   const handleDespachar = async (solicitacaoId: string) => {
@@ -113,10 +263,11 @@ function SaidasPage() {
           <span className="text-xs opacity-75">Check-out Rápido →</span>
         </Link>
 
+        {/* MODAL PRINCIPAL: LINK DE AUTO-SOLICITAÇÃO */}
         <Dialog open={openLinkModal} onOpenChange={setOpenLinkModal}>
           <DialogTrigger asChild>
             <button
-              className="flex items-center justify-between rounded-2xl border border-primary/20 bg-primary/5 hover:bg-primary/10 px-5 py-4 text-sm font-bold text-primary shadow-sm transition-all active:scale-95"
+              className="flex items-center justify-between rounded-2xl border border-primary/20 bg-primary/5 hover:bg-primary/10 px-5 py-4 text-sm font-bold text-primary shadow-sm transition-all active:scale-95 cursor-pointer"
             >
               <div className="flex items-center gap-2">
                 <Share2 className="size-4" />
@@ -127,32 +278,115 @@ function SaidasPage() {
               </span>
             </button>
           </DialogTrigger>
-          <DialogContent className="max-w-md rounded-2xl">
+          <DialogContent className="max-w-md rounded-2xl p-6">
             <DialogHeader>
-              <DialogTitle className="flex items-center gap-2">
-                <Share2 className="size-5 text-primary" />
+              <DialogTitle className="flex items-center gap-2 text-base font-extrabold">
+                <Share2 className="size-5 text-orange-600" />
                 Link de Auto-Solicitação
               </DialogTitle>
-              <DialogDescription>
+              <DialogDescription className="text-xs text-slate-500">
                 Envie este link para apoiadores e lideranças solicitarem materiais diretamente para a campanha de {campaign?.nomeUrna || "Candidato"}.
               </DialogDescription>
             </DialogHeader>
+
             <div className="space-y-4 pt-2">
-              <div className="rounded-xl border border-border bg-surface p-3 font-mono text-xs break-all text-muted-foreground">
+              <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 font-mono text-xs break-all text-slate-700 select-all">
                 {linkSolicitacao}
               </div>
-              <div className="flex gap-2">
-                <Button onClick={copiarLink} className="flex-1 gap-2 font-bold">
+
+              <div className="grid grid-cols-2 gap-2">
+                <Button 
+                  onClick={copiarLink} 
+                  style={{ backgroundColor: '#ea580c', color: '#ffffff' }}
+                  className="w-full gap-2 font-bold shadow-sm hover:bg-orange-700 cursor-pointer"
+                >
                   <Copy className="size-4" /> Copiar Link
                 </Button>
                 <a
                   href={whatsappLink("", mensagemWhatsApp)}
                   target="_blank"
                   rel="noreferrer"
-                  className="flex items-center gap-2 px-4 py-2 rounded-xl bg-[#25D366] text-white font-bold text-sm shadow-sm hover:bg-[#128C7E] transition-all"
+                  className="flex items-center justify-center gap-2 px-4 py-2 rounded-xl bg-[#25D366] text-white font-bold text-sm shadow-sm hover:bg-[#128C7E] transition-all"
                 >
                   <Send className="size-4" /> WhatsApp
                 </a>
+              </div>
+
+              {/* OPÇÃO DEDICADA PARA IMPRESSÃO DE QR CODE */}
+              <div className="pt-3 border-t border-slate-200/80 space-y-2">
+                <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                  Impressão e Material Gráfico
+                </p>
+                <Button
+                  variant="outline"
+                  onClick={() => setOpenQrModal(true)}
+                  className="w-full flex items-center justify-center gap-2 h-11 rounded-xl text-xs font-bold border-slate-300 hover:bg-slate-50 cursor-pointer text-slate-800"
+                >
+                  <QrCode className="size-4 text-orange-600" />
+                  <span>Baixar / Imprimir QR Code para Papel</span>
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* MODAL DEDICADO DE QR CODE PARA IMPRESSÃO */}
+        <Dialog open={openQrModal} onOpenChange={setOpenQrModal}>
+          <DialogContent className="max-w-md rounded-2xl p-6 text-center">
+            <DialogHeader className="text-center sm:text-center">
+              <DialogTitle className="flex items-center justify-center gap-2 text-base font-extrabold">
+                <QrCode className="size-5 text-orange-600" />
+                QR Code para Impressão
+              </DialogTitle>
+              <DialogDescription className="text-xs text-slate-500">
+                Otimizado para impressão em panfletos, cartazes ou papéis de divulgação.
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="space-y-4 pt-3">
+              {/* CARTAZ DE PREVIEW LIMPO */}
+              <div className="rounded-2xl border-2 border-slate-200 bg-white p-5 space-y-3 shadow-sm text-center">
+                <div className="inline-block bg-orange-500 text-white text-[10px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded-full">
+                  Mobilização Oficial
+                </div>
+                <h3 className="font-extrabold text-base text-slate-900 leading-tight">
+                  {campaign?.candidato_urna || campaign?.nomeUrna || "Campanha Oficial"} {campaign?.numero ? `• ${campaign.numero}` : ""}
+                </h3>
+                
+                <div className="p-2 bg-white rounded-xl border border-slate-200 inline-block shadow-xs">
+                  <img 
+                    src={`https://api.qrserver.com/v1/create-qr-code/?size=400x400&data=${encodeURIComponent(linkSolicitacao)}`}
+                    alt="QR Code de Solicitação"
+                    className="size-48 mx-auto"
+                  />
+                </div>
+
+                <p className="text-xs font-bold text-slate-800 max-w-xs mx-auto leading-tight">
+                  Aponte a câmera do seu celular para solicitar materiais oficiais de campanha
+                </p>
+                <p className="text-[10px] text-slate-400 font-mono break-all line-clamp-1">
+                  {linkSolicitacao}
+                </p>
+              </div>
+
+              {/* BOTÕES DE AÇÃO */}
+              <div className="grid grid-cols-2 gap-2">
+                <Button
+                  onClick={baixarQrCode}
+                  variant="outline"
+                  className="w-full gap-1.5 text-xs font-bold h-11 rounded-xl border-slate-300 hover:bg-slate-50 cursor-pointer text-slate-800"
+                >
+                  <Download className="size-4 text-slate-600" />
+                  <span>Baixar Imagem PNG</span>
+                </Button>
+                <Button
+                  onClick={imprimirQrCode}
+                  style={{ backgroundColor: '#0f172a', color: '#ffffff' }}
+                  className="w-full gap-1.5 text-xs font-bold h-11 rounded-xl hover:bg-slate-800 cursor-pointer"
+                >
+                  <Printer className="size-4 text-white" />
+                  <span>Imprimir Cartaz</span>
+                </Button>
               </div>
             </div>
           </DialogContent>
@@ -184,8 +418,8 @@ function SaidasPage() {
             </div>
           ) : (
             saidasFiltradas.map((s) => {
-              const pessoa = db.pessoas.find((p) => p.id === s.pessoa_id);
-              const comite = db.comites.find((c) => c.id === s.comite_id);
+              const pessoa = (db.pessoas || []).find((p) => p.id === s.pessoa_id);
+              const comite = (db.comites || []).find((c) => c.id === s.comite_id);
               const totalUnidades = s.itens.reduce((acc, i) => acc + i.quantidade, 0);
 
               return (
@@ -236,8 +470,8 @@ function SaidasPage() {
                     </div>
 
                     <div className="flex flex-wrap gap-1.5 pt-2 border-t border-border/50">
-                      {s.kits.map((k, idx) => {
-                        const kit = db.kits.find((x) => x.id === k.kit_id);
+                      {(s.kits || []).map((k, idx) => {
+                        const kit = (db.kits || []).find((x) => x.id === k.kit_id);
                         return (
                           <Badge key={idx} variant="outline" className="bg-primary/5 text-primary border-primary/20 text-[10px]">
                             <Package className="size-2.5 mr-1" />
@@ -245,12 +479,15 @@ function SaidasPage() {
                           </Badge>
                         );
                       })}
-                      {s.itens.map((i, idx) => {
-                        const m = db.materiais.find((x) => x.id === i.material_id);
+                      {(s.itens || []).map((i, idx) => {
+                        const m = (db.materiais || []).find((x) => x.id === i.material_id);
                         return (
-                          <Badge key={idx} variant="secondary" className="text-[10px]">
-                            {formatNumero(i.quantidade)} {m?.unidade || "un"} {m?.nome || "Item"}
-                          </Badge>
+                          <span
+                            key={idx}
+                            className="inline-flex items-center gap-1 rounded-md bg-muted/40 px-2 py-0.5 text-[11px] text-muted-foreground font-mono"
+                          >
+                            <strong>{i.quantidade}x</strong> {m?.nome || "Material"}
+                          </span>
                         );
                       })}
                     </div>
@@ -265,86 +502,58 @@ function SaidasPage() {
         <TabsContent value="pendentes" className="mt-4 space-y-3">
           {solicitacoesPendentes.length === 0 ? (
             <div className="rounded-2xl border border-border bg-surface p-12 text-center">
-              <CheckCircle2 className="mx-auto mb-3 size-10 text-green-500/40" />
-              <p className="text-sm font-semibold text-muted-foreground">Nenhuma solicitação pendente.</p>
-              <p className="text-xs text-muted-foreground mt-1">Todos os pedidos externos foram despachados!</p>
+              <CheckCircle2 className="mx-auto mb-3 size-10 text-success" />
+              <p className="text-sm font-semibold text-foreground">Nenhuma solicitação pendente no momento!</p>
+              <p className="text-xs text-muted-foreground mt-1">Todos os pedidos externos foram atendidos.</p>
             </div>
           ) : (
             solicitacoesPendentes.map((sol) => {
-              const pessoaVinculada = db.pessoas.find(p => p.id === sol.lideranca_id || p.nome === sol.nome);
-              const totalItens = sol.itens.reduce((acc, i) => acc + i.quantidade, 0);
+              const lider = (db.pessoas || []).find((p) => p.id === sol.lideranca_id);
+              const totalQtd = (sol.itens || []).reduce((acc, i) => acc + i.quantidade, 0);
 
               return (
                 <article
                   key={sol.id}
-                  className="overflow-hidden rounded-2xl border border-amber-500/30 bg-surface shadow-sm"
+                  className="rounded-2xl border border-border bg-surface p-4 shadow-sm space-y-3 transition-all hover:shadow-md"
                 >
-                  <div className="flex items-center justify-between border-b border-border/50 bg-amber-500/5 px-4 py-2.5">
-                    <div className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-amber-700">
-                      <Clock className="size-3" />
-                      Solicitado em {formatData(sol.criado_em)}
-                    </div>
-                    <Badge className="bg-amber-500 text-white font-bold text-[9px] uppercase">
-                      Pendente de Envio
-                    </Badge>
-                  </div>
-
-                  <div className="p-4 space-y-3">
-                    <div className="flex items-start justify-between gap-3">
-                      <div>
-                        <p className="font-bold text-sm leading-tight">{sol.nome}</p>
-                        <p className="text-xs text-muted-foreground">
-                          {sol.municipio || "Município não informado"}
-                          {sol.endereco_entrega ? ` • ${sol.endereco_entrega}` : ""}
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="space-y-1 min-w-0 flex-1">
+                      <div className="flex items-center gap-2">
+                        <span className="size-2 rounded-full bg-critical animate-pulse" />
+                        <p className="font-bold text-sm truncate">{sol.nome || lider?.nome || "Solicitante Avulso"}</p>
+                      </div>
+                      <p className="text-xs text-muted-foreground flex items-center gap-1">
+                        <MapPin className="size-3" /> {sol.municipio || lider?.municipio || "CE"} {sol.endereco_entrega ? `• ${sol.endereco_entrega}` : ""}
+                      </p>
+                      {lider?.meta_votos && lider.meta_votos > 0 && (
+                        <p className="text-[11px] font-bold text-orange-600 flex items-center gap-1">
+                          <Target className="size-3" /> Meta de Mobilização: {formatNumero(lider.meta_votos)} votos
                         </p>
-                        {pessoaVinculada?.meta_votos ? (
-                          <p className="flex items-center gap-1 text-xs font-bold text-primary mt-1">
-                            <Target className="size-3.5" />
-                            Compromisso de Mobilização: {formatNumero(pessoaVinculada.meta_votos)} votos
-                          </p>
-                        ) : null}
-                      </div>
-
-                      <div className="text-right">
-                        <span className="font-mono text-xs font-black text-muted-foreground">
-                          {formatNumero(totalItens)} itens
-                        </span>
-                      </div>
-                    </div>
-
-                    <div className="space-y-1.5 rounded-xl border border-border bg-background p-3">
-                      <p className="text-[10px] font-bold uppercase text-muted-foreground">Materiais Pedidos:</p>
-                      {sol.itens.map((item, idx) => {
-                        const m = db.materiais.find(mat => mat.id === item.material_id);
-                        return (
-                          <div key={idx} className="flex justify-between items-center text-xs">
-                            <span className="text-muted-foreground">{m?.nome || "Material"}</span>
-                            <span className="font-mono font-bold">{formatNumero(item.quantidade)} {m?.unidade || "un"}</span>
-                          </div>
-                        );
-                      })}
-                    </div>
-
-                    <div className="flex items-center gap-2 pt-2">
-                      <Button
-                        onClick={() => handleDespachar(sol.id)}
-                        disabled={despachandoId === sol.id}
-                        className="flex-1 gap-2 font-bold bg-green-600 hover:bg-green-700 text-white"
-                      >
-                        <Truck className="size-4" />
-                        {despachandoId === sol.id ? "Baixando Estoque..." : "Despachar e Baixar Estoque"}
-                      </Button>
-                      {pessoaVinculada?.telefone && (
-                        <a
-                          href={whatsappLink(pessoaVinculada.telefone, `Olá ${sol.nome}! Estamos preparando seu material de campanha.`)}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="flex size-10 items-center justify-center rounded-xl bg-[#25D366] text-white hover:bg-[#128C7E] transition-all shadow-sm"
-                        >
-                          <Send className="size-4" />
-                        </a>
                       )}
                     </div>
+
+                    <Button
+                      size="sm"
+                      disabled={despachandoId === sol.id}
+                      onClick={() => handleDespachar(sol.id)}
+                      className="bg-green-600 hover:bg-green-700 text-white font-bold text-xs h-9 rounded-xl shadow-sm cursor-pointer"
+                    >
+                      {despachandoId === sol.id ? "Despachando..." : "Despachar e Baixar"}
+                    </Button>
+                  </div>
+
+                  <div className="flex flex-wrap gap-1.5 pt-2 border-t border-border/50">
+                    {(sol.itens || []).map((i, idx) => {
+                      const m = (db.materiais || []).find((x) => x.id === i.material_id);
+                      return (
+                        <span
+                          key={idx}
+                          className="inline-flex items-center gap-1 rounded-md bg-muted/40 px-2 py-0.5 text-[11px] font-mono text-muted-foreground"
+                        >
+                          <strong>{i.quantidade}x</strong> {m?.nome || "Material"}
+                        </span>
+                      );
+                    })}
                   </div>
                 </article>
               );

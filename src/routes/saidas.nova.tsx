@@ -7,16 +7,16 @@ import {
   MapPin, 
   Package, 
   Search, 
-  Plus, 
   User, 
-  Truck, 
   Barcode, 
   FileText, 
   Flag, 
-  Shirt,
-  Sparkles,
+  Shirt, 
+  Sparkles, 
   ArrowRight,
-  UserPlus
+  ShieldCheck,
+  Building,
+  Phone
 } from "lucide-react";
 import { toast } from "sonner";
 import { useStore } from "@/lib/store";
@@ -25,31 +25,25 @@ import { Input } from "@/components/ui/input";
 import { EstadoCidadeSelect } from "@/components/EstadoCidadeSelect";
 import { useCampaignScope } from "@/hooks/useCampaignScope";
 import { Badge } from "@/components/ui/badge";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 
 export const Route = createFileRoute("/saidas/nova")({
   head: () => ({
     meta: [
-      { title: "Nova Saída de Material — Estoque de Campanha" },
+      { title: "Nova Saída de Material (Pedido) — Estoque de Campanha" },
       {
         name: "description",
         content:
-          "Check-out rápido de materiais de campanha, lançamento de quantidades e geração de número de pedido.",
+          "Registro e baixa rápida de materiais de campanha, geração de número de pedido sequencial e rastreabilidade.",
       },
     ],
   }),
   component: NovaSaida,
 });
 
-const PASSOS = ["1. Origem", "2. Materiais", "3. Destino & Transporte", "4. Confirmar"];
+// Fluxo objetivo de 3 passos sem divisão por comitês de origem
+const PASSOS = ["1. Materiais", "2. Destino & Responsável", "3. Confirmar Pedido"];
 
 const iconeCategoria = (c: string) => {
   if (c.includes("Adesivo")) return FileText;
@@ -63,85 +57,67 @@ function NovaSaida() {
   const { db, registrarSaida, addPessoa } = useStore();
   const { campaign } = useCampaignScope();
   const navigate = useNavigate();
+  
+  // 0: Materiais | 1: Destino & Responsável | 2: Confirmar Pedido
   const [passo, setPasso] = useState(0);
 
-  // ETAPA 1: ORIGEM
-  const [filtroUf, setFiltroUf] = useState(campaign?.uf || db.config.uf || "CE");
-  const [filtroCidade, setFiltroCidade] = useState("Fortaleza");
-  const [comiteId, setComiteId] = useState("");
-
-  // ETAPA 2: MATERIAIS
+  // ETAPA 1: MATERIAIS SELECIONADOS
   const [kits, setKits] = useState<Record<string, number>>({});
   const [avulsos, setAvulsos] = useState<Record<string, number>>({});
 
-  // ETAPA 3: DESTINO, RECEBEDOR E ENTREGADOR
+  // ETAPA 2: DESTINO E RESPONSÁVEL
   const [ufDestino, setUfDestino] = useState(campaign?.uf || db.config.uf || "CE");
   const [cidadeDestino, setCidadeDestino] = useState("Fortaleza");
 
-  const [pessoaId, setPessoaId] = useState("");
-  const [nomeNovoRecebedor, setNomeNovoRecebedor] = useState("");
-  const [telefoneNovoRecebedor, setTelefoneNovoRecebedor] = useState("");
-  const [buscaRecebedor, setBuscaRecebedor] = useState("");
-
-  // ENTREGADOR / TRANSPORTE
-  const [entregadorId, setEntregadorId] = useState("");
-  const [cadastrandoNovoEntregador, setCadastrandoNovoEntregador] = useState(false);
-  const [nomeNovoEntregador, setNomeNovoEntregador] = useState("");
-  const [telefoneNovoEntregador, setTelefoneNovoEntregador] = useState("");
+  // Responsável unificado (opcional)
+  const [nomeResponsavel, setNomeResponsavel] = useState("");
+  const [telefoneResponsavel, setTelefoneResponsavel] = useState("");
+  const [observacaoEntrega, setObservacaoEntrega] = useState("");
 
   const [salvando, setSalvando] = useState(false);
 
-  // Número de pedido gerado aleatoriamente para identificação
+  // GERAÇÃO DE NÚMERO SEQUENCIAL ESTRUTURADO: PED-[número do candidato]-[sequencial 5 dígitos]
+  const numeroCandidato = useMemo(() => {
+    return campaign?.numero || "0000";
+  }, [campaign]);
+
+  const proximoSequencial = useMemo(() => {
+    // Contar pedidos / saídas já existentes da campanha
+    const saidasCampanha = (db.saidas || []).filter(
+      (s) => !campaign?.id || !s.campaign_id || s.campaign_id === campaign.id
+    );
+    const count = saidasCampanha.length + 1;
+    return String(count).padStart(5, "0");
+  }, [db.saidas, campaign]);
+
   const numeroPedidoGerado = useMemo(() => {
-    const timestamp = Date.now().toString().slice(-4);
-    const rand = Math.floor(100 + Math.random() * 900);
-    return `PED-${timestamp}-${rand}`;
-  }, []);
+    return `PED-${numeroCandidato}-${proximoSequencial}`;
+  }, [numeroCandidato, proximoSequencial]);
 
-  // Comitês da campanha e localidade
-  const comitesDisponiveis = useMemo(() => {
-    return db.comites.filter((c) => {
-      const matchCamp = !campaign?.id || !c.campaign_id || c.campaign_id === campaign.id;
-      const matchUf = !filtroUf || c.uf === filtroUf;
-      return matchCamp && matchUf;
-    });
-  }, [db.comites, campaign, filtroUf]);
-
-  // Materiais da campanha
+  // Materiais disponíveis no estoque da campanha
   const materiaisCampanha = useMemo(() => {
-    return db.materiais.filter(
+    return (db.materiais || []).filter(
       (m) => !m.arquivado && (!campaign?.id || !m.campaign_id || m.campaign_id === campaign.id)
     );
   }, [db.materiais, campaign]);
 
   const kitsCampanha = useMemo(() => {
-    return db.kits.filter(
+    return (db.kits || []).filter(
       (k) => !k.arquivado && (!campaign?.id || !k.campaign_id || k.campaign_id === campaign.id)
     );
   }, [db.kits, campaign]);
 
-  // Pessoas da campanha
-  const pessoasCampanha = useMemo(() => {
-    return db.pessoas.filter((p) => {
-      const matchCamp = !campaign?.id || !p.campanha_id || p.campanha_id === campaign.id;
-      const matchBusca = `${p.nome} ${p.funcao || ""} ${p.municipio || ""}`
-        .toLowerCase()
-        .includes(buscaRecebedor.toLowerCase());
-      return matchCamp && matchBusca;
-    });
-  }, [db.pessoas, campaign, buscaRecebedor]);
-
-  // Entregadores disponíveis
-  const entregadores = useMemo(() => {
-    return db.pessoas.filter(
+  // Pessoas cadastradas para sugestão não intrusiva no datalist
+  const sugestoesPessoas = useMemo(() => {
+    return (db.pessoas || []).filter(
       (p) => !campaign?.id || !p.campanha_id || p.campanha_id === campaign.id
     );
   }, [db.pessoas, campaign]);
 
-  // Itens calculados
+  // Cálculo de itens finais agrupados
   const itensFinais: SaidaItem[] = useMemo(() => {
     const itensKits = Object.entries(kits).flatMap(([kitId, qtd]) => {
-      const kit = db.kits.find((k) => k.id === kitId);
+      const kit = (db.kits || []).find((k) => k.id === kitId);
       return (kit?.itens ?? []).map((i) => ({
         material_id: i.material_id,
         quantidade: i.quantidade * qtd,
@@ -167,61 +143,48 @@ function NovaSaida() {
 
   const totalUnidades = itensFinais.reduce((a, i) => a + i.quantidade, 0);
 
+  // Validação fluida de avanço
   const podeAvancar = useMemo(() => {
-    if (passo === 0) return true;
-    if (passo === 1) return totalUnidades > 0;
-    if (passo === 2) {
-      const temCidade = !!cidadeDestino.trim();
-      const temRecebedor = !!pessoaId || !!nomeNovoRecebedor.trim();
-      return temCidade && temRecebedor;
-    }
+    if (passo === 0) return totalUnidades > 0;
+    if (passo === 1) return !!cidadeDestino.trim(); // A única informação obrigatória é a cidade de destino
     return true;
-  }, [passo, totalUnidades, cidadeDestino, pessoaId, nomeNovoRecebedor]);
+  }, [passo, totalUnidades, cidadeDestino]);
 
-  async function confirmarSaida() {
+  // CONFIRMAÇÃO DO PEDIDO E BAIXA AUTOMÁTICA DO ESTOQUE
+  async function handleConfirmarPedido() {
     setSalvando(true);
     try {
-      let finalPessoaId = pessoaId;
-      let finalEntregadorId = entregadorId;
+      let finalPessoaId = "";
 
-      // Se informou recebedor avulso, cadastra automaticamente
-      if (!finalPessoaId && nomeNovoRecebedor.trim()) {
-        const novaPessoa = await addPessoa({
-          nome: nomeNovoRecebedor.trim(),
-          telefone: telefoneNovoRecebedor.trim() || undefined,
-          tipo: "apoiador",
-          funcao: "Apoiador(a) / Retirada",
-          meta_votos: 1,
-          campanha_id: campaign?.id || undefined,
-          comite_id: comiteId || undefined,
-          uf: ufDestino,
-          municipio: cidadeDestino,
-          status: "ativo",
-        });
-        if (novaPessoa?.id) finalPessoaId = novaPessoa.id;
+      // Se o usuário informou o nome do responsável, cadastra/vincula no banco
+      if (nomeResponsavel.trim()) {
+        const pessoaExistente = sugestoesPessoas.find(
+          (p) => p.nome.trim().toLowerCase() === nomeResponsavel.trim().toLowerCase()
+        );
+
+        if (pessoaExistente) {
+          finalPessoaId = pessoaExistente.id;
+        } else {
+          const novaPessoa = await addPessoa({
+            nome: nomeResponsavel.trim(),
+            telefone: telefoneResponsavel.trim() || undefined,
+            tipo: "apoiador",
+            funcao: "Responsável por Retirada / Transporte",
+            meta_votos: 1,
+            campanha_id: campaign?.id || undefined,
+            uf: ufDestino,
+            municipio: cidadeDestino,
+            status: "ativo",
+          });
+          if (novaPessoa?.id) finalPessoaId = novaPessoa.id;
+        }
       }
 
-      // Se informou novo entregador rápido, cadastra na hora
-      if (cadastrandoNovoEntregador && nomeNovoEntregador.trim()) {
-        const novoEntregador = await addPessoa({
-          nome: nomeNovoEntregador.trim(),
-          telefone: telefoneNovoEntregador.trim() || undefined,
-          tipo: "responsavel",
-          funcao: "Entregador(a) / Transporte",
-          meta_votos: 1,
-          campanha_id: campaign?.id || undefined,
-          uf: ufDestino,
-          municipio: cidadeDestino,
-          status: "ativo",
-        });
-        if (novoEntregador?.id) finalEntregadorId = novoEntregador.id;
-      }
-
+      // Baixa no estoque e registro do pedido
       await registrarSaida({
         numero_pedido: numeroPedidoGerado,
-        comite_id: comiteId || db.comites[0]?.id || "",
+        comite_id: db.comites[0]?.id || "",
         pessoa_id: finalPessoaId || "",
-        entregador_id: finalEntregadorId || undefined,
         campaign_id: campaign?.id || undefined,
         kits: Object.entries(kits)
           .filter(([, q]) => q > 0)
@@ -229,7 +192,7 @@ function NovaSaida() {
         itens: itensFinais,
       });
 
-      toast.success(`Saída confirmada! Pedido #${numeroPedidoGerado} registrado.`);
+      toast.success(`Pedido #${numeroPedidoGerado} registrado e estoque atualizado com sucesso!`);
       navigate({ to: "/saidas" });
     } catch (e) {
       console.error(e);
@@ -238,10 +201,6 @@ function NovaSaida() {
       setSalvando(false);
     }
   }
-
-  const comiteSelecionado = db.comites.find((c) => c.id === comiteId);
-  const pessoaSelecionada = db.pessoas.find((p) => p.id === pessoaId);
-  const entregadorSelecionado = db.pessoas.find((p) => p.id === entregadorId);
 
   return (
     <div className="min-h-screen bg-background text-foreground pb-28">
@@ -266,7 +225,7 @@ function NovaSaida() {
               </span>
             )}
             <span className="font-mono text-xs font-bold text-muted-foreground">
-              {passo + 1}/04
+              {passo + 1}/03
             </span>
           </div>
         </div>
@@ -275,7 +234,7 @@ function NovaSaida() {
         </h1>
       </header>
 
-      {/* BARRA DE PROGRESSO */}
+      {/* BARRA DE PROGRESSO COM 3 ETAPAS */}
       <div className="flex px-5 pt-3">
         {PASSOS.map((p, i) => (
           <div
@@ -288,90 +247,20 @@ function NovaSaida() {
       </div>
 
       <main className="animate-slide-up px-5 py-5 max-w-xl mx-auto space-y-4">
-        {/* ETAPA 1: ORIGEM / LOCALIDADE */}
+        
+        {/* ETAPA 1: MATERIAIS (SELEÇÃO DIRETA DO ESTOQUE PRINCIPAL) */}
         {passo === 0 && (
           <div className="space-y-4">
-            <div className="rounded-2xl border border-primary/20 bg-primary/5 p-4 space-y-1">
-              <p className="text-xs font-bold text-primary flex items-center gap-1.5">
-                <MapPin className="size-4" /> De onde sairá o material?
-              </p>
-              <p className="text-xs text-muted-foreground">
-                Defina a localidade do envio e selecione o comitê de origem caso possua um ponto físico cadastrado.
-              </p>
-            </div>
-
-            <div className="space-y-4 rounded-2xl border border-border bg-surface p-4 shadow-sm">
-              <div className="space-y-2">
-                <Label className="text-xs font-bold">Estado e Município de Origem</Label>
-                <EstadoCidadeSelect
-                  uf={filtroUf}
-                  cidade={filtroCidade}
-                  onUfChange={(uf) => setFiltroUf(uf)}
-                  onCidadeChange={(cidade) => {
-                    setFiltroCidade(cidade);
-                    setCidadeDestino(cidade);
-                  }}
-                />
-              </div>
-
-              <div className="space-y-2 pt-2 border-t border-border/50">
-                <Label className="text-xs font-bold">Comitê de Distribuição (Opcional)</Label>
-                <div className="space-y-2">
-                  <button
-                    onClick={() => setComiteId("")}
-                    className={`flex w-full items-center justify-between rounded-xl border p-3.5 text-left transition-all ${
-                      !comiteId ? "border-2 border-primary bg-primary/5 shadow-sm" : "border-border bg-background"
-                    }`}
-                  >
-                    <div>
-                      <p className="font-bold text-sm">Sede Geral / Distribuição Direta</p>
-                      <p className="text-xs text-muted-foreground">{filtroCidade} • {filtroUf}</p>
-                    </div>
-                    {!comiteId && (
-                      <span className="flex size-5 items-center justify-center rounded-full bg-primary text-primary-foreground">
-                        <Check className="size-3" strokeWidth={4} />
-                      </span>
-                    )}
-                  </button>
-
-                  {comitesDisponiveis.map((c) => (
-                    <button
-                      key={c.id}
-                      onClick={() => setComiteId(c.id)}
-                      className={`flex w-full items-center justify-between rounded-xl border p-3.5 text-left transition-all ${
-                        comiteId === c.id ? "border-2 border-primary bg-primary/5 shadow-sm" : "border-border bg-background"
-                      }`}
-                    >
-                      <div>
-                        <p className="font-bold text-sm">{c.nome}</p>
-                        <p className="text-xs text-muted-foreground">{c.bairro} {c.municipio ? `• ${c.municipio}` : ""}</p>
-                      </div>
-                      {comiteId === c.id && (
-                        <span className="flex size-5 items-center justify-center rounded-full bg-primary text-primary-foreground">
-                          <Check className="size-3" strokeWidth={4} />
-                        </span>
-                      )}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* ETAPA 2: MATERIAIS */}
-        {passo === 1 && (
-          <div className="space-y-4">
             <div className="flex items-center justify-between">
-              <p className="font-mono text-xs font-bold text-muted-foreground uppercase">
-                Estoque da Campanha
+              <p className="font-mono text-xs font-bold text-muted-foreground uppercase flex items-center gap-1.5">
+                <Package className="size-4 text-primary" /> Estoque Principal da Campanha
               </p>
-              <span className="font-mono text-xs font-black text-primary">
+              <span className="font-mono text-xs font-black text-primary bg-primary/10 px-2.5 py-0.5 rounded-full border border-primary/20">
                 {formatNumero(totalUnidades)} UN SELECIONADAS
               </span>
             </div>
 
-            {/* KITS */}
+            {/* KITS PRÉ-MONTADOS */}
             {kitsCampanha.length > 0 && (
               <div className="space-y-2">
                 <p className="text-xs font-bold text-muted-foreground uppercase">Kits Pré-Montados</p>
@@ -386,8 +275,9 @@ function NovaSaida() {
                     </div>
                     <div className="flex items-center gap-1.5">
                       <button
+                        type="button"
                         onClick={() => setKits({ ...kits, [k.id]: Math.max(0, (kits[k.id] || 0) - 1) })}
-                        className="flex size-8 items-center justify-center rounded-lg border border-border bg-background font-bold text-sm active:scale-95"
+                        className="flex size-8 items-center justify-center rounded-lg border border-border bg-background font-bold text-sm active:scale-95 cursor-pointer"
                       >
                         -
                       </button>
@@ -400,8 +290,9 @@ function NovaSaida() {
                         className="h-8 w-14 text-center font-mono font-bold text-xs bg-background"
                       />
                       <button
+                        type="button"
                         onClick={() => setKits({ ...kits, [k.id]: (kits[k.id] || 0) + 1 })}
-                        className="flex size-8 items-center justify-center rounded-lg border border-border bg-background font-bold text-sm active:scale-95"
+                        className="flex size-8 items-center justify-center rounded-lg border border-border bg-background font-bold text-sm active:scale-95 cursor-pointer"
                       >
                         +
                       </button>
@@ -411,7 +302,7 @@ function NovaSaida() {
               </div>
             )}
 
-            {/* MATERIAIS INDIVIDUAIS */}
+            {/* MATERIAIS INDIVIDUAIS DO ESTOQUE UNIFICADO */}
             <div className="space-y-2">
               <p className="text-xs font-bold text-muted-foreground uppercase">Itens e Materiais Individuais</p>
               {materiaisCampanha.length === 0 ? (
@@ -452,8 +343,9 @@ function NovaSaida() {
                       </div>
                       <div className="flex items-center gap-1">
                         <button
+                          type="button"
                           onClick={() => setAvulsos({ ...avulsos, [m.id]: Math.max(0, qtd - 50) })}
-                          className="flex size-7 items-center justify-center rounded-lg border border-border bg-background text-[11px] font-bold text-muted-foreground active:scale-95"
+                          className="flex size-7 items-center justify-center rounded-lg border border-border bg-background text-[11px] font-bold text-muted-foreground active:scale-95 cursor-pointer"
                         >
                           -50
                         </button>
@@ -466,8 +358,9 @@ function NovaSaida() {
                           className="h-8 w-16 text-center font-mono font-bold text-xs bg-background p-1"
                         />
                         <button
+                          type="button"
                           onClick={() => setAvulsos({ ...avulsos, [m.id]: qtd + 50 })}
-                          className="flex size-7 items-center justify-center rounded-lg border border-border bg-background text-[11px] font-bold text-muted-foreground active:scale-95"
+                          className="flex size-7 items-center justify-center rounded-lg border border-border bg-background text-[11px] font-bold text-muted-foreground active:scale-95 cursor-pointer"
                         >
                           +50
                         </button>
@@ -480,14 +373,23 @@ function NovaSaida() {
           </div>
         )}
 
-        {/* ETAPA 3: DESTINO, RECEBEDOR E ENTREGADOR */}
-        {passo === 2 && (
+        {/* ETAPA 2: DESTINO & RESPONSÁVEL (COM DESTINO OBRIGATÓRIO E RESPONSÁVEL OPCIONAL) */}
+        {passo === 1 && (
           <div className="space-y-4">
-            {/* DESTINO OBRIGATÓRIO */}
+            
+            {/* 1. MUNICÍPIO / CIDADE DE DESTINO (ÚNICA OBRIGATÓRIA) */}
             <div className="space-y-3 rounded-2xl border border-border bg-surface p-4 shadow-sm">
-              <Label className="text-xs font-bold flex items-center gap-1.5">
-                <MapPin className="size-4 text-primary" /> Município / Cidade de Destino <span className="text-critical">*</span>
-              </Label>
+              <div className="flex items-center justify-between">
+                <Label className="text-xs font-bold flex items-center gap-1.5">
+                  <MapPin className="size-4 text-primary" /> Município / Cidade de Destino <span className="text-critical">*</span>
+                </Label>
+                <span className="text-[11px] font-semibold text-rose-600 bg-rose-50 px-2 py-0.5 rounded">
+                  * Obrigatório
+                </span>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Inicia com a capital/estado padrão, permitindo alterar livremente para qualquer município.
+              </p>
               <EstadoCidadeSelect
                 uf={ufDestino}
                 cidade={cidadeDestino}
@@ -497,173 +399,132 @@ function NovaSaida() {
               />
             </div>
 
-            {/* QUEM ESTÁ RECEBENDO */}
+            {/* 2. RESPONSÁVEL PELO MATERIAL (UNIFICADO E 100% OPCIONAL) */}
             <div className="space-y-3 rounded-2xl border border-border bg-surface p-4 shadow-sm">
-              <Label className="text-xs font-bold flex items-center gap-1.5">
-                <User className="size-4 text-primary" /> Quem está recebendo o material? <span className="text-critical">*</span>
-              </Label>
-              
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-                <Input
-                  value={buscaRecebedor}
-                  onChange={(e) => setBuscaRecebedor(e.target.value)}
-                  placeholder="Buscar apoiador ou líder cadastrado..."
-                  className="h-10 pl-9 bg-background text-xs"
-                />
-              </div>
-
-              <div className="space-y-1.5 max-h-[150px] overflow-y-auto">
-                {pessoasCampanha.slice(0, 8).map((p) => (
-                  <button
-                    key={p.id}
-                    onClick={() => {
-                      setPessoaId(p.id);
-                      setNomeNovoRecebedor("");
-                      if (p.municipio) setCidadeDestino(p.municipio);
-                      if (p.uf) setUfDestino(p.uf);
-                    }}
-                    className={`flex w-full items-center justify-between rounded-xl border p-2.5 text-left text-xs transition-all ${
-                      pessoaId === p.id ? "border-2 border-primary bg-primary/5 font-bold" : "border-border bg-background"
-                    }`}
-                  >
-                    <span>{p.nome} ({p.funcao || "Apoiador"}{p.municipio ? ` - ${p.municipio}` : ""})</span>
-                    {pessoaId === p.id && <Check className="size-3.5 text-primary" />}
-                  </button>
-                ))}
-              </div>
-
-              <div className="pt-2 border-t border-border/50 space-y-2">
-                <p className="text-[11px] font-bold text-muted-foreground">Ou informe recebedor avulso:</p>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                  <Input
-                    value={nomeNovoRecebedor}
-                    onChange={(e) => {
-                      setNomeNovoRecebedor(e.target.value);
-                      if (e.target.value) setPessoaId("");
-                    }}
-                    placeholder="Nome do recebedor..."
-                    className="bg-background text-xs"
-                  />
-                  <Input
-                    value={telefoneNovoRecebedor}
-                    onChange={(e) => setTelefoneNovoRecebedor(e.target.value)}
-                    placeholder="WhatsApp (opcional)..."
-                    className="bg-background text-xs"
-                  />
-                </div>
-              </div>
-            </div>
-
-            {/* ENTREGADOR / TRANSPORTE COM CADASTRO RÁPIDO */}
-            <div className="space-y-3 rounded-2xl border border-border bg-surface p-4 shadow-sm">
-              <div className="flex items-center justify-between">
+              <div className="flex items-center justify-between border-b border-border/50 pb-2">
                 <Label className="text-xs font-bold flex items-center gap-1.5">
-                  <Truck className="size-4 text-primary" /> Responsável pelo Transporte / Entregador
+                  <User className="size-4 text-primary" /> Responsável (Opcional)
                 </Label>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setCadastrandoNovoEntregador(!cadastrandoNovoEntregador);
-                    if (!cadastrandoNovoEntregador) setEntregadorId("");
-                  }}
-                  className="text-xs font-bold text-primary hover:underline flex items-center gap-1"
-                >
-                  <UserPlus className="size-3.5" />
-                  {cadastrandoNovoEntregador ? "Selecionar Existente" : "+ Novo Entregador"}
-                </button>
+                <span className="text-[10px] text-muted-foreground font-mono">Opcional</span>
               </div>
+              
+              <p className="text-xs text-muted-foreground">
+                Informe quem vai retirar, transportar ou receber o material (indiferente do papel logístico).
+              </p>
 
-              {cadastrandoNovoEntregador ? (
-                <div className="rounded-xl border border-primary/20 bg-primary/5 p-3 space-y-2 animate-slide-up">
-                  <p className="text-[11px] font-bold text-primary">Cadastro Rápido de Entregador:</p>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                    <Input
-                      value={nomeNovoEntregador}
-                      onChange={(e) => setNomeNovoEntregador(e.target.value)}
-                      placeholder="Nome completo do entregador..."
-                      className="bg-background text-xs"
-                    />
-                    <Input
-                      value={telefoneNovoEntregador}
-                      onChange={(e) => setTelefoneNovoEntregador(e.target.value)}
-                      placeholder="WhatsApp (85999999999)..."
-                      className="bg-background text-xs"
-                    />
-                  </div>
-                </div>
-              ) : (
-                <Select value={entregadorId} onValueChange={setEntregadorId}>
-                  <SelectTrigger className="bg-background text-xs">
-                    <SelectValue placeholder="Selecione o entregador (opcional)..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="">Nenhum / Retirada no Balcão</SelectItem>
-                    {entregadores.map((e) => (
-                      <SelectItem key={e.id} value={e.id}>
-                        {e.nome} {e.funcao ? `(${e.funcao})` : ""}
-                      </SelectItem>
+              <div className="space-y-3">
+                <div className="space-y-1">
+                  <Label className="text-xs font-bold text-slate-700">Nome do Responsável</Label>
+                  <Input
+                    list="lista-pessoas-sugestao"
+                    value={nomeResponsavel}
+                    onChange={(e) => setNomeResponsavel(e.target.value)}
+                    placeholder="Digite o nome da pessoa responsável (opcional)..."
+                    className="bg-background text-sm h-11"
+                  />
+                  {/* Datalist não invasivo para autocompletar conforme o usuário digita */}
+                  <datalist id="lista-pessoas-sugestao">
+                    {sugestoesPessoas.map((p) => (
+                      <option key={p.id} value={p.nome}>
+                        {p.funcao ? `${p.funcao} - ${p.municipio || ""}` : p.municipio || ""}
+                      </option>
                     ))}
-                  </SelectContent>
-                </Select>
-              )}
+                  </datalist>
+                </div>
+
+                <div className="space-y-1">
+                  <Label className="text-xs font-bold text-slate-700">WhatsApp / Telefone</Label>
+                  <Input
+                    type="tel"
+                    value={telefoneResponsavel}
+                    onChange={(e) => setTelefoneResponsavel(e.target.value)}
+                    placeholder="(85) 99999-9999 (opcional)..."
+                    className="bg-background text-sm h-11"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <Label className="text-xs font-bold text-slate-700">Ponto de Entrega / Observações</Label>
+                  <Input
+                    value={observacaoEntrega}
+                    onChange={(e) => setObservacaoEntrega(e.target.value)}
+                    placeholder="Ex: Entregar no comitê central, comício da praça..."
+                    className="bg-background text-sm h-11"
+                  />
+                </div>
+              </div>
             </div>
           </div>
         )}
 
-        {/* ETAPA 4: CONFIRMAÇÃO & NÚMERO DO PEDIDO */}
-        {passo === 3 && (
+        {/* ETAPA 3: CONFIRMAR PEDIDO E BAIXA DE ESTOQUE */}
+        {passo === 2 && (
           <div className="space-y-4">
+            {/* NÚMERO DO PEDIDO SEQUENCIAL: PED-[Nº CANDIDATO]-[SEQUENCIAL 5 DÍGITOS] */}
             <div className="rounded-2xl border-2 border-primary/30 bg-primary/5 p-5 text-center space-y-2 shadow-sm">
               <span className="inline-flex items-center gap-1 rounded-full bg-primary text-primary-foreground px-3 py-0.5 text-xs font-mono font-black tracking-widest">
-                <Barcode className="size-3.5" /> NÚMERO DO PACOTE
+                <Barcode className="size-3.5" /> NÚMERO DO PEDIDO
               </span>
-              <h2 className="text-2xl font-mono font-extrabold tracking-wider text-foreground">
+              <h2 className="text-2xl sm:text-3xl font-mono font-black tracking-wider text-foreground">
                 #{numeroPedidoGerado}
               </h2>
               <p className="text-xs text-muted-foreground">
-                Anote ou grampeie este número no pacote físico para controle logístico.
+                Anote ou grampeie este número no pacote físico para controle logístico e rastreabilidade.
               </p>
             </div>
 
+            {/* RESUMO DO PEDIDO */}
             <div className="rounded-2xl border border-border bg-surface p-4 space-y-3 shadow-sm text-xs">
-              <h3 className="font-bold text-sm">Resumo da Saída</h3>
+              <h3 className="font-bold text-sm flex items-center gap-1.5">
+                <Building className="size-4 text-primary" /> Resumo do Pedido
+              </h3>
               <div className="space-y-2">
                 <div className="flex justify-between border-b border-border/50 pb-2">
-                  <span className="text-muted-foreground">Origem:</span>
-                  <span className="font-bold">{comiteSelecionado?.nome || "Sede Geral"} ({filtroCidade}/{filtroUf})</span>
+                  <span className="text-muted-foreground">Estoque de Origem:</span>
+                  <span className="font-bold">Estoque Principal (Sede Geral)</span>
                 </div>
                 <div className="flex justify-between border-b border-border/50 pb-2">
-                  <span className="text-muted-foreground">Destino:</span>
+                  <span className="text-muted-foreground">Cidade / UF de Destino:</span>
                   <span className="font-bold text-primary">{cidadeDestino}/{ufDestino}</span>
                 </div>
                 <div className="flex justify-between border-b border-border/50 pb-2">
-                  <span className="text-muted-foreground">Recebedor:</span>
-                  <span className="font-bold">{pessoaSelecionada?.nome || nomeNovoRecebedor || "Não informado"}</span>
+                  <span className="text-muted-foreground">Responsável:</span>
+                  <span className="font-bold">
+                    {nomeResponsavel.trim() ? `${nomeResponsavel} ${telefoneResponsavel ? `(${telefoneResponsavel})` : ''}` : "Não informado (Saída Geral)"}
+                  </span>
                 </div>
-                {(entregadorSelecionado || (cadastrandoNovoEntregador && nomeNovoEntregador)) && (
+                {observacaoEntrega.trim() && (
                   <div className="flex justify-between border-b border-border/50 pb-2">
-                    <span className="text-muted-foreground">Transporte por:</span>
-                    <span className="font-bold">
-                      {cadastrandoNovoEntregador ? nomeNovoEntregador : entregadorSelecionado?.nome}
-                    </span>
+                    <span className="text-muted-foreground">Observação:</span>
+                    <span className="font-medium text-slate-800">{observacaoEntrega}</span>
                   </div>
                 )}
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Volume Total:</span>
-                  <span className="font-mono font-bold text-primary">{formatNumero(totalUnidades)} unidades</span>
+                <div className="flex justify-between pt-1">
+                  <span className="text-muted-foreground font-bold">Volume Total:</span>
+                  <span className="font-mono font-black text-primary text-sm">{formatNumero(totalUnidades)} unidades</span>
                 </div>
               </div>
             </div>
 
+            {/* LISTAGEM DE ITENS A BAIXAR */}
             <div className="space-y-2">
               <p className="font-mono text-xs uppercase font-bold text-muted-foreground">Itens a Baixar do Estoque:</p>
               {itensFinais.map((i, idx) => {
-                const m = db.materiais.find((mat) => mat.id === i.material_id);
+                const m = (db.materiais || []).find((mat) => mat.id === i.material_id);
+                const estoqueAtual = m?.estoque ?? 0;
+                const estoqueRestante = Math.max(0, estoqueAtual - i.quantidade);
+
                 return (
                   <div key={idx} className="flex justify-between items-center rounded-xl border border-border bg-surface p-3 text-xs shadow-sm">
-                    <span className="font-semibold">{m?.nome || "Material"}</span>
-                    <span className="font-mono font-black text-primary">{formatNumero(i.quantidade)} {m?.unidade || "un"}</span>
+                    <div className="space-y-0.5">
+                      <span className="font-bold text-slate-900">{m?.nome || "Material"}</span>
+                      <span className="block text-[10px] text-muted-foreground">
+                        Estoque atual: {formatNumero(estoqueAtual)} → Restante: {formatNumero(estoqueRestante)}
+                      </span>
+                    </div>
+                    <span className="font-mono font-black text-primary text-sm">
+                      -{formatNumero(i.quantidade)} {m?.unidade || "un"}
+                    </span>
                   </div>
                 );
               })}
@@ -677,30 +538,34 @@ function NovaSaida() {
         <div className="mx-auto flex max-w-xl items-center gap-3">
           {passo > 0 && (
             <button
+              type="button"
               onClick={() => setPasso(passo - 1)}
-              className="flex-1 rounded-xl border border-border bg-surface py-3.5 text-sm font-bold transition-all active:scale-95"
+              className="flex-1 rounded-xl border border-border bg-surface py-3.5 text-sm font-bold transition-all active:scale-95 cursor-pointer"
             >
               Voltar
             </button>
           )}
 
-          {passo < 3 ? (
+          {passo < 2 ? (
             <button
+              type="button"
               disabled={!podeAvancar}
               onClick={() => setPasso(passo + 1)}
-              className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-primary py-3.5 text-sm font-bold text-primary-foreground transition-all disabled:opacity-50 active:scale-95 shadow-md"
+              className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-primary py-3.5 text-sm font-bold text-primary-foreground transition-all disabled:opacity-50 active:scale-95 shadow-md cursor-pointer"
             >
               <span>Avançar</span>
               <ArrowRight className="size-4" />
             </button>
           ) : (
             <button
+              type="button"
               disabled={salvando || totalUnidades === 0}
-              onClick={confirmarSaida}
-              className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-green-600 hover:bg-green-700 py-3.5 text-sm font-bold text-white transition-all disabled:opacity-50 active:scale-95 shadow-lg"
+              onClick={handleConfirmarPedido}
+              style={{ backgroundColor: '#16a34a', color: '#ffffff' }}
+              className="flex flex-1 items-center justify-center gap-2 rounded-xl py-3.5 text-sm font-extrabold hover:bg-emerald-700 transition-all disabled:opacity-50 active:scale-95 shadow-lg cursor-pointer"
             >
               {salvando && <Loader2 className="size-4 animate-spin" />}
-              Confirmar Saída (#{numeroPedidoGerado})
+              <span>Confirmar Pedido (#{numeroPedidoGerado})</span>
             </button>
           )}
         </div>

@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from '@tanstack/react-router';
 import { Button } from '@/components/ui/button';
-import { Target, Map, BarChart3, ArrowRight } from 'lucide-react';
+import { Target, Map, BarChart3, ArrowRight, UserPlus } from 'lucide-react';
 
 export const Route = createFileRoute('/')({
   component: LandingPage,
@@ -44,7 +44,7 @@ function LandingPage() {
           </p>
 
           {/* BOTÕES PRINCIPAIS DE AÇÃO COM CORES E CONTRASTE GARANTIDOS */}
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-4 flex-wrap mb-6">
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-4 flex-wrap mb-4">
             {/* 1. RESULTADO DA PESQUISA (LARANJA VIBRANTE + TEXTO BRANCO) */}
             <a
               href="https://chat.democracias.org/resultado"
@@ -76,19 +76,26 @@ function LandingPage() {
             </Link>
           </div>
 
-          {/* AÇÕES SECUNDÁRIAS */}
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-2">
-            <Link to="/public/cadastro">
-              <Button variant="ghost" className="text-slate-600 hover:text-slate-900 font-medium text-sm">
-                Cadastre-se Geral (Membro / Apoiador)
-              </Button>
+          {/* 4. BOTÃO DESTACADO: CADASTRE-SE GERAL (MEMBRO / APOIADOR) */}
+          <div className="flex flex-col items-center justify-center gap-4 mt-2">
+            <Link to="/public/cadastro" className="w-full sm:w-auto">
+              <button
+                type="button"
+                style={{ backgroundColor: '#059669', color: '#ffffff' }}
+                className="w-full sm:w-auto h-14 px-8 rounded-xl font-extrabold text-lg shadow-lg flex items-center justify-center gap-2.5 transition-all hover:bg-emerald-700 active:scale-95 border border-emerald-500 cursor-pointer text-white"
+              >
+                <UserPlus className="size-5 text-white" />
+                <span className="text-white font-black text-lg">Cadastre-se Geral (Membro / Apoiador)</span>
+              </button>
             </Link>
-            <span className="hidden sm:inline text-slate-300">•</span>
-            <Link to="/auth">
-              <Button variant="ghost" className="text-slate-600 hover:text-slate-900 font-medium text-sm">
-                Já tenho uma conta
-              </Button>
-            </Link>
+
+            {/* AÇÃO DE ACESSO EXISTENTE */}
+            <div className="flex items-center justify-center gap-2 text-sm text-slate-500 pt-1">
+              <span>Já possui cadastro ou acesso?</span>
+              <Link to="/auth" className="text-slate-800 hover:text-slate-950 font-bold hover:underline">
+                Já tenho uma conta →
+              </Link>
+            </div>
           </div>
         </section>
 

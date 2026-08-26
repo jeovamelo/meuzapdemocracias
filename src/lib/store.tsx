@@ -432,19 +432,28 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         const mat = db.materiais.find(m => m.id === item.material_id);
         if (mat) {
           const novaQtd = Math.max(0, mat.estoque - item.quantidade);
-          await supabase.from("materiais")
-            .update({ estoque: novaQtd })
-            .eq("id", mat.id);
-            
-          await supabase.from("historico_estoque").insert([{
-            material_id: mat.id,
-            campaign_id: s.campaign_id || mat.campaign_id,
-            quantidade_anterior: mat.estoque,
-            quantidade_nova: novaQtd,
-            diferenca: -item.quantidade,
-            tipo: "saida",
-            observacao: `Saída registrada (Pedido: ${s.numero_pedido || saidaCriada?.id || ""})`
-          }]);
+          try {
+            await supabase.from("materiais")
+              .update({ estoque: novaQtd })
+              .eq("id", mat.id);
+              
+            await supabase.from("historico_estoque").insert([{
+              material_id: mat.id,
+              campaign_id: s.campaign_id || mat.campaign_id,
+              quantidade_anterior: mat.estoque,
+              quantidade_nova: novaQtd,
+              diferenca: -item.quantidade,
+              tipo: "saida",
+              observacao: `Saída registrada (Pedido: ${s.numero_pedido || saidaCriada?.id || ""})`
+            }]);
+          } catch (e) {
+            console.warn("Erro ao atualizar estoque no supabase:", e);
+          }
+
+          setDb(prev => ({
+            ...prev,
+            materiais: prev.materiais.map(m => m.id === mat.id ? { ...m, estoque: novaQtd } : m)
+          }));
         }
       }
     },

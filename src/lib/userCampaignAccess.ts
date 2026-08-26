@@ -32,7 +32,10 @@ export type UserCampaignAccess = {
   status: string;
 };
 
-const isApprovedMembership = (status: string) => status.toLowerCase() === "approved";
+const isApprovedMembership = (status: string) => {
+  const s = (status || "").toLowerCase().trim();
+  return s === "approved" || s === "aprovado" || s === "ativo";
+};
 
 const mapAccess = (campaign: CampaignRow, role: string, status: string): UserCampaignAccess => ({
   campaignId: campaign.id,
