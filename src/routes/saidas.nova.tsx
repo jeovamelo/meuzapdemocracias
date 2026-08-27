@@ -549,7 +549,7 @@ function NovaSaida() {
               {itensFinais.map((i, idx) => {
                 const m = (db.materiais || []).find((mat) => mat.id === i.material_id);
                 const estoqueAtual = m?.estoque ?? 0;
-                const estoqueRestante = Math.max(0, estoqueAtual - i.quantidade);
+                const estoqueRestante = estoqueAtual - i.quantidade;
 
                 return (
                   <div key={idx} className="flex justify-between items-center rounded-xl border border-border bg-surface p-3 text-xs shadow-sm">

@@ -353,7 +353,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     ajustarEstoque: async (id, delta) => {
       const material = db.materiais.find(m => m.id === id);
       if (material) {
-        const novaQtd = Math.max(0, material.estoque + delta);
+        const novaQtd = material.estoque + delta;
         const { error } = await supabase.from("materiais")
           .update({ estoque: novaQtd })
           .eq("id", id);
@@ -434,7 +434,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       for (const item of s.itens) {
         const mat = db.materiais.find(m => m.id === item.material_id);
         if (mat) {
-          const novaQtd = Math.max(0, mat.estoque - item.quantidade);
+          const novaQtd = mat.estoque - item.quantidade;
           try {
             await supabase.from("materiais")
               .update({ estoque: novaQtd })
@@ -518,7 +518,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         for (const item of sol.itens) {
           const mat = db.materiais.find(m => m.id === item.material_id);
           if (mat) {
-            const novaQtd = Math.max(0, mat.estoque - item.quantidade);
+            const novaQtd = mat.estoque - item.quantidade;
             await supabase.from("materiais").update({ estoque: novaQtd }).eq("id", mat.id);
             await supabase.from("historico_estoque").insert([{
               material_id: mat.id,
