@@ -27,6 +27,7 @@ import { useCampaignScope } from "@/hooks/useCampaignScope";
 import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 export const Route = createFileRoute("/saidas/nova")({
   head: () => ({
@@ -64,6 +65,8 @@ function NovaSaida() {
   // ETAPA 1: MATERIAIS SELECIONADOS
   const [kits, setKits] = useState<Record<string, number>>({});
   const [avulsos, setAvulsos] = useState<Record<string, number>>({});
+  const [buscaMaterial, setBuscaMaterial] = useState("");
+  const [ordenacao, setOrdenacao] = useState<'nome-asc' | 'nome-desc'>('nome-asc');
 
   // ETAPA 2: DESTINO E RESPONSÁVEL
   const [ufDestino, setUfDestino] = useState(campaign?.uf || db.config.uf || "CE");
@@ -96,10 +99,21 @@ function NovaSaida() {
 
   // Materiais disponíveis no estoque da campanha
   const materiaisCampanha = useMemo(() => {
-    return (db.materiais || []).filter(
+    const list = (db.materiais || []).filter(
       (m) => !m.arquivado && (!campaign?.id || !m.campaign_id || m.campaign_id === campaign.id)
     );
-  }, [db.materiais, campaign]);
+    const filtered = buscaMaterial.trim()
+      ? list.filter((m) => m.nome.toLowerCase().includes(buscaMaterial.toLowerCase()))
+      : list;
+
+    return filtered.sort((a, b) => {
+      if (ordenacao === 'nome-asc') {
+        return a.nome.localeCompare(b.nome, 'pt-BR');
+      } else {
+        return b.nome.localeCompare(a.nome, 'pt-BR');
+      }
+    });
+  }, [db.materiais, campaign, buscaMaterial, ordenacao]);
 
   const kitsCampanha = useMemo(() => {
     return (db.kits || []).filter(
@@ -167,14 +181,15 @@ function NovaSaida() {
         } else {
           const novaPessoa = await addPessoa({
             nome: nomeResponsavel.trim(),
-            telefone: telefoneResponsavel.trim() || undefined,
+            cpf: "",
             tipo: "apoiador",
             funcao: "Responsável por Retirada / Transporte",
             meta_votos: 1,
-            campanha_id: campaign?.id || undefined,
             uf: ufDestino,
             municipio: cidadeDestino,
             status: "ativo",
+            ...(telefoneResponsavel.trim() ? { telefone: telefoneResponsavel.trim() } : {}),
+            ...(campaign?.id ? { campaign_id: campaign.id } : {}),
           });
           if (novaPessoa?.id) finalPessoaId = novaPessoa.id;
         }
@@ -184,12 +199,12 @@ function NovaSaida() {
       await registrarSaida({
         numero_pedido: numeroPedidoGerado,
         comite_id: db.comites[0]?.id || "",
-        pessoa_id: finalPessoaId || "",
-        campaign_id: campaign?.id || undefined,
+        pessoa_id: finalPessoaId || null,
         kits: Object.entries(kits)
           .filter(([, q]) => q > 0)
           .map(([kit_id, quantidade]) => ({ kit_id, quantidade })),
         itens: itensFinais,
+        ...(campaign?.id ? { campaign_id: campaign.id } : {}),
       });
 
       toast.success(`Pedido #${numeroPedidoGerado} registrado e estoque atualizado com sucesso!`);
@@ -303,8 +318,30 @@ function NovaSaida() {
             )}
 
             {/* MATERIAIS INDIVIDUAIS DO ESTOQUE UNIFICADO */}
-            <div className="space-y-2">
+            <div className="space-y-3">
               <p className="text-xs font-bold text-muted-foreground uppercase">Itens e Materiais Individuais</p>
+              
+              <div className="flex gap-2">
+                <div className="relative flex-1">
+                  <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+                  <Input
+                    value={buscaMaterial}
+                    onChange={(e) => setBuscaMaterial(e.target.value)}
+                    placeholder="Buscar material por nome..."
+                    className="h-12 rounded-xl bg-surface pl-9"
+                  />
+                </div>
+                <Select value={ordenacao} onValueChange={(v: any) => setOrdenacao(v)}>
+                  <SelectTrigger className="h-12 w-[110px] rounded-xl bg-surface border-border font-medium text-xs">
+                    <SelectValue placeholder="Ordenar" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="nome-asc">A-Z</SelectItem>
+                    <SelectItem value="nome-desc">Z-A</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
               {materiaisCampanha.length === 0 ? (
                 <div className="rounded-2xl border border-border bg-surface p-8 text-center">
                   <Package className="mx-auto mb-2 size-8 text-muted-foreground/30" />

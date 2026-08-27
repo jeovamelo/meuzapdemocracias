@@ -128,6 +128,7 @@ function Estoque() {
   const { db, addMaterial, updateMaterial, ajustarEstoque, archiveMaterial } = useStore();
   const { campaign } = useCampaignScope();
   const [busca, setBusca] = useState("");
+  const [ordenacao, setOrdenacao] = useState<'nome-asc' | 'nome-desc' | 'recentes'>('nome-asc');
   const [open, setOpen] = useState(false);
   const [editingMaterial, setEditingMaterial] = useState<Material | null>(null);
   const [openEntrada, setOpenEntrada] = useState(false);
@@ -172,9 +173,22 @@ function Estoque() {
   const ativos = db.materiais.filter(
     (m) => !m.arquivado && (!campaign?.id || !m.campaign_id || m.campaign_id === campaign.id)
   );
-  const filtrados = ativos.filter((m) =>
-    `${m.nome} ${m.categoria}`.toLowerCase().includes(busca.toLowerCase()),
-  );
+  const filtrados = useMemo(() => {
+    const list = ativos.filter((m) =>
+      `${m.nome} ${m.categoria}`.toLowerCase().includes(busca.toLowerCase()),
+    );
+    return list.sort((a, b) => {
+      if (ordenacao === 'nome-asc') {
+        return a.nome.localeCompare(b.nome, 'pt-BR');
+      } else if (ordenacao === 'nome-desc') {
+        return b.nome.localeCompare(a.nome, 'pt-BR');
+      } else {
+        const dataA = a.criado_em ? new Date(a.criado_em).getTime() : 0;
+        const dataB = b.criado_em ? new Date(b.criado_em).getTime() : 0;
+        return dataB - dataA;
+      }
+    });
+  }, [ativos, busca, ordenacao]);
 
   async function salvar() {
     if (!form.nome.trim()) {
@@ -251,14 +265,26 @@ function Estoque() {
 
   return (
     <div className="space-y-3">
-      <div className="relative">
-        <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-        <Input
-          value={busca}
-          onChange={(e) => setBusca(e.target.value)}
-          placeholder="Buscar item ou categoria"
-          className="h-12 rounded-xl bg-surface pl-9"
-        />
+      <div className="flex gap-2">
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            value={busca}
+            onChange={(e) => setBusca(e.target.value)}
+            placeholder="Buscar item ou categoria"
+            className="h-12 rounded-xl bg-surface pl-9"
+          />
+        </div>
+        <Select value={ordenacao} onValueChange={(v: any) => setOrdenacao(v)}>
+          <SelectTrigger className="h-12 w-[140px] rounded-xl bg-surface border-border font-medium">
+            <SelectValue placeholder="Ordenar por" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="nome-asc">Nome (A-Z)</SelectItem>
+            <SelectItem value="nome-desc">Nome (Z-A)</SelectItem>
+            <SelectItem value="recentes">Mais recentes</SelectItem>
+          </SelectContent>
+        </Select>
       </div>
 
       <div className="grid grid-cols-2 gap-2 md:grid-cols-3">
@@ -630,13 +656,32 @@ function Kits() {
   const [nome, setNome] = useState("");
   const [descricao, setDescricao] = useState("");
   const [itens, setItens] = useState<KitItem[]>([]);
+  const [busca, setBusca] = useState("");
+  const [ordenacao, setOrdenacao] = useState<'nome-asc' | 'nome-desc' | 'recentes'>('nome-asc');
 
-  const kitsAtivos = db.kits.filter(
-    (k) => !k.arquivado && (!campaign?.id || !k.campaign_id || k.campaign_id === campaign.id)
-  );
   const materiaisAtivos = db.materiais.filter(
     (m) => !m.arquivado && (!campaign?.id || !m.campaign_id || m.campaign_id === campaign.id)
   );
+
+  const kitsAtivos = useMemo(() => {
+    const list = db.kits.filter(
+      (k) => !k.arquivado && (!campaign?.id || !k.campaign_id || k.campaign_id === campaign.id)
+    );
+    const filtered = list.filter((k) =>
+      `${k.nome} ${k.descricao}`.toLowerCase().includes(busca.toLowerCase())
+    );
+    return filtered.sort((a, b) => {
+      if (ordenacao === 'nome-asc') {
+        return a.nome.localeCompare(b.nome, 'pt-BR');
+      } else if (ordenacao === 'nome-desc') {
+        return b.nome.localeCompare(a.nome, 'pt-BR');
+      } else {
+        const dataA = a.criado_em ? new Date(a.criado_em).getTime() : 0;
+        const dataB = b.criado_em ? new Date(b.criado_em).getTime() : 0;
+        return dataB - dataA;
+      }
+    });
+  }, [db.kits, campaign, busca, ordenacao]);
 
   function setQtd(material_id: string, quantidade: number) {
     setItens((prev) => {
@@ -680,6 +725,28 @@ function Kits() {
 
   return (
     <div className="space-y-3">
+      <div className="flex gap-2">
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            value={busca}
+            onChange={(e) => setBusca(e.target.value)}
+            placeholder="Buscar kit por nome ou descrição..."
+            className="h-12 rounded-xl bg-surface pl-9"
+          />
+        </div>
+        <Select value={ordenacao} onValueChange={(v: any) => setOrdenacao(v)}>
+          <SelectTrigger className="h-12 w-[140px] rounded-xl bg-surface border-border font-medium">
+            <SelectValue placeholder="Ordenar por" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="nome-asc">Nome (A-Z)</SelectItem>
+            <SelectItem value="nome-desc">Nome (Z-A)</SelectItem>
+            <SelectItem value="recentes">Mais recentes</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+
       <Dialog open={open} onOpenChange={(val) => {
         setOpen(val);
         if (!val) resetForm();

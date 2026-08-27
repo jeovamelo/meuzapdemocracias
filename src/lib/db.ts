@@ -153,7 +153,7 @@ export type Saida = {
   numero_pedido?: string;
   campaign_id?: string;
   comite_id: string;
-  pessoa_id: string;
+  pessoa_id?: string | null;
   entregador_id?: string;
   kits: { kit_id: string; quantidade: number }[];
   itens: SaidaItem[];

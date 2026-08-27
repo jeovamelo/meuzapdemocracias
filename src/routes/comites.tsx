@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { MapPin, Plus, Search, Trash2, UserRound, Loader2, Pencil, CheckCircle, XCircle } from "lucide-react";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/PageHeader";
@@ -19,6 +19,7 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { EstadoCidadeSelect } from "@/components/EstadoCidadeSelect";
 import { useCampaignScope } from "@/hooks/useCampaignScope";
 import { buscarCep, formatarCep } from "@/lib/cep";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 export const Route = createFileRoute("/comites")({
   head: () => ({
@@ -44,6 +45,7 @@ function ComitesPage() {
   const { campaign } = useCampaignScope();
   const [busca, setBusca] = useState("");
   const [abaInterna, setAbaInterna] = useState<"ativos" | "validacoes">("ativos");
+  const [ordenacao, setOrdenacao] = useState<'nome-asc' | 'nome-desc' | 'recentes'>('nome-asc');
   const [open, setOpen] = useState(false);
   const [salvando, setSalvando] = useState(false);
   const [editandoId, setEditandoId] = useState<string | null>(null);
@@ -117,14 +119,28 @@ function ComitesPage() {
     setOpen(true);
   }
 
-  const filtrados = db.comites.filter((c) => {
-    const matchesCampaign = campaign?.id
-      ? c.campaign_id === campaign.id || (!c.campaign_id && c.uf === campaign.uf)
-      : !c.uf || c.uf === (campaign?.uf || db.config.uf);
-    const matchesBusca = `${c.nome} ${c.bairro} ${c.coordenador} ${c.municipio}`.toLowerCase().includes(busca.toLowerCase());
-    const matchesStatus = abaInterna === "ativos" ? c.status === "ativo" : c.status === "pendente_validacao";
-    return matchesCampaign && matchesBusca && matchesStatus;
-  });
+  const filtrados = useMemo(() => {
+    const list = db.comites.filter((c) => {
+      const matchesCampaign = campaign?.id
+        ? c.campaign_id === campaign.id || (!c.campaign_id && c.uf === campaign.uf)
+        : !c.uf || c.uf === (campaign?.uf || db.config.uf);
+      const matchesBusca = `${c.nome} ${c.bairro} ${c.coordenador} ${c.municipio}`.toLowerCase().includes(busca.toLowerCase());
+      const matchesStatus = abaInterna === "ativos" ? c.status === "ativo" : c.status === "pendente_validacao";
+      return matchesCampaign && matchesBusca && matchesStatus;
+    });
+
+    return list.sort((a, b) => {
+      if (ordenacao === 'nome-asc') {
+        return a.nome.localeCompare(b.nome, 'pt-BR');
+      } else if (ordenacao === 'nome-desc') {
+        return b.nome.localeCompare(a.nome, 'pt-BR');
+      } else {
+        const dataA = a.criado_em ? new Date(a.criado_em).getTime() : 0;
+        const dataB = b.criado_em ? new Date(b.criado_em).getTime() : 0;
+        return dataB - dataA;
+      }
+    });
+  }, [db.comites, campaign, busca, abaInterna, ordenacao]);
 
   async function salvar() {
     if (!form.nome.trim()) {
@@ -184,14 +200,26 @@ function ComitesPage() {
           </TabsList>
         </Tabs>
 
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            value={busca}
-            onChange={(e) => setBusca(e.target.value)}
-            placeholder="Buscar comitê, bairro ou coordenador"
-            className="h-12 rounded-xl bg-surface pl-9"
-          />
+        <div className="flex gap-2">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              value={busca}
+              onChange={(e) => setBusca(e.target.value)}
+              placeholder="Buscar comitê, bairro ou coordenador"
+              className="h-12 rounded-xl bg-surface pl-9"
+            />
+          </div>
+          <Select value={ordenacao} onValueChange={(v: any) => setOrdenacao(v)}>
+            <SelectTrigger className="h-12 w-[140px] rounded-xl bg-surface border-border font-medium">
+              <SelectValue placeholder="Ordenar por" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="nome-asc">Nome (A-Z)</SelectItem>
+              <SelectItem value="nome-desc">Nome (Z-A)</SelectItem>
+              <SelectItem value="recentes">Mais recentes</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
 
         <Dialog open={open} onOpenChange={setOpen}>
