@@ -55,11 +55,16 @@ export async function getUserCampaignAccesses(userId: string): Promise<UserCampa
   const { data: userData } = await supabase.auth.getUser();
   const email = userData?.user?.email || "";
   const phone = email.includes("@") ? email.split("@")[0] : "";
+  const phoneWithout55 = (phone.startsWith("55") && phone.length > 10) ? phone.slice(2) : phone;
 
-  // Buscar registros na tabela pessoas para este usuário por ID ou por Telefone
+  // Buscar registros na tabela pessoas para este usuário por ID ou por Telefone (com ou sem prefixo 55)
   let query = supabase.from("pessoas").select("campanha_id, papel_campanha, status");
   if (phone) {
-    query = query.or(`id.eq.${userId},telefone.eq.${phone}`);
+    if (phoneWithout55 !== phone) {
+      query = query.or(`id.eq.${userId},telefone.eq.${phone},telefone.eq.${phoneWithout55}`);
+    } else {
+      query = query.or(`id.eq.${userId},telefone.eq.${phone}`);
+    }
   } else {
     query = query.eq("id", userId);
   }
@@ -85,15 +90,30 @@ export async function getUserCampaignAccesses(userId: string): Promise<UserCampa
   
   // Se houver registros na tabela pessoas que não estão em campaign_members, adicioná-los
   if (pessoasData && pessoasData.length > 0) {
-    pessoasData.forEach(p => {
+    for (const p of pessoasData) {
       if (p.campanha_id && !allMemberships.some(m => m.campaign_id === p.campanha_id)) {
         allMemberships.push({
           campaign_id: p.campanha_id,
           role: p.papel_campanha || 'membro',
           status: p.status || 'pendente_aprovacao'
         });
+
+        // Auto-healing: insere na tabela campaign_members dinamicamente respeitando restrições do banco
+        try {
+          const dbRole = (p.papel_campanha || '').toLowerCase().includes('admin') ? 'admin' : 'member';
+          const dbStatus = p.status === 'ativo' ? 'approved' : 'pending';
+          
+          await supabase.from("campaign_members").insert([{
+            campaign_id: p.campanha_id,
+            user_id: userId,
+            role: dbRole,
+            status: dbStatus
+          } as any]);
+        } catch (e) {
+          console.warn("Falha no auto-healing de campaign_members:", e);
+        }
       }
-    });
+    }
   }
 
   // Filtrar membros aprovados (considerando status 'ativo' em pessoas como aprovado)
