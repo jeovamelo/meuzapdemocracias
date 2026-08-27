@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState, useRef } from "react";
+import { useState, useRef, useMemo } from "react";
 import {
   Archive,
   Edit,
@@ -668,7 +668,7 @@ function Kits() {
       (k) => !k.arquivado && (!campaign?.id || !k.campaign_id || k.campaign_id === campaign.id)
     );
     const filtered = list.filter((k) =>
-      `${k.nome} ${k.descricao}`.toLowerCase().includes(busca.toLowerCase())
+      `${k.nome} ${k.descricao || ""}`.toLowerCase().includes(busca.toLowerCase())
     );
     return filtered.sort((a, b) => {
       if (ordenacao === 'nome-asc') {
