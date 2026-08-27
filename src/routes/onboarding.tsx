@@ -30,6 +30,7 @@ import { useCampaignScope } from '@/hooks/useCampaignScope';
 import { useStore } from '@/lib/store';
 import { supabase } from '@/integrations/supabase/client';
 import { PAPEIS_CAMPANHA_OPCOES, type PapelCampanha } from '@/lib/db';
+import { compressImage } from '@/lib/utils';
 
 export const Route = createFileRoute('/onboarding')({
   component: OnboardingPage,
@@ -382,21 +383,18 @@ function OnboardingPage() {
     }
   };
 
-  const handleUploadFoto = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleUploadFoto = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      if (file.size > 5 * 1024 * 1024) {
-        toast.error('A imagem deve ter no máximo 5MB.');
-        return;
+      const toastId = toast.loading('Processando e comprimindo imagem...');
+      try {
+        const compressed = await compressImage(file, 800, 800, 0.75);
+        setFotoValidacaoPreview(compressed);
+        toast.success('Foto anexada com sucesso!', { id: toastId });
+      } catch (err) {
+        console.error('Erro ao processar imagem:', err);
+        toast.error('Erro ao processar imagem.', { id: toastId });
       }
-      const reader = new FileReader();
-      reader.onload = (ev) => {
-        if (ev.target?.result) {
-          setFotoValidacaoPreview(ev.target.result as string);
-          toast.success('Foto anexada com sucesso!');
-        }
-      };
-      reader.readAsDataURL(file);
     }
   };
 

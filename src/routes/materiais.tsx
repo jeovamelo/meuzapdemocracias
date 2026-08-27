@@ -20,6 +20,7 @@ import { toast } from "sonner";
 import { PageHeader } from "@/components/PageHeader";
 import { useStore } from "@/lib/store";
 import { useCampaignScope } from "@/hooks/useCampaignScope";
+import { compressImage } from "@/lib/utils";
 import {
   CATEGORIAS,
   formatNumero,
@@ -28,6 +29,7 @@ import {
   type CategoriaMaterial,
   type KitItem,
   type Kit,
+  type Material,
 } from "@/lib/db";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -123,10 +125,11 @@ function MateriaisPage() {
 }
 
 function Estoque() {
-  const { db, addMaterial, ajustarEstoque, archiveMaterial } = useStore();
+  const { db, addMaterial, updateMaterial, ajustarEstoque, archiveMaterial } = useStore();
   const { campaign } = useCampaignScope();
   const [busca, setBusca] = useState("");
   const [open, setOpen] = useState(false);
+  const [editingMaterial, setEditingMaterial] = useState<Material | null>(null);
   const [openEntrada, setOpenEntrada] = useState(false);
   const [openInventario, setOpenInventario] = useState(false);
   const [salvando, setSalvando] = useState(false);
@@ -151,14 +154,18 @@ function Estoque() {
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const handleFotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFotoChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setForm(f => ({ ...f, foto: reader.result as string }));
-      };
-      reader.readAsDataURL(file);
+      const toastId = toast.loading("Processando e comprimindo imagem...");
+      try {
+        const compressed = await compressImage(file, 800, 800, 0.7);
+        setForm(f => ({ ...f, foto: compressed }));
+        toast.success("Imagem processada com sucesso!", { id: toastId });
+      } catch (err) {
+        console.error("Erro ao processar imagem:", err);
+        toast.error("Erro ao processar imagem.", { id: toastId });
+      }
     }
   };
 
@@ -175,7 +182,8 @@ function Estoque() {
       return;
     }
     setSalvando(true);
-    await addMaterial({
+    
+    const materialData = {
       nome: form.nome,
       categoria: form.categoria,
       estoque: Number(form.estoque) || 0,
@@ -183,9 +191,19 @@ function Estoque() {
       descricao: form.descricao,
       foto: form.foto,
       campaign_id: campaign?.id || undefined,
-    });
+    };
+
+    if (editingMaterial) {
+      await updateMaterial(editingMaterial.id, materialData);
+      toast.success("Material atualizado.");
+    } else {
+      await addMaterial(materialData);
+      toast.success("Material cadastrado.");
+    }
+    
     setSalvando(false);
     setOpen(false);
+    setEditingMaterial(null);
     setForm({
       nome: "",
       categoria: "Folder / Santinho / Material Gráfico",
@@ -194,7 +212,6 @@ function Estoque() {
       descricao: "",
       foto: "",
     });
-    toast.success("Material cadastrado.");
   }
 
   async function processarEntradaLote() {
@@ -245,15 +262,43 @@ function Estoque() {
       </div>
 
       <div className="grid grid-cols-2 gap-2 md:grid-cols-3">
-        <Dialog open={open} onOpenChange={setOpen}>
-          <DialogTrigger className="flex items-center justify-center gap-2 rounded-xl bg-foreground px-4 py-4 text-xs font-bold text-background transition-transform active:scale-95">
+        <Dialog open={open} onOpenChange={(val) => {
+          setOpen(val);
+          if (!val) {
+            setEditingMaterial(null);
+            setForm({
+              nome: "",
+              categoria: "Folder / Santinho / Material Gráfico",
+              estoque: "",
+              estoque_minimo: "",
+              descricao: "",
+              foto: "",
+            });
+          }
+        }}>
+          <DialogTrigger
+            onClick={() => {
+              setEditingMaterial(null);
+              setForm({
+                nome: "",
+                categoria: "Folder / Santinho / Material Gráfico",
+                estoque: "",
+                estoque_minimo: "",
+                descricao: "",
+                foto: "",
+              });
+            }}
+            className="flex items-center justify-center gap-2 rounded-xl bg-foreground px-4 py-4 text-xs font-bold text-background transition-transform active:scale-95"
+          >
             Novo Material
             <Plus className="size-4" strokeWidth={3} />
           </DialogTrigger>
           <DialogContent className="max-h-[90vh] max-w-[500px] overflow-y-auto rounded-2xl">
             <DialogHeader>
-              <DialogTitle>Novo Material</DialogTitle>
-              <DialogDescription>Item de estoque da campanha.</DialogDescription>
+              <DialogTitle>{editingMaterial ? "Editar Material" : "Novo Material"}</DialogTitle>
+              <DialogDescription>
+                {editingMaterial ? "Atualize as informações do item no estoque." : "Item de estoque da campanha."}
+              </DialogDescription>
             </DialogHeader>
             <div className="space-y-4">
               {/* Área de Foto */}
@@ -359,7 +404,7 @@ function Estoque() {
                 className="flex w-full items-center justify-center gap-2 rounded-xl bg-primary py-4 font-bold text-primary-foreground disabled:opacity-60"
               >
                 {salvando && <Loader2 className="size-4 animate-spin" />}
-                Salvar Material
+                {editingMaterial ? "Salvar Alterações" : "Salvar Material"}
               </button>
             </div>
           </DialogContent>
@@ -515,23 +560,44 @@ function Estoque() {
                 <p
                   className={`font-mono text-[10px] uppercase ${critico ? "text-critical" : "text-muted-foreground"}`}
                 >
-                  {formatNumero(m.estoque)} {m.unidade} • mín {formatNumero(m.estoque_minimo)}
+                  mín: {m.estoque_minimo} {m.unidade}
                 </p>
               </div>
-              <div className="flex items-center gap-1">
+              <div className="flex items-center gap-1.5">
                 <button
-                  onClick={() => ajustarEstoque(m.id, -10)}
+                  onClick={() => ajustarEstoque(m.id, -1)}
                   aria-label={`Reduzir estoque de ${m.nome}`}
-                  className="flex size-9 items-center justify-center rounded-lg border border-border"
+                  className="flex size-9 items-center justify-center rounded-lg border border-border hover:bg-muted active:scale-95 transition-all"
                 >
                   <Minus className="size-4" />
                 </button>
+                <span className="min-w-[48px] text-center font-mono text-sm font-bold">
+                  {m.estoque}
+                </span>
                 <button
-                  onClick={() => ajustarEstoque(m.id, 10)}
+                  onClick={() => ajustarEstoque(m.id, 1)}
                   aria-label={`Aumentar estoque de ${m.nome}`}
-                  className="flex size-9 items-center justify-center rounded-lg border border-border"
+                  className="flex size-9 items-center justify-center rounded-lg border border-border hover:bg-muted active:scale-95 transition-all"
                 >
                   <Plus className="size-4" />
+                </button>
+                <button
+                  onClick={() => {
+                    setEditingMaterial(m);
+                    setForm({
+                      nome: m.nome,
+                      categoria: m.categoria,
+                      estoque: String(m.estoque),
+                      estoque_minimo: String(m.estoque_minimo),
+                      descricao: m.descricao || "",
+                      foto: m.foto || "",
+                    });
+                    setOpen(true);
+                  }}
+                  aria-label={`Editar ${m.nome}`}
+                  className="rounded-lg p-2 text-muted-foreground hover:text-primary active:scale-95 transition-all"
+                >
+                  <Edit className="size-4" />
                 </button>
                 <button
                   onClick={async () => {
@@ -541,7 +607,7 @@ function Estoque() {
                     }
                   }}
                   aria-label={`Arquivar ${m.nome}`}
-                  className="rounded-lg p-2 text-muted-foreground active:text-critical"
+                  className="rounded-lg p-2 text-muted-foreground hover:text-critical active:scale-95 transition-all"
                 >
                   <Archive className="size-4" />
                 </button>
