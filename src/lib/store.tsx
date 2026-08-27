@@ -81,6 +81,34 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   });
   const [ready, setReady] = useState(false);
 
+  const getNextNumeroPedido = useCallback((campaignId: string | undefined): string => {
+    const campaign = db.campanhas_registradas.find(c => c.id === campaignId);
+    const campaignNumber = campaign?.numero || db.config.numero || "00000";
+    
+    let maxSeq = 0;
+    const regex = new RegExp(`^#?PED-${campaignNumber}-(\\d{5})$`);
+    
+    const check = (num: string | null | undefined) => {
+      if (!num) return;
+      const match = num.trim().match(regex);
+      if (match && match[1]) {
+        const seq = parseInt(match[1], 10);
+        if (seq > maxSeq) maxSeq = seq;
+      }
+    };
+    
+    db.solicitacoes.forEach(sol => {
+      if (sol.campaign_id === campaignId) check(sol.numero_pedido);
+    });
+    
+    db.saidas.forEach(saida => {
+      if (saida.campaign_id === campaignId) check(saida.numero_pedido);
+    });
+    
+    const nextSeq = maxSeq + 1;
+    return `#PED-${campaignNumber}-${String(nextSeq).padStart(5, '0')}`;
+  }, [db.solicitacoes, db.saidas, db.campanhas_registradas, db.config.numero]);
+
   const fetchAll = useCallback(async () => {
     try {
       const [
@@ -420,7 +448,20 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       }
     },
     registrarSaida: async (s) => {
-      const { data: saidaCriada, error: errorSaida } = await supabase.from("saidas").insert([s]).select().single();
+      let nextPedido = s.numero_pedido;
+      const campaign = db.campanhas_registradas.find(c => c.id === s.campaign_id);
+      const campaignNumber = campaign?.numero || db.config.numero || "00000";
+      const regex = new RegExp(`^#?PED-${campaignNumber}-\\d{5}$`);
+      
+      if (!nextPedido || !regex.test(nextPedido)) {
+        if (nextPedido && nextPedido.startsWith("PED-")) {
+          nextPedido = `#${nextPedido}`;
+        } else {
+          nextPedido = getNextNumeroPedido(s.campaign_id);
+        }
+      }
+
+      const { data: saidaCriada, error: errorSaida } = await supabase.from("saidas").insert([{ ...s, numero_pedido: nextPedido }]).select().single();
       if (errorSaida) {
         toast.error(`Erro ao registrar saída: ${errorSaida.message}`);
         throw errorSaida;
@@ -461,7 +502,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       }
     },
     addSolicitacao: async (s) => {
-      const { data, error } = await supabase.from("solicitacoes").insert([{ ...s, status: "pendente" }]).select().single();
+      const nextPedido = s.numero_pedido || getNextNumeroPedido(s.campaign_id);
+      const { data, error } = await supabase.from("solicitacoes").insert([{ ...s, numero_pedido: nextPedido, status: "pendente" }]).select().single();
       if (error) {
         toast.error("Erro ao registrar solicitação");
         return null;

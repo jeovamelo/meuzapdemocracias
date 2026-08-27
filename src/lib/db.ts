@@ -90,6 +90,7 @@ export type Pessoa = {
 export type SolicitacaoMaterial = {
   id: string;
   campaign_id?: string;
+  numero_pedido?: string;
   nome: string;
   comite_id: string;
   lideranca_id?: string;

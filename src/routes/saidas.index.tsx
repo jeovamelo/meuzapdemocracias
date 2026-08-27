@@ -434,7 +434,7 @@ function SaidasPage() {
                         {formatData(s.criado_em)} às {formatHora(s.criado_em)}
                         {s.numero_pedido && (
                           <span className="font-mono bg-primary/10 text-primary px-1.5 py-0.5 rounded text-[9px] font-black">
-                            #{s.numero_pedido}
+                            {s.numero_pedido}
                           </span>
                         )}
                       </div>
@@ -530,6 +530,12 @@ function SaidasPage() {
                               {sol.nome || lider?.nome || "Solicitante Avulso"}
                             </h3>
                           </div>
+                          
+                          {sol.numero_pedido && (
+                            <span className="font-mono bg-orange-100 text-orange-800 border border-orange-200 px-2 py-0.5 rounded-lg text-[10px] font-black inline-block">
+                              {sol.numero_pedido}
+                            </span>
+                          )}
                           
                           <div className="flex flex-col gap-1 text-xs text-muted-foreground">
                             <p className="flex items-center gap-1.5 font-medium">

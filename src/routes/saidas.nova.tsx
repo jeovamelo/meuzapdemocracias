@@ -85,16 +85,32 @@ function NovaSaida() {
   }, [campaign]);
 
   const proximoSequencial = useMemo(() => {
-    // Contar pedidos / saídas já existentes da campanha
-    const saidasCampanha = (db.saidas || []).filter(
-      (s) => !campaign?.id || !s.campaign_id || s.campaign_id === campaign.id
-    );
-    const count = saidasCampanha.length + 1;
-    return String(count).padStart(5, "0");
-  }, [db.saidas, campaign]);
+    let maxSeq = 0;
+    const regex = new RegExp(`^#?PED-${numeroCandidato}-(\\d{5})$`);
+    
+    const check = (num: string | null | undefined) => {
+      if (!num) return;
+      const match = num.trim().match(regex);
+      if (match && match[1]) {
+        const seq = parseInt(match[1], 10);
+        if (seq > maxSeq) maxSeq = seq;
+      }
+    };
+    
+    (db.saidas || []).forEach(s => {
+      if (!campaign?.id || s.campaign_id === campaign.id) check(s.numero_pedido);
+    });
+    
+    (db.solicitacoes || []).forEach(sol => {
+      if (!campaign?.id || sol.campaign_id === campaign.id) check(sol.numero_pedido);
+    });
+    
+    const nextSeq = maxSeq + 1;
+    return String(nextSeq).padStart(5, "0");
+  }, [db.saidas, db.solicitacoes, campaign, numeroCandidato]);
 
   const numeroPedidoGerado = useMemo(() => {
-    return `PED-${numeroCandidato}-${proximoSequencial}`;
+    return `#PED-${numeroCandidato}-${proximoSequencial}`;
   }, [numeroCandidato, proximoSequencial]);
 
   // Materiais disponíveis no estoque da campanha

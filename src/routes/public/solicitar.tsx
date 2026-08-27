@@ -303,7 +303,7 @@ function PublicSolicitarPage() {
       } as any);
 
       if (solicitacaoCriada) {
-        setPedidoId(solicitacaoCriada.id);
+        setPedidoId(solicitacaoCriada.numero_pedido || solicitacaoCriada.id);
       }
 
       setPasso("sucesso");
@@ -683,7 +683,7 @@ function PublicSolicitarPage() {
                <h2 className="text-2xl font-extrabold text-slate-900">Solicitação Enviada com Sucesso!</h2>
                {pedidoId && (
                  <p className="text-sm font-mono font-bold text-orange-600 bg-orange-50 px-3 py-1 rounded-full inline-block">
-                   Pedido: #{pedidoId.substring(0, 8).toUpperCase()}
+                   Pedido: {pedidoId}
                  </p>
                )}
                <p className="text-sm text-slate-600 max-w-md mx-auto pt-2">
@@ -696,7 +696,7 @@ function PublicSolicitarPage() {
               {pedidoId && (
                 <div className="flex justify-between border-b border-slate-200/60 pb-1.5">
                   <span className="text-slate-500">Número do Pedido:</span>
-                  <span className="font-mono font-bold text-slate-900">#{pedidoId.substring(0, 8).toUpperCase()}</span>
+                  <span className="font-mono font-bold text-slate-900">{pedidoId}</span>
                 </div>
               )}
               <div className="flex justify-between border-b border-slate-200/60 pb-1.5">
