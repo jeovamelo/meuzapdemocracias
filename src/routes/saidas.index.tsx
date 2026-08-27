@@ -417,89 +417,92 @@ function SaidasPage() {
               <p className="text-xs text-muted-foreground mt-1">Clique em "Nova Saída de Material" para dar baixa.</p>
             </div>
           ) : (
-            saidasFiltradas.map((s) => {
-              const pessoa = (db.pessoas || []).find((p) => p.id === s.pessoa_id);
-              const comite = (db.comites || []).find((c) => c.id === s.comite_id);
-              const totalUnidades = s.itens.reduce((acc, i) => acc + i.quantidade, 0);
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 w-full">
+              {saidasFiltradas.map((s) => {
+                const pessoa = (db.pessoas || []).find((p) => p.id === s.pessoa_id);
+                const comite = (db.comites || []).find((c) => c.id === s.comite_id);
+                const totalUnidades = s.itens.reduce((acc, i) => acc + i.quantidade, 0);
 
-              return (
-                <article
-                  key={s.id}
-                  className="overflow-hidden rounded-2xl border border-border bg-surface shadow-sm transition-all hover:shadow-md"
-                >
-                  <div className="flex items-center justify-between border-b border-border/50 bg-muted/5 px-4 py-2.5">
-                    <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                      <Clock className="size-3" />
-                      {formatData(s.criado_em)} às {formatHora(s.criado_em)}
-                      {s.numero_pedido && (
-                        <span className="font-mono bg-primary/10 text-primary px-1.5 py-0.5 rounded text-[9px] font-black">
-                          #{s.numero_pedido}
-                        </span>
-                      )}
-                    </div>
-                    <span className="font-mono text-[10px] font-black uppercase text-primary">
-                      {formatNumero(totalUnidades)} ITENS
-                    </span>
-                  </div>
-
-                  <div className="p-4 space-y-3">
-                    <div className="flex items-start gap-3">
-                      <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
-                        <ArrowRightLeft className="size-5" />
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <p className="truncate font-bold leading-tight text-sm">{pessoa?.nome || "Responsável não identificado"}</p>
-                        <p className="text-xs text-muted-foreground">
-                          {pessoa?.funcao ? `${pessoa.funcao} • ` : ""}{pessoa?.municipio || comite?.municipio || "CE"}
-                        </p>
-                        <p className="flex items-center gap-1 text-[11px] text-muted-foreground mt-0.5">
-                          <MapPin className="size-3 shrink-0" /> {comite?.nome || "Comitê Central / Sede"}
-                        </p>
-                      </div>
-                      {pessoa?.telefone && (
-                        <a
-                          href={whatsappLink(pessoa.telefone)}
-                          target="_blank"
-                          rel="noreferrer"
-                          title="Contato no WhatsApp"
-                          className="flex size-8 items-center justify-center rounded-lg bg-[#25D366]/15 text-[#128C7E] hover:bg-[#25D366] hover:text-white transition-all shadow-sm"
-                        >
-                          <Send className="size-3.5" />
-                        </a>
-                      )}
-                    </div>
-
-                    <div className="flex flex-wrap gap-1.5 pt-2 border-t border-border/50">
-                      {(s.kits || []).map((k, idx) => {
-                        const kit = (db.kits || []).find((x) => x.id === k.kit_id);
-                        return (
-                          <Badge key={idx} variant="outline" className="bg-primary/5 text-primary border-primary/20 text-[10px]">
-                            <Package className="size-2.5 mr-1" />
-                            {k.quantidade}x {kit?.nome || "Kit"}
-                          </Badge>
-                        );
-                      })}
-                      {(s.itens || []).map((i, idx) => {
-                        const m = (db.materiais || []).find((x) => x.id === i.material_id);
-                        return (
-                          <span
-                            key={idx}
-                            className="inline-flex items-center gap-1 rounded-md bg-muted/40 px-2 py-0.5 text-[11px] text-muted-foreground font-mono"
-                          >
-                            <strong>{i.quantidade}x</strong> {m?.nome || "Material"}
+                return (
+                  <article
+                    key={s.id}
+                    className="overflow-hidden rounded-2xl border border-border bg-surface shadow-sm transition-all hover:shadow-md"
+                  >
+                    <div className="flex items-center justify-between border-b border-border/50 bg-muted/5 px-4 py-2.5">
+                      <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                        <Clock className="size-3" />
+                        {formatData(s.criado_em)} às {formatHora(s.criado_em)}
+                        {s.numero_pedido && (
+                          <span className="font-mono bg-primary/10 text-primary px-1.5 py-0.5 rounded text-[9px] font-black">
+                            #{s.numero_pedido}
                           </span>
-                        );
-                      })}
+                        )}
+                      </div>
+                      <span className="font-mono text-[10px] font-black uppercase text-primary">
+                        {formatNumero(totalUnidades)} ITENS
+                      </span>
                     </div>
-                  </div>
-                </article>
-              );
-            })
+
+                    <div className="p-4 space-y-3">
+                      <div className="flex items-start gap-3">
+                        <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                          <ArrowRightLeft className="size-5" />
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate font-bold leading-tight text-sm">{pessoa?.nome || "Responsável não identificado"}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {pessoa?.funcao ? `${pessoa.funcao} • ` : ""}{pessoa?.municipio || comite?.municipio || "CE"}
+                          </p>
+                          <p className="flex items-center gap-1 text-[11px] text-muted-foreground mt-0.5">
+                            <MapPin className="size-3 shrink-0" /> {comite?.nome || "Comitê Central / Sede"}
+                          </p>
+                        </div>
+                        {pessoa?.telefone && (
+                          <a
+                            href={whatsappLink(pessoa.telefone)}
+                            target="_blank"
+                            rel="noreferrer"
+                            title="Contato no WhatsApp"
+                            className="flex size-8 items-center justify-center rounded-lg bg-[#25D366]/15 text-[#128C7E] hover:bg-[#25D366] hover:text-white transition-all shadow-sm"
+                          >
+                            <Send className="size-3.5" />
+                          </a>
+                        )}
+                      </div>
+
+                      <div className="flex flex-wrap gap-1.5 pt-2 border-t border-border/50">
+                        {(s.kits || []).map((k, idx) => {
+                          const kit = (db.kits || []).find((x) => x.id === k.kit_id);
+                          return (
+                            <Badge key={idx} variant="outline" className="bg-primary/5 text-primary border-primary/20 text-[10px]">
+                              <Package className="size-2.5 mr-1" />
+                              {k.quantidade}x {kit?.nome || "Kit"}
+                            </Badge>
+                          );
+                        })}
+                        {(s.itens || []).map((i, idx) => {
+                          const m = (db.materiais || []).find((x) => x.id === i.material_id);
+                          return (
+                            <span
+                              key={idx}
+                              className="inline-flex items-center gap-1 rounded-md bg-muted/40 px-2 py-0.5 text-[11px] text-muted-foreground font-mono"
+                            >
+                              <strong>{i.quantidade}x</strong> {m?.nome || "Material"}
+                            </span>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </article>
+                );
+              })}
+            </div>
+          )
           )}
         </TabsContent>
 
         {/* ABA: FILA DE PENDÊNCIAS */}
-        <TabsContent value="pendentes" className="mt-4 space-y-3">
+        <TabsContent value="pendentes" className="mt-4 pb-24">
           {solicitacoesPendentes.length === 0 ? (
             <div className="rounded-2xl border border-border bg-surface p-12 text-center">
               <CheckCircle2 className="mx-auto mb-3 size-10 text-success" />
@@ -507,57 +510,89 @@ function SaidasPage() {
               <p className="text-xs text-muted-foreground mt-1">Todos os pedidos externos foram atendidos.</p>
             </div>
           ) : (
-            solicitacoesPendentes.map((sol) => {
-              const lider = (db.pessoas || []).find((p) => p.id === sol.lideranca_id);
-              const totalQtd = (sol.itens || []).reduce((acc, i) => acc + i.quantidade, 0);
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 w-full">
+              {solicitacoesPendentes.map((sol) => {
+                const lider = (db.pessoas || []).find((p) => p.id === sol.lideranca_id);
+                const totalQtd = (sol.itens || []).reduce((acc, i) => acc + i.quantidade, 0);
 
-              return (
-                <article
-                  key={sol.id}
-                  className="rounded-2xl border border-border bg-surface p-4 shadow-sm space-y-3 transition-all hover:shadow-md"
-                >
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="space-y-1 min-w-0 flex-1">
-                      <div className="flex items-center gap-2">
-                        <span className="size-2 rounded-full bg-critical animate-pulse" />
-                        <p className="font-bold text-sm truncate">{sol.nome || lider?.nome || "Solicitante Avulso"}</p>
+                return (
+                  <article
+                    key={sol.id}
+                    className="flex flex-col justify-between overflow-hidden rounded-2xl border border-border bg-surface shadow-sm hover:shadow-md transition-all"
+                  >
+                    {/* Card Content Wrapper */}
+                    <div className="p-5 flex-1 space-y-4">
+                      {/* Name of requester in bold/large font */}
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="space-y-1.5 min-w-0">
+                          <div className="flex items-center gap-2">
+                            <span className="size-2.5 rounded-full bg-critical animate-pulse shrink-0" />
+                            <h3 className="font-extrabold text-base sm:text-lg text-foreground tracking-tight truncate leading-tight">
+                              {sol.nome || lider?.nome || "Solicitante Avulso"}
+                            </h3>
+                          </div>
+                          
+                          <div className="flex flex-col gap-1 text-xs text-muted-foreground">
+                            <p className="flex items-center gap-1.5 font-medium">
+                              <MapPin className="size-3.5 shrink-0 text-muted-foreground/80" /> 
+                              <span className="truncate">
+                                {sol.municipio || lider?.municipio || "CE"} {sol.endereco_entrega ? `• ${sol.endereco_entrega}` : ""}
+                              </span>
+                            </p>
+                            {lider?.meta_votos && lider.meta_votos > 0 && (
+                              <p className="font-bold text-orange-600 flex items-center gap-1.5">
+                                <Target className="size-3.5 shrink-0 text-orange-600" />
+                                <span>Meta de Mobilização: {formatNumero(lider.meta_votos)} votos</span>
+                              </p>
+                            )}
+                          </div>
+                        </div>
+
+                        {lider?.telefone && (
+                          <a
+                            href={whatsappLink(lider.telefone)}
+                            target="_blank"
+                            rel="noreferrer"
+                            title="Contato no WhatsApp"
+                            className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-[#25D366]/10 text-[#128C7E] hover:bg-[#25D366] hover:text-white transition-all shadow-xs"
+                          >
+                            <Send className="size-4" />
+                          </a>
+                        )}
                       </div>
-                      <p className="text-xs text-muted-foreground flex items-center gap-1">
-                        <MapPin className="size-3" /> {sol.municipio || lider?.municipio || "CE"} {sol.endereco_entrega ? `• ${sol.endereco_entrega}` : ""}
-                      </p>
-                      {lider?.meta_votos && lider.meta_votos > 0 && (
-                        <p className="text-[11px] font-bold text-orange-600 flex items-center gap-1">
-                          <Target className="size-3" /> Meta de Mobilização: {formatNumero(lider.meta_votos)} votos
-                        </p>
-                      )}
+
+                      {/* Chips/Tags List */}
+                      <div className="flex flex-wrap gap-2 pt-3 border-t border-border/60">
+                        {(sol.itens || []).map((i, idx) => {
+                          const m = (db.materiais || []).find((x) => x.id === i.material_id);
+                          return (
+                            <div
+                              key={idx}
+                              className="inline-flex items-center gap-1.5 rounded-xl bg-primary/5 hover:bg-primary/10 border border-primary/20 px-3 py-1.5 text-xs font-bold text-primary transition-colors"
+                            >
+                              <span className="bg-primary text-primary-foreground px-1.5 py-0.5 rounded-md text-[10px] font-mono font-black">
+                                {i.quantidade}x
+                              </span>
+                              <span className="truncate max-w-[200px]">{m?.nome || "Material"}</span>
+                            </div>
+                          );
+                        })}
+                      </div>
                     </div>
 
-                    <Button
-                      size="sm"
+                    {/* Edge-to-Edge Action Button */}
+                    <button
                       disabled={despachandoId === sol.id}
                       onClick={() => handleDespachar(sol.id)}
-                      className="bg-green-600 hover:bg-green-700 text-white font-bold text-xs h-9 rounded-xl shadow-sm cursor-pointer"
+                      className="w-full h-12 flex items-center justify-center gap-2 bg-green-600 hover:bg-green-700 disabled:bg-slate-300 disabled:cursor-not-allowed text-white font-bold text-sm border-t border-green-700/20 cursor-pointer transition-all active:scale-[0.99] py-3.5"
                     >
-                      {despachandoId === sol.id ? "Despachando..." : "Despachar e Baixar"}
-                    </Button>
-                  </div>
-
-                  <div className="flex flex-wrap gap-1.5 pt-2 border-t border-border/50">
-                    {(sol.itens || []).map((i, idx) => {
-                      const m = (db.materiais || []).find((x) => x.id === i.material_id);
-                      return (
-                        <span
-                          key={idx}
-                          className="inline-flex items-center gap-1 rounded-md bg-muted/40 px-2 py-0.5 text-[11px] font-mono text-muted-foreground"
-                        >
-                          <strong>{i.quantidade}x</strong> {m?.nome || "Material"}
-                        </span>
-                      );
-                    })}
-                  </div>
-                </article>
-              );
-            })
+                      <CheckCircle2 className="size-4" />
+                      <span>{despachandoId === sol.id ? "Despachando..." : "Despachar e Baixar Estoque"}</span>
+                    </button>
+                  </article>
+                );
+              })}
+            </div>
           )}
         </TabsContent>
       </Tabs>
