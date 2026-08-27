@@ -173,6 +173,15 @@ function Estoque() {
   const ativos = db.materiais.filter(
     (m) => !m.arquivado && (!campaign?.id || !m.campaign_id || m.campaign_id === campaign.id)
   );
+
+  const [buscaLote, setBuscaLote] = useState("");
+
+  const ativosLote = useMemo(() => {
+    const list = ativos.filter((m) =>
+      m.nome.toLowerCase().includes(buscaLote.toLowerCase())
+    );
+    return list.sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'));
+  }, [ativos, buscaLote]);
   const filtrados = useMemo(() => {
     const list = ativos.filter((m) =>
       `${m.nome} ${m.categoria}`.toLowerCase().includes(busca.toLowerCase()),
@@ -436,7 +445,10 @@ function Estoque() {
           </DialogContent>
         </Dialog>
 
-        <Dialog open={openEntrada} onOpenChange={setOpenEntrada}>
+        <Dialog open={openEntrada} onOpenChange={(val) => {
+          setOpenEntrada(val);
+          if (!val) setBuscaLote("");
+        }}>
           <DialogTrigger className="flex items-center justify-center gap-2 rounded-xl bg-surface border border-border px-4 py-4 text-xs font-bold transition-transform active:scale-95">
             Entrada Lote
             <History className="size-4" />
@@ -449,8 +461,17 @@ function Estoque() {
               </DialogDescription>
             </DialogHeader>
             <div className="space-y-4">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  value={buscaLote}
+                  onChange={(e) => setBuscaLote(e.target.value)}
+                  placeholder="Buscar material por nome..."
+                  className="h-10 rounded-xl bg-surface pl-9"
+                />
+              </div>
               <div className="divide-y divide-border">
-                {ativos.map((m) => (
+                {ativosLote.map((m) => (
                   <div key={m.id} className="flex items-center gap-3 py-3">
                     <div className="flex size-10 items-center justify-center rounded bg-foreground/5">
                       {(() => {

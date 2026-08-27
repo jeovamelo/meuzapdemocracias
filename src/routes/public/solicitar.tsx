@@ -29,6 +29,7 @@ import { Badge } from "@/components/ui/badge";
 import { formatNumero, type Material, type CategoriaMaterial } from "@/lib/db";
 import { EstadoCidadeSelect } from "@/components/EstadoCidadeSelect";
 import { supabase } from "@/integrations/supabase/client";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 export const Route = createFileRoute("/public/solicitar")({
   head: () => ({
@@ -98,6 +99,8 @@ function PublicSolicitarPage() {
   const [nome, setNome] = useState("");
   const [telefone, setTelefone] = useState("");
   const [expectativaVotos, setExpectativaVotos] = useState("1");
+  const [buscaMaterial, setBuscaMaterial] = useState("");
+  const [ordenacao, setOrdenacao] = useState<'nome-asc' | 'nome-desc'>('nome-asc');
 
   // 2. ENDEREÇO BASEADO NO CEP (FORMATO PADRÃO)
   const [cep, setCep] = useState("");
@@ -115,10 +118,20 @@ function PublicSolicitarPage() {
 
   // Materiais disponíveis da campanha
   const materiaisCampanha = useMemo(() => {
-    return db.materiais.filter(
+    const list = db.materiais.filter(
       (m) => !m.arquivado && (!campanhaAtiva?.id || !m.campaign_id || m.campaign_id === campanhaAtiva.id)
     );
-  }, [db.materiais, campanhaAtiva]);
+    const filtered = list.filter((m) =>
+      m.nome.toLowerCase().includes(buscaMaterial.toLowerCase())
+    );
+    return filtered.sort((a, b) => {
+      if (ordenacao === 'nome-asc') {
+        return a.nome.localeCompare(b.nome, 'pt-BR');
+      } else {
+        return b.nome.localeCompare(a.nome, 'pt-BR');
+      }
+    });
+  }, [db.materiais, campanhaAtiva, buscaMaterial, ordenacao]);
 
   const itensSelecionados = useMemo(() => {
     return Object.entries(quantidades)
@@ -168,16 +181,18 @@ function PublicSolicitarPage() {
 
         if (!error && pessoasDb && pessoasDb.length > 0) {
           const p = pessoasDb[0];
-          if (p.nome) setNome(p.nome);
-          if (p.telefone) setTelefone(p.telefone);
-          if (p.meta_votos) setExpectativaVotos(String(p.meta_votos));
-          if (p.cep) setCep(formatCep(p.cep));
-          if (p.endereco) setLogradouro(p.endereco);
-          if (p.numero) setNumeroEnd(p.numero);
-          if (p.complemento) setComplemento(p.complemento);
-          if (p.bairro) setBairro(p.bairro);
-          if (p.municipio) setCidade(p.municipio);
-          if (p.uf) setUf(p.uf);
+          if (p) {
+             if (p.nome) setNome(p.nome);
+             if (p.telefone) setTelefone(p.telefone);
+             if (p.meta_votos) setExpectativaVotos(String(p.meta_votos));
+             if (p.cep) setCep(formatCep(p.cep));
+             if (p.endereco) setLogradouro(p.endereco);
+             if (p.numero) setNumeroEnd(p.numero);
+             if (p.complemento) setComplemento(p.complemento);
+             if (p.bairro) setBairro(p.bairro);
+             if (p.municipio) setCidade(p.municipio);
+             if (p.uf) setUf(p.uf);
+           }
 
           setCpfEncontrado(true);
           toast.success("Cadastro localizado no sistema! Dados preenchidos automaticamente.");
@@ -224,16 +239,16 @@ function PublicSolicitarPage() {
 
   const handleAvancarParaMateriais = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!cpf.trim() || cpf.replace(/\D/g, "").length !== 11) {
-      toast.error("Informe um CPF válido com 11 dígitos.");
+    if (cpf.trim() && cpf.replace(/\D/g, "").length !== 11) {
+      toast.error("Se informado, o CPF deve possuir 11 dígitos.");
       return;
     }
     if (!nome.trim()) {
       toast.error("Informe seu Nome Completo.");
       return;
     }
-    if (!telefone.trim() || telefone.replace(/\D/g, "").length < 10) {
-      toast.error("Informe seu número de WhatsApp com DDD para combinarmos a entrega.");
+    if (telefone.trim() && telefone.replace(/\D/g, "").length < 10) {
+      toast.error("Se informado, o WhatsApp/Telefone deve possuir DDD + número.");
       return;
     }
     const finalVotos = Number(expectativaVotos) > 0 ? Number(expectativaVotos) : 1;
@@ -258,21 +273,21 @@ function PublicSolicitarPage() {
       // 1. Cadastra/atualiza a pessoa como apoiadora com expectativa de votos
       const pessoaCriada = await addPessoa({
         nome: nome.trim(),
-        cpf: cpf.replace(/\D/g, "") || undefined,
-        telefone: telefone.trim(),
+        cpf: cpf.trim() ? cpf.replace(/\D/g, "") : "",
         tipo: "apoiador",
         funcao: "Apoiador(a) / Mobilizador(a)",
         meta_votos: Number(expectativaVotos) > 0 ? Number(expectativaVotos) : 1,
-        campanha_id: campanhaAtiva?.id,
         uf: uf,
         municipio: cidade,
-        cep: cep ? cep.replace(/\D/g, "") : undefined,
-        endereco: enderecoCompleto,
-        numero: numeroEnd || undefined,
-        complemento: complemento || undefined,
-        bairro: bairro || undefined,
         status: "ativo",
-      });
+        ...(telefone.trim() ? { telefone: telefone.trim() } : { telefone: "" }),
+        ...(campanhaAtiva?.id ? { campanha_id: campanhaAtiva.id } : {}),
+        ...(cep.trim() ? { cep: cep.replace(/\D/g, "") } : {}),
+        ...(enderecoCompleto ? { endereco: enderecoCompleto } : {}),
+        ...(numeroEnd.trim() ? { numero: numeroEnd.trim() } : {}),
+        ...(complemento.trim() ? { complemento: complemento.trim() } : {}),
+        ...(bairro.trim() ? { bairro: bairro.trim() } : {}),
+      } as any);
 
       // 2. Cria a solicitação no banco
       await addSolicitacao({
@@ -284,7 +299,7 @@ function PublicSolicitarPage() {
         tipo_logistica: tipoLogistica,
         endereco_entrega: enderecoCompleto,
         itens: itensSelecionados,
-      });
+      } as any);
 
       setPasso("sucesso");
       window.scrollTo({ top: 0, behavior: "smooth" });
@@ -351,7 +366,7 @@ function PublicSolicitarPage() {
               <div className="space-y-1.5">
                 <div className="flex justify-between items-center">
                   <Label className="text-xs font-bold text-slate-800">
-                    CPF <span className="text-rose-500">*</span>
+                    CPF
                   </Label>
                   <span className="text-[11px] text-slate-500">
                     {buscandoCpf ? "Consultando base de dados..." : "Digite para preenchimento automático"}
@@ -359,7 +374,6 @@ function PublicSolicitarPage() {
                 </div>
                 <div className="relative">
                   <Input
-                    required
                     value={cpf}
                     onChange={(e) => handleCpfChange(e.target.value)}
                     placeholder="000.000.000-00"
@@ -398,10 +412,9 @@ function PublicSolicitarPage() {
               {/* 3. WHATSAPP / TELEFONE */}
               <div className="space-y-1.5">
                 <Label className="text-xs font-bold text-slate-800">
-                  WhatsApp / Telefone <span className="text-rose-500">*</span>
+                  WhatsApp / Telefone
                 </Label>
                 <Input
-                  required
                   type="tel"
                   value={telefone}
                   onChange={(e) => setTelefone(e.target.value)}
@@ -566,6 +579,27 @@ function PublicSolicitarPage() {
               <h2 className="text-xs font-bold uppercase tracking-wider text-slate-600 flex items-center gap-2">
                 <Package className="size-4 text-orange-600" /> 2. Selecione os Materiais Desejados
               </h2>
+
+              <div className="flex gap-2">
+                <div className="relative flex-1">
+                  <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+                  <Input
+                    value={buscaMaterial}
+                    onChange={(e) => setBuscaMaterial(e.target.value)}
+                    placeholder="Buscar material por nome..."
+                    className="h-12 rounded-xl bg-white pl-9 shadow-xs"
+                  />
+                </div>
+                <Select value={ordenacao} onValueChange={(v: any) => setOrdenacao(v)}>
+                  <SelectTrigger className="h-12 w-[110px] rounded-xl bg-white border-border font-medium text-xs shadow-xs">
+                    <SelectValue placeholder="Ordenar" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="nome-asc">A-Z</SelectItem>
+                    <SelectItem value="nome-desc">Z-A</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
 
               {materiaisCampanha.length === 0 ? (
                 <div className="rounded-2xl border border-slate-200 bg-white p-8 text-center shadow-xs">
