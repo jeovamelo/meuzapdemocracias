@@ -89,6 +89,7 @@ function PublicSolicitarPage() {
 
   const [passo, setPasso] = useState<"dados" | "materiais" | "sucesso">("dados");
   const [salvando, setSalvando] = useState(false);
+  const [pedidoId, setPedidoId] = useState("");
 
   // 1. DADOS DO SOLICITANTE
   // Prioridade: CPF como 1º campo com auto-lookup
@@ -290,7 +291,7 @@ function PublicSolicitarPage() {
       } as any);
 
       // 2. Cria a solicitação no banco
-      await addSolicitacao({
+      const solicitacaoCriada = await addSolicitacao({
         nome: nome.trim(),
         comite_id: db.comites[0]?.id || "",
         lideranca_id: pessoaCriada?.id,
@@ -300,6 +301,10 @@ function PublicSolicitarPage() {
         endereco_entrega: enderecoCompleto,
         itens: itensSelecionados,
       } as any);
+
+      if (solicitacaoCriada) {
+        setPedidoId(solicitacaoCriada.id);
+      }
 
       setPasso("sucesso");
       window.scrollTo({ top: 0, behavior: "smooth" });
@@ -668,24 +673,35 @@ function PublicSolicitarPage() {
           </div>
         )}
 
-        {/* TELA 3: SUCESSO */}
-        {passo === "sucesso" && (
-          <div className="rounded-3xl border border-slate-200 bg-white p-8 text-center space-y-5 animate-in fade-in duration-300 shadow-xl">
-            <div className="flex size-16 mx-auto items-center justify-center rounded-full bg-emerald-100 text-emerald-600">
-              <CheckCircle2 className="size-10" />
-            </div>
-            <div className="space-y-1">
-              <h2 className="text-2xl font-extrabold text-slate-900">Solicitação Enviada com Sucesso!</h2>
-              <p className="text-sm text-slate-600 max-w-md mx-auto">
-                Obrigado, <strong>{nome}</strong>! Sua solicitação de {formatNumero(totalItens)} itens e compromisso de {formatNumero(Number(expectativaVotos))} votos foi registrada para a equipe de logística de{" "}
-                <strong>{campanhaAtiva?.candidato_urna || "nossa campanha"}</strong>.
-              </p>
-            </div>
+         {/* TELA 3: SUCESSO */}
+         {passo === "sucesso" && (
+           <div className="rounded-3xl border border-slate-200 bg-white p-8 text-center space-y-5 animate-in fade-in duration-300 shadow-xl">
+             <div className="flex size-16 mx-auto items-center justify-center rounded-full bg-emerald-100 text-emerald-600">
+               <CheckCircle2 className="size-10" />
+             </div>
+             <div className="space-y-1">
+               <h2 className="text-2xl font-extrabold text-slate-900">Solicitação Enviada com Sucesso!</h2>
+               {pedidoId && (
+                 <p className="text-sm font-mono font-bold text-orange-600 bg-orange-50 px-3 py-1 rounded-full inline-block">
+                   Pedido: #{pedidoId.substring(0, 8).toUpperCase()}
+                 </p>
+               )}
+               <p className="text-sm text-slate-600 max-w-md mx-auto pt-2">
+                 Obrigado, <strong>{nome}</strong>! Sua solicitação de {formatNumero(totalItens)} itens e compromisso de {formatNumero(Number(expectativaVotos))} votos foi registrada para a equipe de logística de{" "}
+                 <strong>{campanhaAtiva?.candidato_urna || "nossa campanha"}</strong>.
+               </p>
+             </div>
 
             <div className="rounded-2xl border border-slate-100 bg-slate-50 p-4 text-left space-y-2 text-xs text-slate-700">
+              {pedidoId && (
+                <div className="flex justify-between border-b border-slate-200/60 pb-1.5">
+                  <span className="text-slate-500">Número do Pedido:</span>
+                  <span className="font-mono font-bold text-slate-900">#{pedidoId.substring(0, 8).toUpperCase()}</span>
+                </div>
+              )}
               <div className="flex justify-between border-b border-slate-200/60 pb-1.5">
                 <span className="text-slate-500">Solicitante:</span>
-                <span className="font-bold text-slate-900">{nome} (CPF: {cpf})</span>
+                <span className="font-bold text-slate-900">{nome} {cpf ? `(CPF: ${cpf})` : ''}</span>
               </div>
               <div className="flex justify-between border-b border-slate-200/60 pb-1.5">
                 <span className="text-slate-500">WhatsApp:</span>
@@ -709,7 +725,7 @@ function PublicSolicitarPage() {
                   setNome("");
                   setCpf("");
                   setTelefone("");
-                  setExpectativaVotos("1");
+                  setPedidoId("");
                   setCpfEncontrado(false);
                 }}
                 variant="outline"

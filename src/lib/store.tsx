@@ -36,7 +36,7 @@ type Ctx = {
   updateKit: (id: string, k: Partial<Kit>) => Promise<void>;
   archiveKit: (id: string) => Promise<void>;
   registrarSaida: (s: Omit<Saida, "id" | "criado_em">) => Promise<void>;
-  addSolicitacao: (s: Omit<SolicitacaoMaterial, "id" | "criado_em" | "status">) => Promise<void>;
+  addSolicitacao: (s: Omit<SolicitacaoMaterial, "id" | "criado_em" | "status">) => Promise<SolicitacaoMaterial | null>;
   updateSolicitacao: (id: string, s: Partial<SolicitacaoMaterial>) => Promise<void>;
   despacharSolicitacao: (id: string) => Promise<void>;
   updateCidadeMeta: (id: string, cm: Partial<CidadeMeta>) => Promise<void>;
@@ -464,10 +464,13 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       const { data, error } = await supabase.from("solicitacoes").insert([{ ...s, status: "pendente" }]).select().single();
       if (error) {
         toast.error("Erro ao registrar solicitação");
+        return null;
       } else if (data) {
         setDb(prev => ({ ...prev, solicitacoes: [data as any, ...prev.solicitacoes] }));
         toast.success("Solicitação enviada com sucesso!");
+        return data as SolicitacaoMaterial;
       }
+      return null;
     },
     updateSolicitacao: async (id, s) => {
       const { error } = await supabase.from("solicitacoes").update(s).eq("id", id);
