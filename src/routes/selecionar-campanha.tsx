@@ -33,13 +33,16 @@ function CampaignSelectorPage() {
 
         const result = await getUserCampaignAccesses(data.session.user.id);
         if (!active) return;
+        
+        const approvedCampaigns = result.filter(r => r.status === 'approved' || r.status === 'ativo' || r.status === 'aprovado');
+
         if (result.length === 0) {
           toast.info("Nenhuma campanha liberada para esta conta.");
           navigate({ to: "/onboarding" });
           return;
         }
-        if (result.length === 1) {
-          activateCampaignAccess(result[0]);
+        if (approvedCampaigns.length === 1 && result.length === 1 && approvedCampaigns[0]) {
+          activateCampaignAccess(approvedCampaigns[0]);
           navigate({ to: "/dashboard" });
           return;
         }
@@ -72,8 +75,7 @@ function CampaignSelectorPage() {
           </div>
           <h1 className="text-3xl font-black tracking-tight text-slate-950">Escolha a campanha</h1>
           <p className="mt-2 text-sm text-slate-600">
-            Sua conta possui acesso a mais de uma campanha. Selecione qual deseja administrar nesta
-            sessão.
+            Selecione a campanha para acessar o painel administrativo.
           </p>
         </header>
 
@@ -86,37 +88,54 @@ function CampaignSelectorPage() {
           </div>
         ) : (
           <div className="grid gap-4 sm:grid-cols-2">
-            {accesses.map((access) => (
-              <article
-                key={access.campaignId}
-                className="flex flex-col rounded-2xl border bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
-              >
-                <div className="flex items-start justify-between gap-3">
-                  <div className="rounded-xl bg-primary/10 p-2.5 text-primary">
-                    {access.role === "admin" ? (
-                      <ShieldCheck className="h-5 w-5" />
-                    ) : (
-                      <Users className="h-5 w-5" />
-                    )}
+            {accesses.map((access) => {
+              const isApproved = access.status === 'approved' || access.status === 'ativo' || access.status === 'aprovado';
+              
+              return (
+                <article
+                  key={access.campaignId}
+                  className="flex flex-col rounded-2xl border bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="rounded-xl bg-primary/10 p-2.5 text-primary">
+                      {access.role === "admin" ? (
+                        <ShieldCheck className="h-5 w-5" />
+                      ) : (
+                        <Users className="h-5 w-5" />
+                      )}
+                    </div>
+                    <div className="flex gap-1.5 items-center">
+                      {!isApproved && (
+                        <Badge variant="outline" className="bg-amber-50 text-amber-600 border-amber-200 text-[10px] font-bold">
+                          Aguardando Liberação
+                        </Badge>
+                      )}
+                      <Badge variant={access.role === "admin" ? "default" : "secondary"}>
+                        {access.role === "admin" ? "Administrador" : "Membro"}
+                      </Badge>
+                    </div>
                   </div>
-                  <Badge variant={access.role === "admin" ? "default" : "secondary"}>
-                    {access.role === "admin" ? "Administrador" : "Membro"}
-                  </Badge>
-                </div>
-                <h2 className="mt-4 text-lg font-extrabold text-slate-950">
-                  {access.campaignName}
-                </h2>
-                <p className="mt-1 text-sm font-semibold text-slate-700">
-                  {access.ballotName} {access.candidateNumber && `• ${access.candidateNumber}`}
-                </p>
-                <p className="mt-1 text-xs uppercase tracking-wide text-slate-500">
-                  {[access.office, access.uf, access.party].filter(Boolean).join(" • ")}
-                </p>
-                <Button className="mt-6 w-full" onClick={() => selectCampaign(access)}>
-                  Acessar campanha <ArrowRight className="ml-2 h-4 w-4" />
-                </Button>
-              </article>
-            ))}
+                  <h2 className="mt-4 text-lg font-extrabold text-slate-950">
+                    {access.campaignName}
+                  </h2>
+                  <p className="mt-1 text-sm font-semibold text-slate-700">
+                    {access.ballotName} {access.candidateNumber && `• ${access.candidateNumber}`}
+                  </p>
+                  <p className="mt-1 text-xs uppercase tracking-wide text-slate-500">
+                    {[access.office, access.uf, access.party].filter(Boolean).join(" • ")}
+                  </p>
+                  {isApproved ? (
+                    <Button className="mt-6 w-full" onClick={() => selectCampaign(access)}>
+                      Acessar campanha <ArrowRight className="ml-2 h-4 w-4" />
+                    </Button>
+                  ) : (
+                    <Button className="mt-6 w-full bg-slate-100 text-slate-400 hover:bg-slate-100 cursor-not-allowed" disabled>
+                      Pendente de Aprovação
+                    </Button>
+                  )}
+                </article>
+              );
+            })}
           </div>
         )}
       </div>

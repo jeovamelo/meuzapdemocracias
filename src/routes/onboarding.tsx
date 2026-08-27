@@ -540,9 +540,13 @@ function OnboardingPage() {
     if (!isResponsavel && campanhaJaCadastrada) {
       setIsSubmitting(true);
       try {
+        const { data: sessionData } = await supabase.auth.getSession();
+        const authenticatedUserId = sessionData?.session?.user?.id;
         const isApoiador = adminPapel === 'Apoiador(a) / Eleitor(a) Simpatizante' || adminPapel === 'Eleitor e Outros';
         const tipoPessoa = isApoiador ? 'apoiador' : 'responsavel';
+        
         const pessoaMembro = await addPessoa({
+          ...(authenticatedUserId ? { id: authenticatedUserId } : {}),
           nome: adminNome,
           cpf: adminCpf,
           telefone: adminTelefone,
@@ -629,7 +633,11 @@ function OnboardingPage() {
       });
 
       // 2. Cadastrar Usuário Administrador
+      const { data: sessionData } = await supabase.auth.getSession();
+      const authenticatedUserId = sessionData?.session?.user?.id;
+
       await addPessoa({
+        ...(authenticatedUserId ? { id: authenticatedUserId } : {}),
         nome: adminNome,
         cpf: adminCpf,
         telefone: adminTelefone,

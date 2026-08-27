@@ -116,14 +116,8 @@ export async function getUserCampaignAccesses(userId: string): Promise<UserCampa
     }
   }
 
-  // Filtrar membros aprovados (considerando status 'ativo' em pessoas como aprovado)
-  const memberships = allMemberships.filter((membership) => {
-    // Verificar se o usuário está ativo no cadastro de pessoas para esta campanha
-    const pessoaParaEstaCampanha = (pessoasData || []).find(p => p.campanha_id === membership.campaign_id);
-    const statusPessoa = pessoaParaEstaCampanha?.status;
-    
-    return isApprovedMembership(membership.status) || isApprovedMembership(statusPessoa || "");
-  });
+  // Manter todas as participações (aprovadas e pendentes) para que possamos mostrar o status na escolha da campanha
+  const memberships = allMemberships;
 
   const ownedIds = new Set(ownedCampaigns.map((campaign) => campaign.id));
   const memberCampaignIds = memberships
