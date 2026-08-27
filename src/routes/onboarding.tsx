@@ -582,7 +582,6 @@ function OnboardingPage() {
           });
         }
 
-        const { data: sessionData } = await supabase.auth.getSession();
         if (sessionData?.session?.user) {
           try {
             await supabase.from("campaign_members").insert([{
