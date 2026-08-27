@@ -682,10 +682,15 @@ function PublicSolicitarPage() {
              <div className="space-y-1">
                <h2 className="text-2xl font-extrabold text-slate-900">Solicitação Enviada com Sucesso!</h2>
                {pedidoId && (
-                 <p className="text-sm font-mono font-bold text-orange-600 bg-orange-50 px-3 py-1 rounded-full inline-block">
-                   Pedido: {pedidoId}
-                 </p>
-               )}
+                  <div className="my-3 inline-flex flex-col items-center gap-1 bg-orange-50 border-2 border-orange-200 rounded-2xl px-6 py-3.5 shadow-xs">
+                    <span className="text-[10px] font-black uppercase tracking-widest text-orange-600">
+                      Número do Pedido
+                    </span>
+                    <span className="font-mono text-xl sm:text-2xl font-black text-orange-950 tracking-tight">
+                      {pedidoId}
+                    </span>
+                  </div>
+                )}
                <p className="text-sm text-slate-600 max-w-md mx-auto pt-2">
                  Obrigado, <strong>{nome}</strong>! Sua solicitação de {formatNumero(totalItens)} itens e compromisso de {formatNumero(Number(expectativaVotos))} votos foi registrada para a equipe de logística de{" "}
                  <strong>{campanhaAtiva?.candidato_urna || "nossa campanha"}</strong>.
@@ -694,11 +699,11 @@ function PublicSolicitarPage() {
 
             <div className="rounded-2xl border border-slate-100 bg-slate-50 p-4 text-left space-y-2 text-xs text-slate-700">
               {pedidoId && (
-                <div className="flex justify-between border-b border-slate-200/60 pb-1.5">
-                  <span className="text-slate-500">Número do Pedido:</span>
-                  <span className="font-mono font-bold text-slate-900">{pedidoId}</span>
-                </div>
-              )}
+                 <div className="flex justify-between border-b border-slate-200/60 pb-2 bg-orange-50/50 p-2.5 rounded-xl border border-orange-100/60">
+                   <span className="text-orange-850 font-bold">Número do Pedido:</span>
+                   <span className="font-mono font-black text-orange-700 text-sm">{pedidoId}</span>
+                 </div>
+               )}
               <div className="flex justify-between border-b border-slate-200/60 pb-1.5">
                 <span className="text-slate-500">Solicitante:</span>
                 <span className="font-bold text-slate-900">{nome} {cpf ? `(CPF: ${cpf})` : ''}</span>
