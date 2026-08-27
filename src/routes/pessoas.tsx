@@ -224,7 +224,26 @@ function PessoasPage() {
 
   const handleToggleAcesso = async (p: Pessoa) => {
     const novoStatus = p.status === "ativo" ? "pendente_aprovacao" : "ativo";
+    
+    // 1. Atualizar o status na tabela pessoas
     await updatePessoa(p.id, { ...p, status: novoStatus });
+    
+    // 2. Atualizar o status na tabela campaign_members (mapeando conforme as constraints do banco)
+    try {
+      const dbStatus = novoStatus === "ativo" ? "approved" : "pending";
+      const { error: cmError } = await supabase
+        .from("campaign_members")
+        .update({ status: dbStatus })
+        .eq("campaign_id", campaign?.id)
+        .eq("user_id", p.id);
+        
+      if (cmError) {
+        console.warn("Erro ao atualizar status em campaign_members:", cmError);
+      }
+    } catch (err) {
+      console.warn("Falha ao atualizar campaign_members:", err);
+    }
+
     toast.success(
       novoStatus === "ativo"
         ? `Acesso ao painel liberado para ${p.nome}!`

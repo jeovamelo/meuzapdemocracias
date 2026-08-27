@@ -517,11 +517,14 @@ function PublicCadastro() {
 
     setCarregando(true);
     try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const authenticatedUserId = sessionData?.session?.user?.id;
+
       const enderecoCompleto = endereco 
         ? `${endereco}, ${numeroEnd} ${complemento ? `- ${complemento}` : ""} ${bairro ? `(${bairro})` : ""} - ${cidade}/${uf} (CEP: ${cep})`
         : undefined;
 
-      const isApoiador = papelCampanha === "Apoiador(a) / Eleitor(a) Simpatizante" || papelCampanha === "Eleitor e Outros";
+      const isApoiador = (papelCampanha as string) === "Apoiador(a) / Eleitor(a) Simpatizante" || papelCampanha === "Eleitor e Outros";
       const tipoFinal: "responsavel" | "apoiador" = isApoiador ? "apoiador" : "responsavel";
 
       const targetCampanhaId = campanhaExistente?.id || `camp_${uf}_${numero}`;
@@ -534,16 +537,17 @@ function PublicCadastro() {
         tipo: tipoFinal,
         meta_votos: Number(metaVotos) > 0 ? Number(metaVotos) : 1,
         papel_campanha: papelCampanha,
-        papel_personalizado: papelCampanha === "Eleitor e Outros" ? papelPersonalizado : undefined,
         campanha_id: targetCampanhaId,
         funcao: papelCampanha === "Eleitor e Outros" && papelPersonalizado ? papelPersonalizado : papelCampanha,
-        endereco: enderecoCompleto,
         municipio: cidade,
         uf: uf,
         titulo_eleitor: tituloEleitor,
         zona,
         secao,
         status: "pendente_aprovacao",
+        ...(authenticatedUserId ? { id: authenticatedUserId } : {}),
+        ...(enderecoCompleto ? { endereco: enderecoCompleto } : {}),
+        ...(papelCampanha === "Eleitor e Outros" && papelPersonalizado ? { papel_personalizado: papelPersonalizado } : {}),
       });
 
       // 2. Inserir em solicitações de adesão para aviso à coordenação
@@ -559,15 +563,15 @@ function PublicCadastro() {
         });
       }
 
-      // 3. Vincular em campaign_members com status pendente_aprovacao
-      const { data: sessionData } = await supabase.auth.getSession();
-      if (sessionData?.session?.user) {
+      // 3. Vincular em campaign_members com status pendente_aprovacao (mapeado para satisfazer check constraints do banco)
+      if (authenticatedUserId) {
         try {
+          const dbRole = (papelCampanha || '').toLowerCase().includes('admin') ? 'admin' : 'member';
           await supabase.from("campaign_members").insert([{
             campaign_id: targetCampanhaId,
-            user_id: sessionData.session.user.id,
-            role: papelCampanha,
-            status: "pendente_aprovacao"
+            user_id: authenticatedUserId,
+            role: dbRole,
+            status: "pending"
           } as any]);
         } catch (e) {
           console.warn("Registro campaign_members:", e);

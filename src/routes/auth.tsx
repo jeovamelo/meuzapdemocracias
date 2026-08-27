@@ -94,7 +94,9 @@ function AuthPage() {
     setIsLoading(true);
 
     try {
-      const email = `${phone.replace(/\D/g, "")}@whatsapp.democracias.org`;
+      const cleanPhone = phone.replace(/\D/g, "");
+      const finalPhone = cleanPhone.startsWith("55") ? cleanPhone : `55${cleanPhone}`;
+      const email = `${finalPhone}@whatsapp.democracias.org`;
       const { data, error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) throw error;
       if (!data.user) throw new Error("Usuário autenticado não encontrado.");

@@ -25,7 +25,7 @@ type Ctx = {
   addComite: (c: Omit<Comite, "id" | "ativo" | "status"> & { status?: Comite["status"]; campaign_id?: string }) => Promise<void>;
   updateComite: (id: string, c: Partial<Comite>) => Promise<void>;
   removeComite: (id: string) => Promise<void>;
-  addPessoa: (p: Omit<Pessoa, "id" | "status"> & { status?: Pessoa["status"]; campaign_id?: string; campanha_id?: string }) => Promise<Pessoa | null>;
+  addPessoa: (p: Omit<Pessoa, "id" | "status"> & { id?: string | undefined; status?: Pessoa["status"]; campaign_id?: string; campanha_id?: string }) => Promise<Pessoa | null>;
   updatePessoa: (id: string, p: Partial<Pessoa>) => Promise<void>;
   removePessoa: (id: string) => Promise<void>;
   addMaterial: (m: Omit<Material, "id" | "unidade" | "arquivado"> & { campaign_id?: string }) => Promise<void>;
@@ -269,11 +269,14 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           // Se for Responsável e tiver campanha vinculada, refletir em campaign_members
           if (novaPessoa.tipo === 'responsavel' && finalCampId) {
             try {
+              const dbRole = (novaPessoa.papel_campanha || '').toLowerCase().includes('admin') ? 'admin' : 'member';
+              const dbStatus = (novaPessoa.status === 'ativo') ? 'approved' : 'pending';
+              
               await supabase.from("campaign_members").insert([{
                 campaign_id: finalCampId,
                 user_id: novaPessoa.id,
-                role: novaPessoa.papel_campanha || 'responsavel',
-                status: novaPessoa.status || 'ativo'
+                role: dbRole,
+                status: dbStatus
               } as any]);
             } catch (mErr) {
               console.warn("Vínculo em campaign_members:", mErr);
