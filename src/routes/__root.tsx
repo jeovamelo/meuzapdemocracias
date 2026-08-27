@@ -136,9 +136,12 @@ function RootComponent() {
   const { queryClient } = Route.useRouteContext();
   const router = useRouter();
   const location = router.state.location.pathname;
-  const { campaign } = useCampaignScope();
+  const { campaign, _hasHydrated } = useCampaignScope();
 
   useEffect(() => {
+    // Aguarda a reidratação do localStorage para evitar redirecionamento indevido no primeiro render (F5)
+    if (!_hasHydrated) return;
+
     // Redireciona para /onboarding se tentar acessar rotas protegidas de campanha sem campanha selecionada
     const publicRoutes = ['/', '/auth', '/onboarding', '/pc', '/pesquisa', '/resultado', '/public/cadastro', '/bu', '/selecionar-campanha'];
     const isPublic = publicRoutes.some(r => location === r || location.startsWith('/public') || location.startsWith('/bu') || location.startsWith('/pc') || location.startsWith('/pesquisa'));
@@ -146,7 +149,7 @@ function RootComponent() {
     if (!isPublic && !campaign) {
       router.navigate({ to: '/onboarding' });
     }
-  }, [campaign, location, router]);
+  }, [campaign, location, router, _hasHydrated]);
 
   const showBottomNav = !['/', '/auth', '/onboarding', '/pc', '/pesquisa', '/resultado', '/saidas/nova', '/selecionar-campanha'].includes(location) && !location.startsWith('/public') && !location.startsWith('/pc') && !location.startsWith('/pesquisa');
 

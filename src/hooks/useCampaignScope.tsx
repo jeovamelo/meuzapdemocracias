@@ -13,6 +13,8 @@ interface CampaignState {
   campaign: CampaignScope | null;
   setCampaign: (campaign: CampaignScope | null) => void;
   clearCampaign: () => void;
+  _hasHydrated: boolean;
+  setHasHydrated: (state: boolean) => void;
 }
 
 // Store global para manter o contexto de isolamento da campanha ativo.
@@ -24,9 +26,14 @@ export const useCampaignScope = create<CampaignState>()(
       campaign: null,
       setCampaign: (campaign) => set({ campaign }),
       clearCampaign: () => set({ campaign: null }),
+      _hasHydrated: false,
+      setHasHydrated: (state) => set({ _hasHydrated: state }),
     }),
     {
       name: 'democracias-campaign-scope',
+      onRehydrateStorage: () => (state) => {
+        state?.setHasHydrated(true);
+      },
     }
   )
 );
