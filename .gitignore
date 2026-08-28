@@ -34,6 +34,7 @@ dist-ssr
 # Secrets and runtime data
 .env
 .env.*
+!.env.example
 whatsapp-service/auth_info_baileys/
 importados/
 scratch/

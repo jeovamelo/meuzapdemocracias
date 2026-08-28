@@ -36,6 +36,8 @@ export type ComiteStatus = "ativo" | "pendente_validacao";
 
 export type Comite = {
   id: string;
+  campaign_id?: string;
+  campanha_id?: string;
   nome: string;
   endereco: string;
   numero?: string;
@@ -60,6 +62,8 @@ export type TipoPessoa = "responsavel" | "apoiador" | "membro_campanha" | "eleit
 
 export type Pessoa = {
   id: string;
+  campaign_id?: string;
+  campanha_id?: string;
   nome: string;
   cpf: string;
   tipo: TipoPessoa;
@@ -283,8 +287,12 @@ export const formatNumero = (n: number) =>
 
 export const pad2 = (n: number) => String(n).padStart(2, "0");
 
-export const whatsappLink = (telefone: string) =>
-  `https://wa.me/55${telefone.replace(/\D/g, "")}`;
+export const whatsappLink = (telefone?: string, texto?: string) => {
+  const cleanPhone = telefone ? telefone.replace(/\D/g, "") : "";
+  const phonePart = cleanPhone ? (cleanPhone.startsWith("55") ? cleanPhone : `55${cleanPhone}`) : "";
+  const query = texto ? `?text=${encodeURIComponent(texto)}` : "";
+  return `https://wa.me/${phonePart}${query}`;
+};
 
 export const formatTelefone = (t: string) => {
   const d = t.replace(/\D/g, "");

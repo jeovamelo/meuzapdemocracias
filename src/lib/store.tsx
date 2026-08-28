@@ -36,6 +36,7 @@ type Ctx = {
   updateKit: (id: string, k: Partial<Kit>) => Promise<void>;
   archiveKit: (id: string) => Promise<void>;
   registrarSaida: (s: Omit<Saida, "id" | "criado_em">) => Promise<void>;
+  estornarSaida: (id: string) => Promise<void>;
   addSolicitacao: (s: Omit<SolicitacaoMaterial, "id" | "criado_em" | "status">) => Promise<SolicitacaoMaterial | null>;
   updateSolicitacao: (id: string, s: Partial<SolicitacaoMaterial>) => Promise<void>;
   despacharSolicitacao: (id: string) => Promise<void>;
@@ -294,15 +295,19 @@ export function StoreProvider({ children }: { children: ReactNode }) {
             pessoas: [novaPessoa, ...prev.pessoas.filter(item => item.id !== novaPessoa.id)]
           }));
 
-          // Se for Responsável e tiver campanha vinculada, refletir em campaign_members
+          // Se for Responsável e tiver campanha vinculada, refletir em campaign_members.
+          // O user_id DEVE ser o auth.uid() (id do Supabase Auth), não o id da
+          // tabela pessoas — o RLS por campanha compara com auth.uid().
           if (novaPessoa.tipo === 'responsavel' && finalCampId) {
             try {
+              const { data: sessionData } = await supabase.auth.getSession();
+              const authUserId = sessionData?.session?.user?.id || novaPessoa.id;
               const dbRole = (novaPessoa.papel_campanha || '').toLowerCase().includes('admin') ? 'admin' : 'member';
               const dbStatus = (novaPessoa.status === 'ativo') ? 'approved' : 'pending';
               
               await supabase.from("campaign_members").insert([{
                 campaign_id: finalCampId,
-                user_id: novaPessoa.id,
+                user_id: authUserId,
                 role: dbRole,
                 status: dbStatus
               } as any]);
@@ -501,6 +506,60 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         }
       }
     },
+    estornarSaida: async (id: string) => {
+      const saida = db.saidas.find(s => s.id === id);
+      if (!saida) {
+        toast.error("Saída não encontrada para estorno.");
+        return;
+      }
+
+      try {
+        // 1. Devolver quantidades aos estoques
+        for (const item of (saida.itens || [])) {
+          const mat = db.materiais.find(m => m.id === item.material_id);
+          if (mat) {
+            const novaQtd = mat.estoque + item.quantidade;
+            try {
+              await supabase.from("materiais").update({ estoque: novaQtd }).eq("id", mat.id);
+              await supabase.from("historico_estoque").insert([{
+                material_id: mat.id,
+                campaign_id: saida.campaign_id || mat.campaign_id,
+                quantidade_anterior: mat.estoque,
+                quantidade_nova: novaQtd,
+                diferenca: item.quantidade,
+                tipo: "entrada",
+                observacao: `Estorno de saída de material (Pedido: ${saida.numero_pedido || saida.id})`
+              }]);
+            } catch (e) {
+              console.warn("Erro ao devolver estoque no Supabase:", e);
+            }
+
+            setDb(prev => ({
+              ...prev,
+              materiais: prev.materiais.map(m => m.id === mat.id ? { ...m, estoque: novaQtd } : m)
+            }));
+          }
+        }
+
+        // 2. Excluir o registro da saída
+        const { error: delError } = await supabase.from("saidas").delete().eq("id", id);
+        if (delError) {
+          console.warn("Erro ao excluir saída no Supabase:", delError);
+        }
+
+        // 3. Atualizar estado local
+        setDb(prev => ({
+          ...prev,
+          saidas: prev.saidas.filter(s => s.id !== id)
+        }));
+
+        toast.success(`Saída ${saida.numero_pedido || ""} estornada com sucesso! O estoque foi devolvido aos materiais.`);
+      } catch (err) {
+        console.error("Erro no estorno da saída:", err);
+        toast.error("Não foi possível concluir o estorno da saída.");
+        throw err;
+      }
+    },
     addSolicitacao: async (s) => {
       const nextPedido = s.numero_pedido || getNextNumeroPedido(s.campaign_id);
       const { data, error } = await supabase.from("solicitacoes").insert([{ ...s, numero_pedido: nextPedido, status: "pendente" }]).select().single();
@@ -659,7 +718,17 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     addCampanhaRegistro: async (camp) => {
       try {
         const session = (await supabase.auth.getSession()).data.session;
-        const adminUserId = session?.user?.id || null;
+
+        // RLS por auth.uid(): o criador precisa de sessão para ser o dono
+        // (admin_user_id) e conseguir gerenciar a campanha depois.
+        if (!session?.user?.id) {
+          toast.error(
+            "Autentique-se (Google ou WhatsApp) antes de cadastrar a campanha.",
+          );
+          return null;
+        }
+
+        const adminUserId = session.user.id;
 
         const novaCampanhaSupabase = {
           ano_eleicao: 2026,

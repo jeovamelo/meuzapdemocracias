@@ -1,4 +1,5 @@
 import { supabase } from '@/integrations/supabase/client';
+import { EVOLUTION_API_URL, EVOLUTION_GLOBAL_API_KEY } from '@/lib/env';
 
 export interface DispatchMessageJob {
   campaignId?: string;
@@ -13,8 +14,8 @@ export interface DispatchMessageJob {
 export class WhatsAppDispatcherService {
   private static isRunning: boolean = false;
   private static isEmergencyPaused: boolean = false;
-  private static defaultUrl = 'https://api.democracias.org/evolution';
-  private static defaultApiKey = 'democracias_global_evolution_key_2026';
+  private static defaultUrl = EVOLUTION_API_URL;
+  private static defaultApiKey = EVOLUTION_GLOBAL_API_KEY;
 
   // 1. Random Human Delay (8 a 15 segundos entre mensagens)
   static getRandomDelay(minSeconds = 8, maxSeconds = 15): Promise<number> {

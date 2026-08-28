@@ -44,6 +44,7 @@ import {
 import { PAPEIS_CAMPANHA_OPCOES, type PapelCampanha, type CampanhaRegistro } from "@/lib/db";
 import { useCampaignScope } from "@/hooks/useCampaignScope";
 import { supabase } from "@/integrations/supabase/client";
+import { EVOLUTION_API_URL } from "@/lib/env";
 
 export const Route = createFileRoute("/public/cadastro")({
   head: () => ({
@@ -64,7 +65,7 @@ const ESTADOS_BR = [
 ];
 
 // Papéis específicos para membros e colaboradores (excluindo coordenador geral/admin geral)
-const PAPEIS_MEMBRO_OPCOES: { value: PapelCampanha; label: string }[] = [
+const PAPEIS_MEMBRO_OPCOES: { value: string; label: string }[] = [
   { value: 'Coordenador(a) de Mobilização / Rua', label: 'Coordenador(a) de Mobilização / Rua' },
   { value: 'Coordenador(a) de Bairro / Região', label: 'Coordenador(a) de Bairro / Região' },
   { value: 'Fiscal de Seção / Votação', label: 'Fiscal de Seção / Votação' },
@@ -154,8 +155,8 @@ function PublicCadastro() {
           setGoogleEmail(session.user.email);
           localStorage.setItem('democracias_membro_google_email', session.user.email);
         }
-        if (session.user.user_metadata?.full_name && !nome) {
-          setNome(session.user.user_metadata.full_name);
+        if (session.user.user_metadata?.['full_name'] && !nome) {
+          setNome(session.user.user_metadata['full_name']);
         }
       }
     });
@@ -166,8 +167,8 @@ function PublicCadastro() {
         if (data.session.user.email) {
           setGoogleEmail(data.session.user.email);
         }
-        if (data.session.user.user_metadata?.full_name && !nome) {
-          setNome(data.session.user.user_metadata.full_name);
+        if (data.session.user.user_metadata?.['full_name'] && !nome) {
+          setNome(data.session.user.user_metadata['full_name']);
         }
       }
     });
@@ -323,7 +324,7 @@ function PublicCadastro() {
       }
 
       // 2. Consultar banco eleitoral via Supabase
-      const { data: candidatosSupabase, error: supabaseError } = await supabase
+      const { data: candidatosSupabase, error: supabaseError } = await (supabase as any)
         .from('tse_candidatos')
         .select('*')
         .eq('uf', uf.toUpperCase())
@@ -331,18 +332,20 @@ function PublicCadastro() {
         .limit(1);
 
       if (!supabaseError && candidatosSupabase && candidatosSupabase.length > 0) {
-        const c = candidatosSupabase[0];
-        setCandidatoBuscado({
-          nome: c.nm_candidato || c.nm_urna_candidato,
-          nomeUrna: c.nm_urna_candidato || c.nm_candidato,
-          cargo: c.ds_cargo || cargo,
-          partido: c.sg_partido || c.nm_partido || '',
-          fotoUrl: c.foto_url || '',
-          uf: c.uf || uf,
-          numero: c.nr_candidato || numero,
-        });
-        toast.success("Candidato localizado no banco eleitoral!");
-        return;
+        const c = candidatosSupabase[0] as any;
+        if (c) {
+          setCandidatoBuscado({
+            nome: c.nm_candidato || c.nm_urna_candidato || '',
+            nomeUrna: c.nm_urna_candidato || c.nm_candidato || '',
+            cargo: c.ds_cargo || cargo,
+            partido: c.sg_partido || c.nm_partido || '',
+            fotoUrl: c.foto_url || '',
+            uf: c.uf || uf,
+            numero: c.nr_candidato || numero,
+          });
+          toast.success("Candidato localizado no banco eleitoral!");
+          return;
+        }
       }
 
       // 3. Mock fallback se necessário
@@ -463,7 +466,7 @@ function PublicCadastro() {
       };
 
       try {
-        await fetch('https://api.democracias.org/evolution/send/text', {
+        await fetch(`${EVOLUTION_API_URL}/send/text`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload)

@@ -1,4 +1,5 @@
 import { supabase } from '@/integrations/supabase/client';
+import { EVOLUTION_API_URL, EVOLUTION_GLOBAL_API_KEY } from '@/lib/env';
 
 export interface EvolutionInstanceConfig {
   serverUrl?: string;
@@ -34,8 +35,8 @@ export function getHumanDelayMs(minSec = 8, maxSec = 15): number {
  * Serviço de Integração com a Evolution API e Controle Anti-Bloqueio
  */
 export class EvolutionWhatsAppService {
-  private static defaultUrl = 'https://api.democracias.org/evolution';
-  private static defaultApiKey = 'democracias_global_evolution_key_2026';
+  private static defaultUrl = EVOLUTION_API_URL;
+  private static defaultApiKey = EVOLUTION_GLOBAL_API_KEY;
   private static pendingCampaignInstances = new Map<string, Promise<CampaignInstanceResult>>();
 
   private static instanceToken(instanceName: string) {

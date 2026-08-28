@@ -1,9 +1,10 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { ArrowRight, Loader2, ShieldCheck, Target, Users } from "lucide-react";
+import { ArrowRight, Loader2, ShieldCheck, Target, Users, LogOut } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
+import { useCampaignScope } from "@/hooks/useCampaignScope";
 import {
   activateCampaignAccess,
   getUserCampaignAccesses,
@@ -17,8 +18,24 @@ export const Route = createFileRoute("/selecionar-campanha")({
 
 function CampaignSelectorPage() {
   const navigate = useNavigate();
+  const { clearCampaign } = useCampaignScope();
   const [accesses, setAccesses] = useState<UserCampaignAccess[]>([]);
   const [loading, setLoading] = useState(true);
+
+  const handleLogout = async () => {
+    try {
+      await supabase.auth.signOut();
+    } catch (e) {
+      console.warn(e);
+    }
+    clearCampaign();
+    localStorage.removeItem("democracias-campaign-scope");
+    localStorage.removeItem("democracias_membro_google_email");
+    localStorage.removeItem("democracias_admin_google_email");
+    sessionStorage.clear();
+    toast.success("Sessão encerrada com sucesso!");
+    navigate({ to: "/auth" });
+  };
 
   useEffect(() => {
     let active = true;
@@ -69,6 +86,17 @@ function CampaignSelectorPage() {
   return (
     <main className="min-h-screen bg-slate-50 px-4 py-10 sm:py-16">
       <div className="mx-auto w-full max-w-3xl">
+        <div className="flex justify-end mb-4">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={handleLogout}
+            className="text-xs font-bold text-muted-foreground hover:text-destructive hover:bg-destructive/10 border border-slate-200 hover:border-destructive/30 rounded-xl px-3 py-1.5 transition-all flex items-center gap-1.5"
+          >
+            <LogOut className="size-3.5 text-destructive/80" />
+            <span>Sair da Conta</span>
+          </Button>
+        </div>
         <header className="mb-8 text-center">
           <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-primary text-primary-foreground shadow-lg">
             <Target className="h-7 w-7" />

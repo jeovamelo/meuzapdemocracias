@@ -23,7 +23,8 @@ import {
   Users,
   ArrowRight,
   RefreshCw,
-  MessageCircle
+  MessageCircle,
+  Phone
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useCampaignScope } from '@/hooks/useCampaignScope';
@@ -31,6 +32,7 @@ import { useStore } from '@/lib/store';
 import { supabase } from '@/integrations/supabase/client';
 import { PAPEIS_CAMPANHA_OPCOES, type PapelCampanha } from '@/lib/db';
 import { compressImage } from '@/lib/utils';
+import { EVOLUTION_API_URL, EVOLUTION_MASTER_TOKEN } from '@/lib/env';
 
 export const Route = createFileRoute('/onboarding')({
   component: OnboardingPage,
@@ -187,8 +189,8 @@ function OnboardingPage() {
             if (draft.numero) setNumero(draft.numero);
             if (draft.candidateData) setCandidateData(draft.candidateData);
             if (draft.adminNome) setAdminNome(draft.adminNome);
-            else if (session.user.user_metadata?.full_name) {
-              setAdminNome(session.user.user_metadata.full_name);
+            else if (session.user.user_metadata?.['full_name']) {
+              setAdminNome(session.user.user_metadata['full_name']);
             }
             if (draft.adminCpf) setAdminCpf(draft.adminCpf);
             if (draft.adminTelefone) setAdminTelefone(draft.adminTelefone);
@@ -229,8 +231,8 @@ function OnboardingPage() {
             if (draft.numero) setNumero(draft.numero);
             if (draft.candidateData) setCandidateData(draft.candidateData);
             if (draft.adminNome) setAdminNome(draft.adminNome);
-            else if (data.session.user.user_metadata?.full_name) {
-              setAdminNome(data.session.user.user_metadata.full_name);
+            else if (data.session.user.user_metadata?.['full_name']) {
+              setAdminNome(data.session.user.user_metadata['full_name']);
             }
             if (draft.adminCpf) setAdminCpf(draft.adminCpf);
             if (draft.adminTelefone) setAdminTelefone(draft.adminTelefone);
@@ -302,9 +304,9 @@ function OnboardingPage() {
     const code = String(Math.floor(1000 + Math.random() * 9000));
     setEnviandoLinkWhatsapp(true);
     try {
-      const response = await fetch('https://api.democracias.org/evolution/send/text', {
+      const response = await fetch(`${EVOLUTION_API_URL}/send/text`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', apikey: 'democracias_master_token_2026' },
+        headers: { 'Content-Type': 'application/json', apikey: EVOLUTION_MASTER_TOKEN },
         body: JSON.stringify({ number, text: `Código Democracias: ${code}. Válido por 125 segundos.` }),
       });
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
@@ -509,7 +511,7 @@ function OnboardingPage() {
           telefone: adminTelefone,
           tipo: 'eleitor',
           meta_votos: Number(metaVotosApoiador) > 0 ? Number(metaVotosApoiador) : 1,
-          papel_campanha: 'Apoiador(a) / Eleitor(a) Simpatizante',
+          papel_campanha: 'Apoiador(a) / Eleitor(a) Simpatizante' as any,
           funcao: 'Apoiador(a) / Eleitor(a) Simpatizante',
           status: 'ativo',
           municipio: adminCidade || '',
@@ -522,7 +524,7 @@ function OnboardingPage() {
           titulo_eleitor: adminTituloEleitor || undefined,
           zona: adminZona || undefined,
           secao: adminSecao || undefined,
-        });
+        } as any);
 
         sessionStorage.removeItem('democracias_onboarding_draft');
         setEtapa(5);
@@ -542,7 +544,7 @@ function OnboardingPage() {
       try {
         const { data: sessionData } = await supabase.auth.getSession();
         const authenticatedUserId = sessionData?.session?.user?.id;
-        const isApoiador = adminPapel === 'Apoiador(a) / Eleitor(a) Simpatizante' || adminPapel === 'Eleitor e Outros';
+        const isApoiador = (adminPapel as string) === 'Apoiador(a) / Eleitor(a) Simpatizante' || adminPapel === 'Eleitor e Outros';
         const tipoPessoa = isApoiador ? 'apoiador' : 'responsavel';
         
         const pessoaMembro = await addPessoa({
@@ -568,7 +570,7 @@ function OnboardingPage() {
           titulo_eleitor: adminTituloEleitor || undefined,
           zona: adminZona || undefined,
           secao: adminSecao || undefined,
-        });
+        } as any);
 
         if (pessoaMembro) {
           await addSolicitacaoAdesao({
@@ -613,6 +615,14 @@ function OnboardingPage() {
       return;
     }
 
+    // RLS por auth.uid(): exigir sessão para criar campanha (o criador vira o dono).
+    const sessaoAtual = (await supabase.auth.getSession()).data.session;
+    if (!sessaoAtual?.user?.id) {
+      toast.error('Autentique-se com Google ou WhatsApp antes de cadastrar a campanha.');
+      setEtapa(3);
+      return;
+    }
+
     setIsSubmitting(true);
     try {
       // 1. Registrar a campanha e o administrador responsável.
@@ -650,7 +660,7 @@ function OnboardingPage() {
         municipio: adminCidade || '',
         uf: adminEstado || uf,
         zona: adminZona || '',
-      });
+      } as any);
 
       // 3. Atualizar contexto ativo de campanha
       setCampaign({

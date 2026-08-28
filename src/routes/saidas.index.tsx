@@ -16,12 +16,18 @@ import {
   Target,
   QrCode,
   Download,
-  Printer
+  Printer,
+  RotateCcw,
+  AlertTriangle,
+  FileText,
+  Eye,
+  Check,
+  Loader2
 } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
 import { useStore } from "@/lib/store";
 import { useCampaignScope } from "@/hooks/useCampaignScope";
-import { formatData, formatHora, formatNumero, formatTelefone, whatsappLink } from "@/lib/db";
+import { formatData, formatHora, formatNumero, formatTelefone, whatsappLink, type Saida } from "@/lib/db";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
@@ -31,6 +37,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
+  DialogFooter
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
@@ -55,11 +62,16 @@ export const Route = createFileRoute("/saidas/")({
 });
 
 function SaidasPage() {
-  const { db, despacharSolicitacao } = useStore();
+  const { db, despacharSolicitacao, estornarSaida } = useStore();
   const { campaign } = useCampaignScope();
   const [despachandoId, setDespachandoId] = useState<string | null>(null);
   const [openLinkModal, setOpenLinkModal] = useState(false);
   const [openQrModal, setOpenQrModal] = useState(false);
+  
+  // Estado para visualização de detalhes e ações do histórico
+  const [selectedSaida, setSelectedSaida] = useState<Saida | null>(null);
+  const [confirmEstornoModal, setConfirmEstornoModal] = useState(false);
+  const [estornando, setEstornando] = useState(false);
 
   const linkSolicitacao = typeof window !== "undefined" 
     ? `${window.location.origin}/public/solicitar?campanha=${campaign?.id || ""}&uf=${campaign?.uf || "CE"}&nr=${campaign?.numero || ""}`
@@ -110,7 +122,7 @@ function SaidasPage() {
       return;
     }
     const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=600x600&data=${encodeURIComponent(linkSolicitacao)}`;
-    const nomeCandidato = campaign?.candidato_urna || campaign?.nomeUrna || "Campanha Oficial";
+    const nomeCandidato = (campaign as any)?.candidato_urna || campaign?.nomeUrna || "Campanha Oficial";
     const numeroCandidato = campaign?.numero ? `• ${campaign.numero}` : "";
     const ufCandidato = campaign?.uf ? `(${campaign.uf})` : "";
 
@@ -239,13 +251,281 @@ function SaidasPage() {
     }
   };
 
+  const imprimirComprovanteSaida = (saida: Saida) => {
+    const printWindow = window.open("", "_blank");
+    if (!printWindow) {
+      toast.error("Permita popups no navegador para imprimir o comprovante.");
+      return;
+    }
+
+    const pessoa = (db.pessoas || []).find((p) => p.id === saida.pessoa_id);
+    const comite = (db.comites || []).find((c) => c.id === saida.comite_id);
+    const totalUnidades = saida.itens.reduce((acc, i) => acc + i.quantidade, 0);
+    const nomeCandidato = (campaign as any)?.candidato_urna || campaign?.nomeUrna || "Campanha Oficial";
+    const numeroCandidato = campaign?.numero ? `• Nº ${campaign.numero}` : "";
+    const ufCandidato = campaign?.uf ? `(${campaign.uf})` : "";
+    const cargoCandidato = campaign?.cargo ? `• ${campaign.cargo}` : "";
+    const numeroPedido = saida.numero_pedido || saida.id;
+    const qrValidacaoUrl = `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(`PEDIDO:${numeroPedido}|DEST:${pessoa?.nome || 'N/A'}|QTD:${totalUnidades}|DATA:${saida.criado_em}`)}`;
+
+    const linhasItens = saida.itens.map((item, idx) => {
+      const m = (db.materiais || []).find((x) => x.id === item.material_id);
+      return `
+        <tr>
+          <td style="padding: 8px 10px; border-bottom: 1px solid #e2e8f0; font-family: monospace; font-size: 11px;">#${idx + 1}</td>
+          <td style="padding: 8px 10px; border-bottom: 1px solid #e2e8f0; font-weight: 700; font-size: 12px;">${m?.nome || "Material"}</td>
+          <td style="padding: 8px 10px; border-bottom: 1px solid #e2e8f0; font-size: 11px; color: #64748b;">${m?.categoria || "Geral"}</td>
+          <td style="padding: 8px 10px; border-bottom: 1px solid #e2e8f0; text-align: right; font-weight: 800; font-size: 13px; font-family: monospace;">${item.quantidade.toLocaleString('pt-BR')} ${m?.unidade || "un"}</td>
+        </tr>
+      `;
+    }).join("");
+
+    printWindow.document.write(`
+      <!DOCTYPE html>
+      <html lang="pt-BR">
+        <head>
+          <meta charset="utf-8" />
+          <title>Romaneio de Entrega - ${numeroPedido} - ${nomeCandidato}</title>
+          <style>
+            @page { size: A4 portrait; margin: 12mm; }
+            * { box-sizing: border-box; margin: 0; padding: 0; }
+            body { 
+              font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+              color: #0f172a; 
+              padding: 15px;
+              background: #ffffff;
+            }
+            .header-box {
+              display: flex;
+              justify-content: space-between;
+              align-items: flex-start;
+              border-bottom: 2px solid #0f172a;
+              padding-bottom: 12px;
+              margin-bottom: 16px;
+            }
+            .brand {
+              font-size: 18px;
+              font-weight: 900;
+              color: #ea580c;
+              letter-spacing: -0.5px;
+            }
+            .title {
+              font-size: 14px;
+              font-weight: 800;
+              text-transform: uppercase;
+              letter-spacing: 0.5px;
+              margin-top: 2px;
+            }
+            .order-tag {
+              background: #0f172a;
+              color: #ffffff;
+              padding: 6px 14px;
+              border-radius: 8px;
+              font-family: monospace;
+              font-size: 13px;
+              font-weight: 800;
+              text-align: right;
+            }
+            .info-grid {
+              display: grid;
+              grid-template-columns: 1fr 1fr;
+              gap: 12px;
+              background: #f8fafc;
+              border: 1px solid #e2e8f0;
+              border-radius: 12px;
+              padding: 12px 16px;
+              margin-bottom: 16px;
+              font-size: 12px;
+            }
+            .info-item p { margin-bottom: 3px; }
+            .info-item strong { color: #475569; font-size: 11px; text-transform: uppercase; }
+            .info-item span { font-weight: 700; font-size: 13px; color: #0f172a; display: block; }
+            table {
+              width: 100%;
+              border-collapse: collapse;
+              margin-bottom: 20px;
+            }
+            th {
+              background: #f1f5f9;
+              padding: 8px 10px;
+              text-align: left;
+              font-size: 11px;
+              font-weight: 800;
+              text-transform: uppercase;
+              color: #475569;
+              border-bottom: 2px solid #cbd5e1;
+            }
+            .total-row {
+              background: #fff7ed;
+              font-weight: 900;
+              font-size: 13px;
+            }
+            .term-box {
+              background: #f8fafc;
+              border-left: 4px solid #ea580c;
+              padding: 10px 14px;
+              font-size: 11px;
+              color: #475569;
+              line-height: 1.4;
+              margin-bottom: 30px;
+              border-radius: 0 8px 8px 0;
+            }
+            .signatures {
+              display: grid;
+              grid-template-columns: 1fr 1fr;
+              gap: 30px;
+              margin-top: 40px;
+              padding-top: 10px;
+            }
+            .sign-line {
+              border-top: 1.5px solid #0f172a;
+              text-align: center;
+              padding-top: 6px;
+              font-size: 11px;
+              font-weight: 700;
+              color: #334155;
+            }
+            .sign-role {
+              font-size: 10px;
+              color: #64748b;
+              font-weight: 500;
+            }
+            .footer-auth {
+              display: flex;
+              justify-content: space-between;
+              align-items: center;
+              margin-top: 30px;
+              padding-top: 10px;
+              border-top: 1px dashed #cbd5e1;
+              font-size: 10px;
+              color: #94a3b8;
+            }
+            .qr-auth {
+              width: 55px;
+              height: 55px;
+            }
+          </style>
+        </head>
+        <body>
+          <div class="header-box">
+            <div>
+              <div class="brand">🚩 Democracias • Gestão de Estoque</div>
+              <div class="title">Romaneio e Comprovante de Entrega</div>
+              <p style="font-size: 12px; color: #64748b; font-weight: 600; margin-top: 2px;">
+                ${nomeCandidato} ${numeroCandidato} ${cargoCandidato} ${ufCandidato}
+              </p>
+            </div>
+            <div class="order-tag">
+              <div>PEDIDO</div>
+              <div>${numeroPedido}</div>
+            </div>
+          </div>
+
+          <div class="info-grid">
+            <div class="info-item">
+              <strong>Responsável / Recebedor:</strong>
+              <span>${pessoa?.nome || "Responsável não identificado"}</span>
+              <p style="color: #64748b; font-size: 11px; margin-top: 2px;">
+                ${pessoa?.funcao ? `${pessoa.funcao} • ` : ""}${pessoa?.municipio || comite?.municipio || "CE"}${pessoa?.cpf ? ` • CPF: ${pessoa.cpf}` : ""}
+              </p>
+            </div>
+            <div class="info-item">
+              <strong>Comitê / Local de Expedição:</strong>
+              <span>${comite?.nome || "Comitê Central / Sede"}</span>
+              <p style="color: #64748b; font-size: 11px; margin-top: 2px;">
+                Data/Hora: ${formatData(saida.criado_em)} às ${formatHora(saida.criado_em)}
+              </p>
+            </div>
+          </div>
+
+          <table>
+            <thead>
+              <tr>
+                <th style="width: 40px;">Item</th>
+                <th>Material</th>
+                <th>Categoria</th>
+                <th style="text-align: right; width: 110px;">Quantidade</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${linhasItens}
+              <tr class="total-row">
+                <td colspan="3" style="padding: 10px; text-align: right; text-transform: uppercase; font-weight: 900; border-top: 2px solid #fdba74;">Total Despachado:</td>
+                <td style="padding: 10px; text-align: right; font-family: monospace; font-size: 14px; border-top: 2px solid #fdba74; color: #ea580c;">${totalUnidades.toLocaleString('pt-BR')} itens</td>
+              </tr>
+            </tbody>
+          </table>
+
+          <div class="term-box">
+            <strong>Termo de Responsabilidade e Recebimento:</strong><br />
+            Declaro ter recebido em perfeitas condições os materiais de campanha eleitoral discriminados neste romaneio, responsabilizando-me pela guarda, distribuição e correta utilização conforme a legislação eleitoral vigente.
+          </div>
+
+          <div class="signatures">
+            <div>
+              <div class="sign-line">${pessoa?.nome || "Assinatura do Recebedor"}</div>
+              <div class="sign-role">Responsável / Recebedor (${pessoa?.funcao || "Membro de Campanha"})</div>
+            </div>
+            <div>
+              <div class="sign-line">Expedição / Almoxarifado Central</div>
+              <div class="sign-role">Responsável pelo Despacho de Estoque</div>
+            </div>
+          </div>
+
+          <div class="footer-auth">
+            <div>
+              <p>Autenticação do Sistema Democracias • Emissão: ${new Date().toLocaleDateString('pt-BR')} ${new Date().toLocaleTimeString('pt-BR')}</p>
+              <p style="font-family: monospace;">ID: ${saida.id}</p>
+            </div>
+            <img class="qr-auth" src="${qrValidacaoUrl}" alt="QR de Validação" />
+          </div>
+
+          <script>
+            window.onload = () => {
+              window.print();
+            };
+          </script>
+        </body>
+      </html>
+    `);
+    printWindow.document.close();
+  };
+
+  const gerarMensagemComprovante = (saida: Saida) => {
+    const pessoa = (db.pessoas || []).find((p) => p.id === saida.pessoa_id);
+    const totalUnidades = saida.itens.reduce((acc, i) => acc + i.quantidade, 0);
+    const numeroPedido = saida.numero_pedido || saida.id;
+    const nomeCandidato = (campaign as any)?.candidato_urna || campaign?.nomeUrna || "Campanha Oficial";
+
+    const lista = saida.itens.map(i => {
+      const m = (db.materiais || []).find(x => x.id === i.material_id);
+      return `▪️ ${i.quantidade}x ${m?.nome || 'Material'}`;
+    }).join('\n');
+
+    return `🚩 *COMPROVANTE DE ENTREGA DE MATERIAL*\n*Campanha:* ${nomeCandidato}\n*Pedido:* ${numeroPedido}\n*Data:* ${formatData(saida.criado_em)} às ${formatHora(saida.criado_em)}\n*Destinatário:* ${pessoa?.nome || 'Responsável'}\n*Total:* ${totalUnidades} itens\n\n📦 *Itens Entregues:*\n${lista}\n\n✅ _Materiais conferidos e baixados do estoque oficial da campanha._`;
+  };
+
+  const handleConfirmarEstorno = async () => {
+    if (!selectedSaida) return;
+    setEstornando(true);
+    try {
+      await estornarSaida(selectedSaida.id);
+      setConfirmEstornoModal(false);
+      setSelectedSaida(null);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setEstornando(false);
+    }
+  };
+
   return (
     <>
       <PageHeader
         eyebrow="Logística de Campanha"
         title="Saídas e Entregas"
         right={
-          <span className="font-mono text-xs text-muted-foreground">
+          <span className="font-mono text-xs text-muted-foreground font-bold bg-surface px-3 py-1.5 rounded-xl border border-border">
             {saidasFiltradas.length} SAÍDAS • {solicitacoesPendentes.length} PENDENTES
           </span>
         }
@@ -254,7 +534,7 @@ function SaidasPage() {
       <div className="px-5 py-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
         <Link
           to="/saidas/nova"
-          className="flex items-center justify-between rounded-2xl bg-foreground px-5 py-4 text-sm font-bold text-background shadow-md transition-transform active:scale-95"
+          className="flex items-center justify-between rounded-2xl bg-foreground px-5 py-4 text-sm font-bold text-background shadow-md transition-transform active:scale-95 hover:bg-foreground/90"
         >
           <div className="flex items-center gap-2">
             <Plus className="size-4" strokeWidth={3} />
@@ -350,7 +630,7 @@ function SaidasPage() {
                   Mobilização Oficial
                 </div>
                 <h3 className="font-extrabold text-base text-slate-900 leading-tight">
-                  {campaign?.candidato_urna || campaign?.nomeUrna || "Campanha Oficial"} {campaign?.numero ? `• ${campaign.numero}` : ""}
+                  {(campaign as any)?.candidato_urna || campaign?.nomeUrna || "Campanha Oficial"} {campaign?.numero ? `• ${campaign.numero}` : ""}
                 </h3>
                 
                 <div className="p-2 bg-white rounded-xl border border-slate-200 inline-block shadow-xs">
@@ -393,7 +673,7 @@ function SaidasPage() {
         </Dialog>
       </div>
 
-      <Tabs defaultValue="historico" className="px-5 pb-20">
+      <Tabs defaultValue="historico" className="px-5 pb-24">
         <TabsList className="grid w-full grid-cols-2 rounded-xl bg-surface p-1">
           <TabsTrigger value="historico" className="rounded-lg text-xs font-bold">
             Histórico de Saídas ({saidasFiltradas.length})
@@ -426,44 +706,53 @@ function SaidasPage() {
                 return (
                   <article
                     key={s.id}
-                    className="overflow-hidden rounded-2xl border border-border bg-surface shadow-sm transition-all hover:shadow-md"
+                    onClick={() => setSelectedSaida(s)}
+                    className="group relative cursor-pointer overflow-hidden rounded-2xl border border-border bg-surface shadow-xs transition-all hover:border-primary/50 hover:shadow-md active:scale-[0.995]"
                   >
                     <div className="flex items-center justify-between border-b border-border/50 bg-muted/5 px-4 py-2.5">
                       <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                        <Clock className="size-3" />
+                        <Clock className="size-3 text-muted-foreground/80" />
                         {formatData(s.criado_em)} às {formatHora(s.criado_em)}
                         {s.numero_pedido && (
-                          <span className="font-mono bg-primary/10 text-primary px-1.5 py-0.5 rounded text-[9px] font-black">
+                          <span className="font-mono bg-primary/10 text-primary border border-primary/20 px-1.5 py-0.5 rounded text-[9px] font-black">
                             {s.numero_pedido}
                           </span>
                         )}
                       </div>
-                      <span className="font-mono text-[10px] font-black uppercase text-primary">
-                        {formatNumero(totalUnidades)} ITENS
-                      </span>
+                      <div className="flex items-center gap-2">
+                        <span className="font-mono text-[10px] font-black uppercase text-primary">
+                          {formatNumero(totalUnidades)} ITENS
+                        </span>
+                        <span className="opacity-0 group-hover:opacity-100 transition-opacity text-[10px] font-bold text-primary flex items-center gap-0.5">
+                          <Eye className="size-3" /> Ver
+                        </span>
+                      </div>
                     </div>
 
                     <div className="p-4 space-y-3">
                       <div className="flex items-start gap-3">
-                        <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                        <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary group-hover:bg-primary group-hover:text-primary-foreground transition-colors">
                           <ArrowRightLeft className="size-5" />
                         </div>
                         <div className="min-w-0 flex-1">
-                          <p className="truncate font-bold leading-tight text-sm">{pessoa?.nome || "Responsável não identificado"}</p>
-                          <p className="text-xs text-muted-foreground">
+                          <p className="truncate font-bold leading-tight text-sm group-hover:text-primary transition-colors">
+                            {pessoa?.nome || "Responsável não identificado"}
+                          </p>
+                          <p className="text-xs text-muted-foreground truncate">
                             {pessoa?.funcao ? `${pessoa.funcao} • ` : ""}{pessoa?.municipio || comite?.municipio || "CE"}
                           </p>
-                          <p className="flex items-center gap-1 text-[11px] text-muted-foreground mt-0.5">
+                          <p className="flex items-center gap-1 text-[11px] text-muted-foreground mt-0.5 truncate">
                             <MapPin className="size-3 shrink-0" /> {comite?.nome || "Comitê Central / Sede"}
                           </p>
                         </div>
                         {pessoa?.telefone && (
                           <a
                             href={whatsappLink(pessoa.telefone)}
+                            onClick={(e) => e.stopPropagation()}
                             target="_blank"
                             rel="noreferrer"
                             title="Contato no WhatsApp"
-                            className="flex size-8 items-center justify-center rounded-lg bg-[#25D366]/15 text-[#128C7E] hover:bg-[#25D366] hover:text-white transition-all shadow-sm"
+                            className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-[#25D366]/15 text-[#128C7E] hover:bg-[#25D366] hover:text-white transition-all shadow-xs"
                           >
                             <Send className="size-3.5" />
                           </a>
@@ -512,7 +801,6 @@ function SaidasPage() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 w-full">
               {solicitacoesPendentes.map((sol) => {
                 const lider = (db.pessoas || []).find((p) => p.id === sol.lideranca_id);
-                const totalQtd = (sol.itens || []).reduce((acc, i) => acc + i.quantidade, 0);
 
                 return (
                   <article
@@ -601,6 +889,197 @@ function SaidasPage() {
           )}
         </TabsContent>
       </Tabs>
+
+      {/* MODAL DE DETALHES E GESTÃO DA SAÍDA SELECIONADA */}
+      <Dialog open={!!selectedSaida} onOpenChange={(open) => !open && setSelectedSaida(null)}>
+        {selectedSaida && (() => {
+          const pessoa = (db.pessoas || []).find((p) => p.id === selectedSaida.pessoa_id);
+          const comite = (db.comites || []).find((c) => c.id === selectedSaida.comite_id);
+          const totalUnidades = selectedSaida.itens.reduce((acc, i) => acc + i.quantidade, 0);
+          const msgWhats = gerarMensagemComprovante(selectedSaida);
+          const linkWhats = pessoa?.telefone 
+            ? whatsappLink(pessoa.telefone, msgWhats)
+            : whatsappLink("", msgWhats);
+
+          return (
+            <DialogContent className="max-w-lg rounded-2xl p-6">
+              <DialogHeader>
+                <div className="flex items-center justify-between gap-2 pb-1">
+                  <div className="flex items-center gap-2">
+                    <span className="inline-flex items-center gap-1.5 bg-emerald-50 text-emerald-700 border border-emerald-200 px-2.5 py-0.5 rounded-full text-[11px] font-extrabold uppercase tracking-wide">
+                      <Check className="size-3" /> Despacho Concluído
+                    </span>
+                    {selectedSaida.numero_pedido && (
+                      <span className="font-mono bg-primary/10 text-primary border border-primary/20 px-2.5 py-0.5 rounded-full text-[11px] font-black">
+                        {selectedSaida.numero_pedido}
+                      </span>
+                    )}
+                  </div>
+                  <span className="font-mono text-xs font-black text-primary">
+                    {formatNumero(totalUnidades)} ITENS
+                  </span>
+                </div>
+                <DialogTitle className="text-xl font-extrabold text-foreground leading-tight">
+                  Detalhes da Saída de Material
+                </DialogTitle>
+                <DialogDescription className="text-xs text-muted-foreground">
+                  Registrado em {formatData(selectedSaida.criado_em)} às {formatHora(selectedSaida.criado_em)}
+                </DialogDescription>
+              </DialogHeader>
+
+              <div className="space-y-4 pt-2">
+                {/* DADOS DO DESTINATÁRIO E COMITÊ */}
+                <div className="rounded-2xl border border-border bg-muted/20 p-4 space-y-3">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="space-y-1">
+                      <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Destinatário / Responsável</p>
+                      <p className="text-base font-extrabold text-foreground leading-tight">
+                        {pessoa?.nome || "Responsável não cadastrado"}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {pessoa?.funcao ? `${pessoa.funcao} • ` : ""}{pessoa?.municipio || comite?.municipio || "CE"}
+                        {pessoa?.telefone ? ` • Tel: ${formatTelefone(pessoa.telefone)}` : ""}
+                      </p>
+                    </div>
+
+                    {pessoa?.telefone && (
+                      <a
+                        href={linkWhats}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#25D366] text-white font-bold text-xs shadow-xs hover:bg-[#128C7E] transition-all shrink-0"
+                      >
+                        <Send className="size-3.5" />
+                        <span>WhatsApp</span>
+                      </a>
+                    )}
+                  </div>
+
+                  <div className="pt-2.5 border-t border-border/60 flex items-center justify-between text-xs text-muted-foreground">
+                    <span className="flex items-center gap-1.5 font-medium">
+                      <MapPin className="size-3.5 text-primary" />
+                      Origem: {comite?.nome || "Comitê Central / Sede"}
+                    </span>
+                    <span className="font-mono text-[11px]">
+                      {selectedSaida.id.slice(0, 8)}...
+                    </span>
+                  </div>
+                </div>
+
+                {/* LISTAGEM DETALHADA DOS ITENS */}
+                <div className="space-y-2">
+                  <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground flex items-center justify-between">
+                    <span>Materiais Despachados</span>
+                    <span className="font-mono font-bold text-primary">{selectedSaida.itens.length} tipos de itens</span>
+                  </p>
+
+                  <div className="max-h-56 overflow-y-auto space-y-1.5 pr-1">
+                    {selectedSaida.itens.map((item, idx) => {
+                      const m = (db.materiais || []).find((x) => x.id === item.material_id);
+                      return (
+                        <div
+                          key={idx}
+                          className="flex items-center justify-between rounded-xl border border-border/80 bg-surface px-3.5 py-2.5 text-xs shadow-2xs"
+                        >
+                          <div className="min-w-0 flex-1 pr-2">
+                            <p className="font-bold text-foreground truncate">{m?.nome || "Material"}</p>
+                            <p className="text-[10px] text-muted-foreground">{m?.categoria || "Geral"}</p>
+                          </div>
+                          <div className="text-right shrink-0">
+                            <span className="font-mono font-black text-sm text-primary">
+                              {item.quantidade.toLocaleString('pt-BR')}
+                            </span>
+                            <span className="text-[10px] text-muted-foreground ml-1">{m?.unidade || "un"}</span>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* BOTÕES DE AÇÃO: IMPRIMIR ROMANEIO, COMPARTILHAR E ESTORNO */}
+                <div className="pt-3 border-t border-border space-y-2">
+                  <div className="grid grid-cols-2 gap-2">
+                    <Button
+                      onClick={() => imprimirComprovanteSaida(selectedSaida)}
+                      style={{ backgroundColor: '#0f172a', color: '#ffffff' }}
+                      className="w-full gap-2 font-bold text-xs h-11 rounded-xl shadow-xs hover:bg-slate-800 cursor-pointer"
+                    >
+                      <Printer className="size-4 text-white" />
+                      <span>Imprimir Romaneio</span>
+                    </Button>
+                    <a
+                      href={linkWhats}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="w-full flex items-center justify-center gap-2 h-11 rounded-xl bg-[#25D366] text-white font-bold text-xs shadow-xs hover:bg-[#128C7E] transition-all"
+                    >
+                      <Send className="size-4" />
+                      <span>Enviar Comprovante</span>
+                    </a>
+                  </div>
+
+                  <Button
+                    variant="outline"
+                    onClick={() => setConfirmEstornoModal(true)}
+                    className="w-full gap-2 font-bold text-xs h-10 rounded-xl border-destructive/30 text-destructive hover:bg-destructive/10 hover:border-destructive cursor-pointer transition-colors"
+                  >
+                    <RotateCcw className="size-3.5" />
+                    <span>Estornar Saída e Devolver ao Estoque</span>
+                  </Button>
+                </div>
+              </div>
+            </DialogContent>
+          );
+        })()}
+      </Dialog>
+
+      {/* MODAL DE CONFIRMAÇÃO DE ESTORNO */}
+      <Dialog open={confirmEstornoModal} onOpenChange={setConfirmEstornoModal}>
+        <DialogContent className="max-w-md rounded-2xl p-6">
+          <DialogHeader>
+            <div className="mx-auto mb-2 flex size-12 items-center justify-center rounded-2xl bg-destructive/10 text-destructive">
+              <AlertTriangle className="size-6" />
+            </div>
+            <DialogTitle className="text-center text-lg font-extrabold text-foreground">
+              Confirmar Estorno de Saída?
+            </DialogTitle>
+            <DialogDescription className="text-center text-xs text-muted-foreground">
+              Esta ação irá cancelar o pedido{" "}
+              <strong>{selectedSaida?.numero_pedido || selectedSaida?.id}</strong> e devolver{" "}
+              <strong>
+                {selectedSaida?.itens.reduce((acc, i) => acc + i.quantidade, 0).toLocaleString("pt-BR")} unidades
+              </strong>{" "}
+              de volta ao estoque dos respectivos materiais.
+            </DialogDescription>
+          </DialogHeader>
+
+          <DialogFooter className="grid grid-cols-2 gap-2 pt-3">
+            <Button
+              variant="outline"
+              onClick={() => setConfirmEstornoModal(false)}
+              className="w-full rounded-xl text-xs font-bold"
+            >
+              Cancelar
+            </Button>
+            <Button
+              disabled={estornando}
+              onClick={handleConfirmarEstorno}
+              className="w-full rounded-xl bg-destructive hover:bg-destructive/90 text-destructive-foreground text-xs font-bold gap-1.5"
+            >
+              {estornando ? (
+                <>
+                  <Loader2 className="size-3.5 animate-spin" /> Estornando...
+                </>
+              ) : (
+                <>
+                  <RotateCcw className="size-3.5" /> Confirmar Estorno
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }

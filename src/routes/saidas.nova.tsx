@@ -16,7 +16,8 @@ import {
   ArrowRight,
   ShieldCheck,
   Building,
-  Phone
+  Phone,
+  LogOut
 } from "lucide-react";
 import { toast } from "sonner";
 import { useStore } from "@/lib/store";
@@ -24,6 +25,7 @@ import { formatNumero, type SaidaItem, type Material } from "@/lib/db";
 import { Input } from "@/components/ui/input";
 import { EstadoCidadeSelect } from "@/components/EstadoCidadeSelect";
 import { useCampaignScope } from "@/hooks/useCampaignScope";
+import { supabase } from "@/integrations/supabase/client";
 import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
@@ -56,8 +58,23 @@ const iconeCategoria = (c: string) => {
 
 function NovaSaida() {
   const { db, registrarSaida, addPessoa } = useStore();
-  const { campaign } = useCampaignScope();
+  const { campaign, clearCampaign } = useCampaignScope();
   const navigate = useNavigate();
+
+  const handleLogout = async () => {
+    try {
+      await supabase.auth.signOut();
+    } catch (e) {
+      console.warn(e);
+    }
+    clearCampaign();
+    localStorage.removeItem("democracias-campaign-scope");
+    localStorage.removeItem("democracias_membro_google_email");
+    localStorage.removeItem("democracias_admin_google_email");
+    sessionStorage.clear();
+    toast.success("Sessão encerrada com sucesso!");
+    navigate({ to: "/auth" });
+  };
   
   // 0: Materiais | 1: Destino & Responsável | 2: Confirmar Pedido
   const [passo, setPasso] = useState(0);
@@ -236,7 +253,7 @@ function NovaSaida() {
   return (
     <div className="min-h-screen bg-background text-foreground pb-28">
       {/* HEADER */}
-      <header className="sticky top-0 z-30 border-b border-border bg-background/95 px-5 pt-7 pb-3.5 backdrop-blur-md">
+      <header className="sticky top-0 z-30 border-b border-border bg-background/95 px-5 pt-5 pb-3.5 backdrop-blur-md">
         <div className="flex items-center justify-between">
           <Link
             to="/saidas"
@@ -258,6 +275,16 @@ function NovaSaida() {
             <span className="font-mono text-xs font-bold text-muted-foreground">
               {passo + 1}/03
             </span>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleLogout}
+              title="Encerrar sessão"
+              className="h-7 px-2 rounded-lg text-xs font-bold text-muted-foreground hover:text-destructive hover:bg-destructive/10 border border-border/40 hover:border-destructive/30 transition-all cursor-pointer flex items-center gap-1 ml-1"
+            >
+              <LogOut className="size-3.5 text-destructive/80" />
+              <span>Sair</span>
+            </Button>
           </div>
         </div>
         <h1 className="mt-2 text-2xl font-extrabold tracking-tight">

@@ -1,15 +1,45 @@
 import express from 'express';
 import path from 'node:path';
 import cors from 'cors';
+import { readFileSync } from 'node:fs';
 import { searchTseCandidate } from './tse';
 import { createClient } from '@supabase/supabase-js';
 import WebSocket from 'ws';
 
+// O pm2 não injeta o .env automaticamente. Carrega /opt/democracias/.env
+// (padrão do deploy na VPS) sem sobrescrever variáveis já definidas no ambiente.
+function loadEnvFile() {
+  try {
+    const content = readFileSync('/opt/democracias/.env', 'utf8');
+    for (const line of content.split('\n')) {
+      const match = line.match(/^([A-Za-z_][A-Za-z0-9_]*)\s*=\s*"?([^"\n]*)"?$/);
+      if (match && process.env[match[1]] === undefined) {
+        process.env[match[1]] = match[2];
+      }
+    }
+  } catch {
+    // Sem arquivo .env: usa apenas o ambiente do processo.
+  }
+}
+loadEnvFile();
+
 const app = express();
 const PORT = process.env.PORT || 3001;
 
-const supabaseUrl = process.env.SUPABASE_URL || 'https://cwhwpwqoqrmvrwqouung.supabase.co';
-const supabaseKey = process.env.SUPABASE_PUBLISHABLE_KEY || 'sb_publishable_J09JcIO5AFTx8f6ucbqWBQ_C4w2uS2O';
+// Fail-fast: nenhuma credencial deve ter fallback hardcoded no código-fonte.
+// Configure SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, EVOLUTION_API_URL e
+// EVOLUTION_API_KEY no ambiente (arquivo .env do serviço ou env vars da VPS).
+const supabaseUrl = process.env.SUPABASE_URL;
+const supabaseKey = process.env.SUPABASE_PUBLISHABLE_KEY;
+
+if (!supabaseUrl || !supabaseKey) {
+  console.error(
+    '[whatsapp-service] Faltam variáveis de ambiente obrigatórias: SUPABASE_URL e SUPABASE_PUBLISHABLE_KEY. ' +
+      'Configure-as antes de iniciar o serviço.',
+  );
+  process.exit(1);
+}
+
 const supabase = createClient(supabaseUrl, supabaseKey, {
   auth: { persistSession: false },
   realtime: {
@@ -18,7 +48,15 @@ const supabase = createClient(supabaseUrl, supabaseKey, {
 });
 
 const EVOLUTION_API_URL = process.env.EVOLUTION_API_URL || 'http://evolution-api:8080';
-const EVOLUTION_API_KEY = process.env.EVOLUTION_API_KEY || 'democracias_global_evolution_key_2026';
+const EVOLUTION_API_KEY = process.env.EVOLUTION_API_KEY;
+
+if (!EVOLUTION_API_KEY) {
+  console.error(
+    '[whatsapp-service] Faltam variáveis de ambiente obrigatórias: EVOLUTION_API_KEY. ' +
+      'Configure-a antes de iniciar o serviço.',
+  );
+  process.exit(1);
+}
 
 app.use(cors());
 app.use(express.json());

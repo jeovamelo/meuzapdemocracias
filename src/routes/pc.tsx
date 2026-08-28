@@ -32,6 +32,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
+import { EVOLUTION_API_URL, EVOLUTION_GLOBAL_API_KEY, EVOLUTION_MASTER_TOKEN, EVOLUTION_MASTER_INSTANCE } from '@/lib/env';
 import {
   Dialog,
   DialogContent,
@@ -216,9 +217,9 @@ function PcPage() {
     setLoadingInstances(true);
     try {
       // Buscar no endpoint /instance/all do Evolution Go
-      const res = await fetch('https://api.democracias.org/evolution/instance/all', {
+      const res = await fetch(`${EVOLUTION_API_URL}/instance/all`, {
         headers: {
-          'apikey': 'democracias_global_evolution_key_2026'
+          'apikey': EVOLUTION_GLOBAL_API_KEY
         }
       });
       if (res.ok) {
@@ -277,12 +278,12 @@ function PcPage() {
   }, [isAuthenticated, activeTab]);
 
   // 2. Instância Única Padrão do Sistema: 'sistema-geral-democracias'
-  const INSTANCE_MASTER = 'sistema-geral-democracias';
-  const INSTANCE_MASTER_TOKEN = 'democracias_master_token_2026';
+  const INSTANCE_MASTER = EVOLUTION_MASTER_INSTANCE;
+  const INSTANCE_MASTER_TOKEN = EVOLUTION_MASTER_TOKEN;
 
   const verificarStatusInstancia = async () => {
     try {
-      const res = await fetch('https://api.democracias.org/evolution/instance/status', {
+      const res = await fetch(`${EVOLUTION_API_URL}/instance/status`, {
         headers: { 'apikey': INSTANCE_MASTER_TOKEN }
       });
       if (res.ok) {
@@ -317,11 +318,11 @@ function PcPage() {
 
     try {
       // 1. Criar instância se não existir no Evolution Go
-      await fetch('https://api.democracias.org/evolution/instance/create', {
+      await fetch(`${EVOLUTION_API_URL}/instance/create`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'apikey': 'democracias_global_evolution_key_2026'
+          'apikey': EVOLUTION_GLOBAL_API_KEY
         },
         body: JSON.stringify({
           name: INSTANCE_MASTER,
@@ -330,7 +331,7 @@ function PcPage() {
       }).catch(() => {});
 
       // 2. Iniciar conexão da instância
-      await fetch('https://api.democracias.org/evolution/instance/connect', {
+      await fetch(`${EVOLUTION_API_URL}/instance/connect`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -342,7 +343,7 @@ function PcPage() {
       }).catch(() => {});
 
       // 3. Obter QR Code oficial da Evolution Go
-      const qrRes = await fetch('https://api.democracias.org/evolution/instance/qr', {
+      const qrRes = await fetch(`${EVOLUTION_API_URL}/instance/qr`, {
         headers: { 'apikey': INSTANCE_MASTER_TOKEN }
       });
 
@@ -382,7 +383,7 @@ function PcPage() {
 
     setIsSendingTest(true);
     try {
-      const response = await fetch('https://api.democracias.org/evolution/send/text', {
+      const response = await fetch(`${EVOLUTION_API_URL}/send/text`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

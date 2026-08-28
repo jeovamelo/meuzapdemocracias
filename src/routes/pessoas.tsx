@@ -19,6 +19,7 @@ import {
 import { toast } from "sonner";
 import { PageHeader } from "@/components/PageHeader";
 import { useStore } from "@/lib/store";
+import { supabase } from "@/integrations/supabase/client";
 import { 
   formatTelefone, 
   whatsappLink, 
@@ -110,7 +111,7 @@ function PessoasPage() {
     telefone: "",
     zona: "",
     meta_votos: 1,
-    status: "ativo" as const,
+    status: "ativo" as "ativo" | "pendente_aprovacao" | "inativo",
   };
 
   const [form, setForm] = useState(initialForm);
@@ -206,8 +207,8 @@ function PessoasPage() {
           meta_votos: finalMetaVotos,
           tipo: tipoFinal,
           papel_campanha: form.funcao as any,
-          campanha_id: campaign?.id || undefined 
-        });
+          campanha_id: campaign?.id
+        } as any);
         toast.success("Cadastro atualizado com sucesso!");
       } else {
         await addPessoa({ 
@@ -215,8 +216,8 @@ function PessoasPage() {
           meta_votos: finalMetaVotos,
           tipo: tipoFinal,
           papel_campanha: form.funcao as any,
-          campanha_id: campaign?.id || undefined 
-        });
+          campanha_id: campaign?.id
+        } as any);
         toast.success("Pessoa cadastrada com sucesso!");
       }
       setOpen(false);
@@ -238,14 +239,16 @@ function PessoasPage() {
     // 2. Atualizar o status na tabela campaign_members (mapeando conforme as constraints do banco)
     try {
       const dbStatus = novoStatus === "ativo" ? "approved" : "pending";
-      const { error: cmError } = await supabase
-        .from("campaign_members")
-        .update({ status: dbStatus })
-        .eq("campaign_id", campaign?.id)
-        .eq("user_id", p.id);
-        
-      if (cmError) {
-        console.warn("Erro ao atualizar status em campaign_members:", cmError);
+      if (campaign?.id) {
+        const { error: cmError } = await supabase
+          .from("campaign_members")
+          .update({ status: dbStatus })
+          .eq("campaign_id", campaign.id)
+          .eq("user_id", p.id);
+          
+        if (cmError) {
+          console.warn("Erro ao atualizar status em campaign_members:", cmError);
+        }
       }
     } catch (err) {
       console.warn("Falha ao atualizar campaign_members:", err);

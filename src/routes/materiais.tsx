@@ -726,10 +726,10 @@ function Kits() {
     }
     setSalvando(true);
     if (editingId) {
-      await updateKit(editingId, { nome, descricao, itens, campaign_id: campaign?.id || undefined });
+      await updateKit(editingId, { nome, descricao, itens, campaign_id: campaign?.id } as any);
       toast.success("Kit atualizado.");
     } else {
-      await addKit({ nome, descricao, itens, campaign_id: campaign?.id || undefined });
+      await addKit({ nome, descricao, itens, campaign_id: campaign?.id } as any);
       toast.success("Kit criado.");
     }
     setSalvando(false);
