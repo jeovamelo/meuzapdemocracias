@@ -22,7 +22,14 @@ import {
   FileText,
   Eye,
   Check,
-  Loader2
+  Loader2,
+  Edit3,
+  Pencil,
+  Trash2,
+  Minus,
+  Save,
+  X,
+  Phone
 } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
 import { useStore } from "@/lib/store";
@@ -40,6 +47,9 @@ import {
   DialogFooter
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/saidas/")({
@@ -62,7 +72,7 @@ export const Route = createFileRoute("/saidas/")({
 });
 
 function SaidasPage() {
-  const { db, despacharSolicitacao, estornarSaida } = useStore();
+  const { db, despacharSolicitacao, estornarSaida, editarSaida } = useStore();
   const { campaign } = useCampaignScope();
   const [despachandoId, setDespachandoId] = useState<string | null>(null);
   const [openLinkModal, setOpenLinkModal] = useState(false);
@@ -72,6 +82,16 @@ function SaidasPage() {
   const [selectedSaida, setSelectedSaida] = useState<Saida | null>(null);
   const [confirmEstornoModal, setConfirmEstornoModal] = useState(false);
   const [estornando, setEstornando] = useState(false);
+
+  // Estados de Edição da Saída
+  const [isEditing, setIsEditing] = useState(false);
+  const [editNome, setEditNome] = useState("");
+  const [editMunicipio, setEditMunicipio] = useState("");
+  const [editTelefone, setEditTelefone] = useState("");
+  const [editComiteId, setEditComiteId] = useState("");
+  const [editItens, setEditItens] = useState<{ material_id: string; quantidade: number }[]>([]);
+  const [materialToAdd, setMaterialToAdd] = useState("");
+  const [salvandoEdicao, setSalvandoEdicao] = useState(false);
 
   const linkSolicitacao = typeof window !== "undefined" 
     ? `${window.location.origin}/public/solicitar?campanha=${campaign?.id || ""}&uf=${campaign?.uf || "CE"}&nr=${campaign?.numero || ""}`
@@ -86,6 +106,14 @@ function SaidasPage() {
   const solicitacoesPendentes = (db.solicitacoes || [])
     .filter((s) => (!campaign?.id || !s.campaign_id || s.campaign_id === campaign.id) && s.status !== "entregue" && s.status !== "cancelado")
     .sort((a, b) => new Date(b.criado_em).getTime() - new Date(a.criado_em).getTime());
+
+  const comitesCampanha = (db.comites || []).filter(
+    (c) => !campaign?.id || !c.campaign_id || c.campaign_id === campaign.id
+  );
+
+  const materiaisCampanha = (db.materiais || []).filter(
+    (m) => !campaign?.id || !m.campaign_id || m.campaign_id === campaign.id
+  );
 
   const copiarLink = async () => {
     try {
@@ -512,10 +540,92 @@ function SaidasPage() {
       await estornarSaida(selectedSaida.id);
       setConfirmEstornoModal(false);
       setSelectedSaida(null);
+      setIsEditing(false);
     } catch (e) {
       console.error(e);
     } finally {
       setEstornando(false);
+    }
+  };
+
+  // Funções de Gerenciamento da Edição
+  const iniciarEdicao = (saida: Saida) => {
+    const pessoa = (db.pessoas || []).find((p) => p.id === saida.pessoa_id);
+    setEditNome(pessoa?.nome || "");
+    setEditMunicipio(pessoa?.municipio || "");
+    setEditTelefone(pessoa?.telefone || "");
+    setEditComiteId(saida.comite_id || db.comites[0]?.id || "");
+    setEditItens((saida.itens || []).map(i => ({ material_id: i.material_id, quantidade: i.quantidade })));
+    setMaterialToAdd("");
+    setIsEditing(true);
+  };
+
+  const cancelarEdicao = () => {
+    setIsEditing(false);
+  };
+
+  const handleAddMaterial = () => {
+    if (!materialToAdd) return;
+    if (editItens.some(i => i.material_id === materialToAdd)) {
+      toast.info("Este material já está incluído no pedido.");
+      return;
+    }
+    setEditItens(prev => [...prev, { material_id: materialToAdd, quantidade: 1 }]);
+    setMaterialToAdd("");
+  };
+
+  const handleUpdateQtd = (matId: string, delta: number) => {
+    setEditItens(prev => prev.map(i => {
+      if (i.material_id === matId) {
+        return { ...i, quantidade: Math.max(1, i.quantidade + delta) };
+      }
+      return i;
+    }));
+  };
+
+  const handleSetQtd = (matId: string, val: number) => {
+    setEditItens(prev => prev.map(i => {
+      if (i.material_id === matId) {
+        return { ...i, quantidade: Math.max(0, val) };
+      }
+      return i;
+    }));
+  };
+
+  const handleRemoveItem = (matId: string) => {
+    setEditItens(prev => prev.filter(i => i.material_id !== matId));
+  };
+
+  const salvarEdicao = async () => {
+    if (!selectedSaida) return;
+    const itensValidos = editItens.filter(i => i.quantidade > 0);
+    if (itensValidos.length === 0) {
+      toast.error("O pedido deve conter pelo menos 1 material com quantidade válida.");
+      return;
+    }
+
+    setSalvandoEdicao(true);
+    try {
+      await editarSaida(selectedSaida.id, {
+        pessoa_nome: editNome.trim(),
+        pessoa_municipio: editMunicipio.trim(),
+        pessoa_telefone: editTelefone.trim(),
+        comite_id: editComiteId,
+        itens: itensValidos
+      });
+
+      // Atualizar o selectedSaida com os novos valores
+      setSelectedSaida(prev => prev ? {
+        ...prev,
+        comite_id: editComiteId,
+        itens: itensValidos
+      } : null);
+
+      setIsEditing(false);
+    } catch (e) {
+      console.error("Erro ao salvar edição:", e);
+    } finally {
+      setSalvandoEdicao(false);
     }
   };
 
@@ -701,12 +811,15 @@ function SaidasPage() {
               {saidasFiltradas.map((s) => {
                 const pessoa = (db.pessoas || []).find((p) => p.id === s.pessoa_id);
                 const comite = (db.comites || []).find((c) => c.id === s.comite_id);
-                const totalUnidades = s.itens.reduce((acc, i) => acc + i.quantidade, 0);
+                const totalUnidades = (s.itens || []).reduce((acc, i) => acc + i.quantidade, 0);
 
                 return (
                   <article
                     key={s.id}
-                    onClick={() => setSelectedSaida(s)}
+                    onClick={() => {
+                      setIsEditing(false);
+                      setSelectedSaida(s);
+                    }}
                     className="group relative cursor-pointer overflow-hidden rounded-2xl border border-border bg-surface shadow-xs transition-all hover:border-primary/50 hover:shadow-md active:scale-[0.995]"
                   >
                     <div className="flex items-center justify-between border-b border-border/50 bg-muted/5 px-4 py-2.5">
@@ -891,144 +1004,390 @@ function SaidasPage() {
       </Tabs>
 
       {/* MODAL DE DETALHES E GESTÃO DA SAÍDA SELECIONADA */}
-      <Dialog open={!!selectedSaida} onOpenChange={(open) => !open && setSelectedSaida(null)}>
+      <Dialog 
+        open={!!selectedSaida} 
+        onOpenChange={(open) => {
+          if (!open) {
+            setSelectedSaida(null);
+            setIsEditing(false);
+          }
+        }}
+      >
         {selectedSaida && (() => {
           const pessoa = (db.pessoas || []).find((p) => p.id === selectedSaida.pessoa_id);
           const comite = (db.comites || []).find((c) => c.id === selectedSaida.comite_id);
-          const totalUnidades = selectedSaida.itens.reduce((acc, i) => acc + i.quantidade, 0);
+          const totalUnidades = (selectedSaida.itens || []).reduce((acc, i) => acc + i.quantidade, 0);
+          const editTotalUnidades = editItens.reduce((acc, i) => acc + (Number(i.quantidade) || 0), 0);
           const msgWhats = gerarMensagemComprovante(selectedSaida);
           const linkWhats = pessoa?.telefone 
             ? whatsappLink(pessoa.telefone, msgWhats)
             : whatsappLink("", msgWhats);
 
+          const materiaisDisponiveisParaAdicionar = materiaisCampanha.filter(
+            m => !editItens.some(i => i.material_id === m.id)
+          );
+
           return (
-            <DialogContent className="max-w-lg rounded-2xl p-6">
-              <DialogHeader>
-                <div className="flex items-center justify-between gap-2 pb-1">
-                  <div className="flex items-center gap-2">
-                    <span className="inline-flex items-center gap-1.5 bg-emerald-50 text-emerald-700 border border-emerald-200 px-2.5 py-0.5 rounded-full text-[11px] font-extrabold uppercase tracking-wide">
-                      <Check className="size-3" /> Despacho Concluído
-                    </span>
-                    {selectedSaida.numero_pedido && (
-                      <span className="font-mono bg-primary/10 text-primary border border-primary/20 px-2.5 py-0.5 rounded-full text-[11px] font-black">
-                        {selectedSaida.numero_pedido}
+            <DialogContent className="max-w-lg rounded-2xl p-6 max-h-[92vh] overflow-y-auto">
+              {/* MODO DE EDIÇÃO ATIVO */}
+              {isEditing ? (
+                <div className="space-y-4">
+                  <DialogHeader>
+                    <div className="flex items-center justify-between gap-2 pb-1">
+                      <div className="flex items-center gap-2">
+                        <span className="inline-flex items-center gap-1.5 bg-amber-50 text-amber-800 border border-amber-300 px-2.5 py-0.5 rounded-full text-[11px] font-extrabold uppercase tracking-wide">
+                          <Pencil className="size-3" /> Modo de Edição
+                        </span>
+                        {selectedSaida.numero_pedido && (
+                          <span className="font-mono bg-primary/10 text-primary border border-primary/20 px-2.5 py-0.5 rounded-full text-[11px] font-black">
+                            {selectedSaida.numero_pedido}
+                          </span>
+                        )}
+                      </div>
+                      <span className="font-mono text-xs font-black text-primary">
+                        {formatNumero(editTotalUnidades)} ITENS
                       </span>
-                    )}
-                  </div>
-                  <span className="font-mono text-xs font-black text-primary">
-                    {formatNumero(totalUnidades)} ITENS
-                  </span>
-                </div>
-                <DialogTitle className="text-xl font-extrabold text-foreground leading-tight">
-                  Detalhes da Saída de Material
-                </DialogTitle>
-                <DialogDescription className="text-xs text-muted-foreground">
-                  Registrado em {formatData(selectedSaida.criado_em)} às {formatHora(selectedSaida.criado_em)}
-                </DialogDescription>
-              </DialogHeader>
-
-              <div className="space-y-4 pt-2">
-                {/* DADOS DO DESTINATÁRIO E COMITÊ */}
-                <div className="rounded-2xl border border-border bg-muted/20 p-4 space-y-3">
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="space-y-1">
-                      <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Destinatário / Responsável</p>
-                      <p className="text-base font-extrabold text-foreground leading-tight">
-                        {pessoa?.nome || "Responsável não cadastrado"}
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        {pessoa?.funcao ? `${pessoa.funcao} • ` : ""}{pessoa?.municipio || comite?.municipio || "CE"}
-                        {pessoa?.telefone ? ` • Tel: ${formatTelefone(pessoa.telefone)}` : ""}
-                      </p>
                     </div>
+                    <DialogTitle className="text-xl font-extrabold text-foreground leading-tight">
+                      Editar Saída de Material
+                    </DialogTitle>
+                    <DialogDescription className="text-xs text-muted-foreground">
+                      Modifique o responsável, destino ou as quantidades dos itens. O estoque será recalculado automaticamente ao salvar.
+                    </DialogDescription>
+                  </DialogHeader>
 
-                    {pessoa?.telefone && (
-                      <a
-                        href={linkWhats}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#25D366] text-white font-bold text-xs shadow-xs hover:bg-[#128C7E] transition-all shrink-0"
-                      >
-                        <Send className="size-3.5" />
-                        <span>WhatsApp</span>
-                      </a>
-                    )}
-                  </div>
+                  <div className="space-y-4 pt-1">
+                    {/* FORMULÁRIO DE DADOS DO DESTINATÁRIO */}
+                    <div className="rounded-2xl border border-border bg-muted/20 p-4 space-y-3">
+                      <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1">
+                        <User className="size-3 text-primary" /> Destinatário & Local de Entrega
+                      </p>
 
-                  <div className="pt-2.5 border-t border-border/60 flex items-center justify-between text-xs text-muted-foreground">
-                    <span className="flex items-center gap-1.5 font-medium">
-                      <MapPin className="size-3.5 text-primary" />
-                      Origem: {comite?.nome || "Comitê Central / Sede"}
-                    </span>
-                    <span className="font-mono text-[11px]">
-                      {selectedSaida.id.slice(0, 8)}...
-                    </span>
-                  </div>
-                </div>
+                      <div className="space-y-2.5">
+                        <div>
+                          <Label className="text-xs font-bold text-muted-foreground">Nome do Responsável</Label>
+                          <Input
+                            value={editNome}
+                            onChange={(e) => setEditNome(e.target.value)}
+                            placeholder="Ex: João da Silva"
+                            className="mt-1 h-9 text-xs rounded-xl bg-surface"
+                          />
+                        </div>
 
-                {/* LISTAGEM DETALHADA DOS ITENS */}
-                <div className="space-y-2">
-                  <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground flex items-center justify-between">
-                    <span>Materiais Despachados</span>
-                    <span className="font-mono font-bold text-primary">{selectedSaida.itens.length} tipos de itens</span>
-                  </p>
-
-                  <div className="max-h-56 overflow-y-auto space-y-1.5 pr-1">
-                    {selectedSaida.itens.map((item, idx) => {
-                      const m = (db.materiais || []).find((x) => x.id === item.material_id);
-                      return (
-                        <div
-                          key={idx}
-                          className="flex items-center justify-between rounded-xl border border-border/80 bg-surface px-3.5 py-2.5 text-xs shadow-2xs"
-                        >
-                          <div className="min-w-0 flex-1 pr-2">
-                            <p className="font-bold text-foreground truncate">{m?.nome || "Material"}</p>
-                            <p className="text-[10px] text-muted-foreground">{m?.categoria || "Geral"}</p>
+                        <div className="grid grid-cols-2 gap-2">
+                          <div>
+                            <Label className="text-xs font-bold text-muted-foreground">Cidade / Região</Label>
+                            <Input
+                              value={editMunicipio}
+                              onChange={(e) => setEditMunicipio(e.target.value)}
+                              placeholder="Ex: Fortaleza"
+                              className="mt-1 h-9 text-xs rounded-xl bg-surface"
+                            />
                           </div>
-                          <div className="text-right shrink-0">
-                            <span className="font-mono font-black text-sm text-primary">
-                              {item.quantidade.toLocaleString('pt-BR')}
-                            </span>
-                            <span className="text-[10px] text-muted-foreground ml-1">{m?.unidade || "un"}</span>
+                          <div>
+                            <Label className="text-xs font-bold text-muted-foreground">Telefone / WhatsApp</Label>
+                            <Input
+                              value={editTelefone}
+                              onChange={(e) => setEditTelefone(e.target.value)}
+                              placeholder="(85) 99999-9999"
+                              className="mt-1 h-9 text-xs rounded-xl bg-surface"
+                            />
                           </div>
                         </div>
-                      );
-                    })}
+
+                        <div>
+                          <Label className="text-xs font-bold text-muted-foreground">Comitê / Local de Expedição</Label>
+                          <Select value={editComiteId} onValueChange={setEditComiteId}>
+                            <SelectTrigger className="mt-1 h-9 text-xs rounded-xl bg-surface">
+                              <SelectValue placeholder="Selecione o comitê" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {comitesCampanha.map((c) => (
+                                <SelectItem key={c.id} value={c.id} className="text-xs font-medium">
+                                  {c.nome} ({c.municipio || "Sede"})
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* EDIÇÃO DE MATERIAIS E QUANTIDADES */}
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between">
+                        <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                          <Package className="size-3.5 text-primary" />
+                          <span>Itens do Pedido ({editItens.length})</span>
+                        </p>
+                      </div>
+
+                      {/* LISTA DE MATERIAIS NO PEDIDO */}
+                      <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
+                        {editItens.length === 0 ? (
+                          <div className="rounded-xl border border-dashed border-border p-4 text-center text-xs text-muted-foreground">
+                            Nenhum material no pedido. Adicione materiais abaixo.
+                          </div>
+                        ) : (
+                          editItens.map((item) => {
+                            const mat = (db.materiais || []).find((x) => x.id === item.material_id);
+                            // Calcular estoque virtual disponível considerando o que já estava neste pedido
+                            const qtdOriginal = (selectedSaida.itens || []).find(i => i.material_id === item.material_id)?.quantidade || 0;
+                            const estoqueDisponivelTotal = (mat?.estoque || 0) + qtdOriginal;
+
+                            return (
+                              <div
+                                key={item.material_id}
+                                className="flex items-center justify-between gap-2 rounded-xl border border-border bg-surface p-2.5 shadow-2xs"
+                              >
+                                <div className="min-w-0 flex-1">
+                                  <p className="font-bold text-xs text-foreground truncate">{mat?.nome || "Material"}</p>
+                                  <p className="text-[10px] text-muted-foreground">
+                                    {mat?.categoria || "Geral"} • Disponível: <strong className="font-mono text-primary">{estoqueDisponivelTotal}</strong> {mat?.unidade || "un"}
+                                  </p>
+                                </div>
+
+                                <div className="flex items-center gap-1.5 shrink-0">
+                                  <button
+                                    type="button"
+                                    onClick={() => handleUpdateQtd(item.material_id, -1)}
+                                    className="flex size-7 items-center justify-center rounded-lg border border-border bg-muted/30 text-foreground font-bold text-xs hover:bg-muted active:scale-95 transition-all cursor-pointer"
+                                  >
+                                    <Minus className="size-3" />
+                                  </button>
+
+                                  <Input
+                                    type="number"
+                                    min="0"
+                                    value={item.quantidade === 0 ? "" : item.quantidade}
+                                    onChange={(e) => handleSetQtd(item.material_id, parseInt(e.target.value, 10) || 0)}
+                                    className="h-7 w-16 text-center font-mono font-bold text-xs rounded-lg px-1 bg-surface"
+                                  />
+
+                                  <button
+                                    type="button"
+                                    onClick={() => handleUpdateQtd(item.material_id, 1)}
+                                    className="flex size-7 items-center justify-center rounded-lg border border-border bg-muted/30 text-foreground font-bold text-xs hover:bg-muted active:scale-95 transition-all cursor-pointer"
+                                  >
+                                    <Plus className="size-3" />
+                                  </button>
+
+                                  <button
+                                    type="button"
+                                    onClick={() => handleRemoveItem(item.material_id)}
+                                    title="Remover material do pedido"
+                                    className="flex size-7 items-center justify-center rounded-lg text-destructive hover:bg-destructive/10 transition-colors ml-1 cursor-pointer"
+                                  >
+                                    <Trash2 className="size-3.5" />
+                                  </button>
+                                </div>
+                              </div>
+                            );
+                          })
+                        )}
+                      </div>
+
+                      {/* SELETOR PARA ADICIONAR NOVO MATERIAL AO PEDIDO */}
+                      {materiaisDisponiveisParaAdicionar.length > 0 && (
+                        <div className="flex gap-2 pt-1">
+                          <Select value={materialToAdd} onValueChange={setMaterialToAdd}>
+                            <SelectTrigger className="h-9 text-xs rounded-xl bg-surface flex-1">
+                              <SelectValue placeholder="+ Incluir outro material..." />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {materiaisDisponiveisParaAdicionar.map((m) => (
+                                <SelectItem key={m.id} value={m.id} className="text-xs">
+                                  {m.nome} ({m.estoque} em estoque)
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <Button
+                            type="button"
+                            variant="secondary"
+                            onClick={handleAddMaterial}
+                            disabled={!materialToAdd}
+                            className="h-9 px-3 rounded-xl text-xs font-bold shrink-0 cursor-pointer"
+                          >
+                            <Plus className="size-3.5 mr-1" /> Adicionar
+                          </Button>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* BOTÕES DE SALVAR / CANCELAR EDIÇÃO */}
+                    <div className="grid grid-cols-2 gap-2 pt-3 border-t border-border">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={cancelarEdicao}
+                        disabled={salvandoEdicao}
+                        className="w-full rounded-xl text-xs font-bold h-11 cursor-pointer"
+                      >
+                        <X className="size-3.5 mr-1.5" /> Cancelar
+                      </Button>
+                      <Button
+                        type="button"
+                        onClick={salvarEdicao}
+                        disabled={salvandoEdicao}
+                        style={{ backgroundColor: '#ea580c', color: '#ffffff' }}
+                        className="w-full rounded-xl text-xs font-bold h-11 hover:bg-orange-700 shadow-sm cursor-pointer"
+                      >
+                        {salvandoEdicao ? (
+                          <>
+                            <Loader2 className="size-3.5 animate-spin mr-1.5" /> Salvando...
+                          </>
+                        ) : (
+                          <>
+                            <Save className="size-3.5 mr-1.5" /> Salvar Alterações
+                          </>
+                        )}
+                      </Button>
+                    </div>
                   </div>
                 </div>
+              ) : (
+                /* MODO DE VISUALIZAÇÃO PADRÃO COM BOTÃO EDITAR */
+                <div className="space-y-4">
+                  <DialogHeader>
+                    <div className="flex items-center justify-between gap-2 pb-1">
+                      <div className="flex items-center gap-2">
+                        <span className="inline-flex items-center gap-1.5 bg-emerald-50 text-emerald-700 border border-emerald-200 px-2.5 py-0.5 rounded-full text-[11px] font-extrabold uppercase tracking-wide">
+                          <Check className="size-3" /> Despacho Concluído
+                        </span>
+                        {selectedSaida.numero_pedido && (
+                          <span className="font-mono bg-primary/10 text-primary border border-primary/20 px-2.5 py-0.5 rounded-full text-[11px] font-black">
+                            {selectedSaida.numero_pedido}
+                          </span>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="font-mono text-xs font-black text-primary">
+                          {formatNumero(totalUnidades)} ITENS
+                        </span>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => iniciarEdicao(selectedSaida)}
+                          className="h-7 px-2.5 rounded-lg text-xs font-bold text-primary border-primary/30 hover:bg-primary/10 hover:border-primary transition-all cursor-pointer flex items-center gap-1"
+                        >
+                          <Pencil className="size-3" />
+                          <span>Editar</span>
+                        </Button>
+                      </div>
+                    </div>
+                    <DialogTitle className="text-xl font-extrabold text-foreground leading-tight">
+                      Detalhes da Saída de Material
+                    </DialogTitle>
+                    <DialogDescription className="text-xs text-muted-foreground">
+                      Registrado em {formatData(selectedSaida.criado_em)} às {formatHora(selectedSaida.criado_em)}
+                    </DialogDescription>
+                  </DialogHeader>
 
-                {/* BOTÕES DE AÇÃO: IMPRIMIR ROMANEIO, COMPARTILHAR E ESTORNO */}
-                <div className="pt-3 border-t border-border space-y-2">
-                  <div className="grid grid-cols-2 gap-2">
-                    <Button
-                      onClick={() => imprimirComprovanteSaida(selectedSaida)}
-                      style={{ backgroundColor: '#0f172a', color: '#ffffff' }}
-                      className="w-full gap-2 font-bold text-xs h-11 rounded-xl shadow-xs hover:bg-slate-800 cursor-pointer"
-                    >
-                      <Printer className="size-4 text-white" />
-                      <span>Imprimir Romaneio</span>
-                    </Button>
-                    <a
-                      href={linkWhats}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="w-full flex items-center justify-center gap-2 h-11 rounded-xl bg-[#25D366] text-white font-bold text-xs shadow-xs hover:bg-[#128C7E] transition-all"
-                    >
-                      <Send className="size-4" />
-                      <span>Enviar Comprovante</span>
-                    </a>
+                  <div className="space-y-4 pt-1">
+                    {/* DADOS DO DESTINATÁRIO E COMITÊ */}
+                    <div className="rounded-2xl border border-border bg-muted/20 p-4 space-y-3">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="space-y-1">
+                          <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Destinatário / Responsável</p>
+                          <p className="text-base font-extrabold text-foreground leading-tight">
+                            {pessoa?.nome || "Responsável não cadastrado"}
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            {pessoa?.funcao ? `${pessoa.funcao} • ` : ""}{pessoa?.municipio || comite?.municipio || "CE"}
+                            {pessoa?.telefone ? ` • Tel: ${formatTelefone(pessoa.telefone)}` : ""}
+                          </p>
+                        </div>
+
+                        {pessoa?.telefone && (
+                          <a
+                            href={linkWhats}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#25D366] text-white font-bold text-xs shadow-xs hover:bg-[#128C7E] transition-all shrink-0"
+                          >
+                            <Send className="size-3.5" />
+                            <span>WhatsApp</span>
+                          </a>
+                        )}
+                      </div>
+
+                      <div className="pt-2.5 border-t border-border/60 flex items-center justify-between text-xs text-muted-foreground">
+                        <span className="flex items-center gap-1.5 font-medium">
+                          <MapPin className="size-3.5 text-primary" />
+                          Origem: {comite?.nome || "Comitê Central / Sede"}
+                        </span>
+                        <span className="font-mono text-[11px]">
+                          {selectedSaida.id.slice(0, 8)}...
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* LISTAGEM DETALHADA DOS ITENS */}
+                    <div className="space-y-2">
+                      <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground flex items-center justify-between">
+                        <span>Materiais Despachados</span>
+                        <span className="font-mono font-bold text-primary">{selectedSaida.itens.length} tipos de itens</span>
+                      </p>
+
+                      <div className="max-h-56 overflow-y-auto space-y-1.5 pr-1">
+                        {selectedSaida.itens.map((item, idx) => {
+                          const m = (db.materiais || []).find((x) => x.id === item.material_id);
+                          return (
+                            <div
+                              key={idx}
+                              className="flex items-center justify-between rounded-xl border border-border/80 bg-surface px-3.5 py-2.5 text-xs shadow-2xs"
+                            >
+                              <div className="min-w-0 flex-1 pr-2">
+                                <p className="font-bold text-foreground truncate">{m?.nome || "Material"}</p>
+                                <p className="text-[10px] text-muted-foreground">{m?.categoria || "Geral"}</p>
+                              </div>
+                              <div className="text-right shrink-0">
+                                <span className="font-mono font-black text-sm text-primary">
+                                  {item.quantidade.toLocaleString('pt-BR')}
+                                </span>
+                                <span className="text-[10px] text-muted-foreground ml-1">{m?.unidade || "un"}</span>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    {/* BOTÕES DE AÇÃO: IMPRIMIR ROMANEIO, COMPARTILHAR E ESTORNO */}
+                    <div className="pt-3 border-t border-border space-y-2">
+                      <div className="grid grid-cols-2 gap-2">
+                        <Button
+                          onClick={() => imprimirComprovanteSaida(selectedSaida)}
+                          style={{ backgroundColor: '#0f172a', color: '#ffffff' }}
+                          className="w-full gap-2 font-bold text-xs h-11 rounded-xl shadow-xs hover:bg-slate-800 cursor-pointer"
+                        >
+                          <Printer className="size-4 text-white" />
+                          <span>Imprimir Romaneio</span>
+                        </Button>
+                        <a
+                          href={linkWhats}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="w-full flex items-center justify-center gap-2 h-11 rounded-xl bg-[#25D366] text-white font-bold text-xs shadow-xs hover:bg-[#128C7E] transition-all"
+                        >
+                          <Send className="size-4" />
+                          <span>Enviar Comprovante</span>
+                        </a>
+                      </div>
+
+                      <Button
+                        variant="outline"
+                        onClick={() => setConfirmEstornoModal(true)}
+                        className="w-full gap-2 font-bold text-xs h-10 rounded-xl border-destructive/30 text-destructive hover:bg-destructive/10 hover:border-destructive cursor-pointer transition-colors"
+                      >
+                        <RotateCcw className="size-3.5" />
+                        <span>Estornar Saída e Devolver ao Estoque</span>
+                      </Button>
+                    </div>
                   </div>
-
-                  <Button
-                    variant="outline"
-                    onClick={() => setConfirmEstornoModal(true)}
-                    className="w-full gap-2 font-bold text-xs h-10 rounded-xl border-destructive/30 text-destructive hover:bg-destructive/10 hover:border-destructive cursor-pointer transition-colors"
-                  >
-                    <RotateCcw className="size-3.5" />
-                    <span>Estornar Saída e Devolver ao Estoque</span>
-                  </Button>
                 </div>
-              </div>
+              )}
             </DialogContent>
           );
         })()}
@@ -1048,7 +1407,7 @@ function SaidasPage() {
               Esta ação irá cancelar o pedido{" "}
               <strong>{selectedSaida?.numero_pedido || selectedSaida?.id}</strong> e devolver{" "}
               <strong>
-                {selectedSaida?.itens.reduce((acc, i) => acc + i.quantidade, 0).toLocaleString("pt-BR")} unidades
+                {(selectedSaida?.itens || []).reduce((acc, i) => acc + i.quantidade, 0).toLocaleString("pt-BR")} unidades
               </strong>{" "}
               de volta ao estoque dos respectivos materiais.
             </DialogDescription>

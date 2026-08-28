@@ -36,6 +36,14 @@ type Ctx = {
   updateKit: (id: string, k: Partial<Kit>) => Promise<void>;
   archiveKit: (id: string) => Promise<void>;
   registrarSaida: (s: Omit<Saida, "id" | "criado_em">) => Promise<void>;
+  editarSaida: (id: string, dados: {
+    pessoa_id?: string;
+    pessoa_nome?: string;
+    pessoa_municipio?: string;
+    pessoa_telefone?: string;
+    comite_id?: string;
+    itens: { material_id: string; quantidade: number; kit_id?: string }[];
+  }) => Promise<void>;
   estornarSaida: (id: string) => Promise<void>;
   addSolicitacao: (s: Omit<SolicitacaoMaterial, "id" | "criado_em" | "status">) => Promise<SolicitacaoMaterial | null>;
   updateSolicitacao: (id: string, s: Partial<SolicitacaoMaterial>) => Promise<void>;
@@ -504,6 +512,113 @@ export function StoreProvider({ children }: { children: ReactNode }) {
             materiais: prev.materiais.map(m => m.id === mat.id ? { ...m, estoque: novaQtd } : m)
           }));
         }
+      }
+    },
+    editarSaida: async (id, dados) => {
+      const saida = db.saidas.find(s => s.id === id);
+      if (!saida) {
+        toast.error("Saída não encontrada para edição.");
+        return;
+      }
+
+      try {
+        // 1. Calcular diferenças de estoque por material
+        const oldMap: Record<string, number> = {};
+        for (const item of (saida.itens || [])) {
+          oldMap[item.material_id] = (oldMap[item.material_id] || 0) + item.quantidade;
+        }
+
+        const newMap: Record<string, number> = {};
+        for (const item of (dados.itens || [])) {
+          newMap[item.material_id] = (newMap[item.material_id] || 0) + item.quantidade;
+        }
+
+        const allMatIds = Array.from(new Set([...Object.keys(oldMap), ...Object.keys(newMap)]));
+        let updatedMateriais = [...db.materiais];
+
+        for (const matId of allMatIds) {
+          const oldQtd = oldMap[matId] || 0;
+          const newQtd = newMap[matId] || 0;
+          const delta = newQtd - oldQtd; // se > 0, saiu mais unidades; se < 0, devolveu ao estoque
+
+          if (delta !== 0) {
+            const matIndex = updatedMateriais.findIndex(m => m.id === matId);
+            if (matIndex !== -1) {
+              const mat = updatedMateriais[matIndex];
+              const novaQtdEstoque = mat.estoque - delta;
+              updatedMateriais[matIndex] = { ...mat, estoque: novaQtdEstoque };
+
+              try {
+                await supabase.from("materiais").update({ estoque: novaQtdEstoque }).eq("id", mat.id);
+                await supabase.from("historico_estoque").insert([{
+                  material_id: mat.id,
+                  campaign_id: saida.campaign_id || mat.campaign_id,
+                  quantidade_anterior: mat.estoque,
+                  quantidade_nova: novaQtdEstoque,
+                  diferenca: Math.abs(delta),
+                  tipo: delta > 0 ? "saida" : "entrada",
+                  observacao: delta > 0 
+                    ? `Ajuste (aumento de quantidade) no pedido ${saida.numero_pedido || saida.id}`
+                    : `Ajuste (devolução ao estoque) no pedido ${saida.numero_pedido || saida.id}`
+                }]);
+              } catch (e) {
+                console.warn("Erro ao atualizar histórico/estoque no Supabase:", e);
+              }
+            }
+          }
+        }
+
+        // 2. Atualizar dados do responsável se informado
+        const pessoaId = saida.pessoa_id;
+        const pessoaExistente = db.pessoas.find(p => p.id === pessoaId);
+        let updatedPessoas = [...db.pessoas];
+
+        if (pessoaExistente && (dados.pessoa_nome || dados.pessoa_municipio || dados.pessoa_telefone)) {
+          const updatedPessoa = {
+            ...pessoaExistente,
+            nome: dados.pessoa_nome || pessoaExistente.nome,
+            municipio: dados.pessoa_municipio || pessoaExistente.municipio,
+            telefone: dados.pessoa_telefone || pessoaExistente.telefone
+          };
+          try {
+            await supabase.from("pessoas").update({
+              nome: updatedPessoa.nome,
+              municipio: updatedPessoa.municipio,
+              telefone: updatedPessoa.telefone
+            }).eq("id", pessoaId);
+          } catch (e) {
+            console.warn("Erro ao atualizar dados da pessoa:", e);
+          }
+          updatedPessoas = updatedPessoas.map(p => p.id === pessoaId ? updatedPessoa : p);
+        }
+
+        // 3. Atualizar saída no Supabase
+        const payloadSaida = {
+          comite_id: dados.comite_id || saida.comite_id,
+          itens: dados.itens
+        };
+
+        const { error: errSaida } = await supabase.from("saidas").update(payloadSaida).eq("id", id);
+        if (errSaida) {
+          console.warn("Erro ao atualizar saída no Supabase:", errSaida);
+        }
+
+        // 4. Atualizar estado local
+        setDb(prev => ({
+          ...prev,
+          materiais: updatedMateriais,
+          pessoas: updatedPessoas,
+          saidas: prev.saidas.map(s => s.id === id ? {
+            ...s,
+            ...payloadSaida
+          } : s)
+        }));
+
+        toast.success(`Pedido ${saida.numero_pedido || ""} atualizado com sucesso e estoque recalculado!`);
+      } catch (err) {
+        console.error("Erro ao editar saída:", err);
+        toast.error("Não foi possível salvar as alterações da saída.");
+        throw err;
       }
     },
     estornarSaida: async (id: string) => {
