@@ -27,15 +27,14 @@ const app = express();
 const PORT = process.env.PORT || 3001;
 
 // Fail-fast: nenhuma credencial deve ter fallback hardcoded no código-fonte.
-// Configure SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, EVOLUTION_API_URL e
-// EVOLUTION_API_KEY no ambiente (arquivo .env do serviço ou env vars da VPS).
-const supabaseUrl = process.env.SUPABASE_URL;
-const supabaseKey = process.env.SUPABASE_PUBLISHABLE_KEY;
+// Suporta tanto variáveis com prefixo VITE_ quanto normais do .env da VPS.
+const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
+const supabaseKey = process.env.SUPABASE_PUBLISHABLE_KEY || process.env.VITE_SUPABASE_PUBLISHABLE_KEY || process.env.SUPABASE_ANON_KEY;
 
 if (!supabaseUrl || !supabaseKey) {
   console.error(
-    '[whatsapp-service] Faltam variáveis de ambiente obrigatórias: SUPABASE_URL e SUPABASE_PUBLISHABLE_KEY. ' +
-      'Configure-as antes de iniciar o serviço.',
+    '[whatsapp-service] Faltam variáveis de ambiente obrigatórias: SUPABASE_URL (ou VITE_SUPABASE_URL) e SUPABASE_PUBLISHABLE_KEY. ' +
+      'Configure-as no /opt/democracias/.env antes de iniciar o serviço.',
   );
   process.exit(1);
 }
@@ -47,13 +46,13 @@ const supabase = createClient(supabaseUrl, supabaseKey, {
   }
 });
 
-const EVOLUTION_API_URL = process.env.EVOLUTION_API_URL || 'http://evolution-api:8080';
-const EVOLUTION_API_KEY = process.env.EVOLUTION_API_KEY;
+const EVOLUTION_API_URL = process.env.EVOLUTION_API_URL || process.env.VITE_EVOLUTION_API_URL || 'http://127.0.0.1:8080';
+const EVOLUTION_API_KEY = process.env.EVOLUTION_API_KEY || process.env.EVOLUTION_GLOBAL_API_KEY || process.env.VITE_EVOLUTION_GLOBAL_API_KEY || process.env.EVOLUTION_MASTER_TOKEN;
 
 if (!EVOLUTION_API_KEY) {
   console.error(
-    '[whatsapp-service] Faltam variáveis de ambiente obrigatórias: EVOLUTION_API_KEY. ' +
-      'Configure-a antes de iniciar o serviço.',
+    '[whatsapp-service] Faltam variáveis de ambiente obrigatórias: EVOLUTION_API_KEY (ou EVOLUTION_GLOBAL_API_KEY). ' +
+      'Configure-a no /opt/democracias/.env antes de iniciar o serviço.',
   );
   process.exit(1);
 }
