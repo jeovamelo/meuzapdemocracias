@@ -12,7 +12,9 @@ import {
   RotateCcw,
   Sparkles,
   Info,
-  CheckCircle2
+  CheckCircle2,
+  Layers,
+  Globe
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -47,6 +49,7 @@ type GeoFeature = {
   properties?: {
     nome?: string;
     NM_MUN?: string;
+    codarea?: string;
     id?: string;
   };
   geometry?: {
@@ -64,6 +67,72 @@ const normalizar = (valor: string) =>
         .toLocaleUpperCase("pt-BR")
     : "";
 
+// Coordenadas aproximadas dos principais polos municipais (Ceará e outros) para posicionamento rápido
+const COORDENADAS_PREDEFINIDAS: Record<string, [number, number]> = {
+  FORTALEZA: [-3.7319, -38.5267],
+  CAUCAIA: [-3.7364, -38.6531],
+  JUAZEIRODONORTE: [-7.2132, -39.3153],
+  MARACANAU: [-3.8675, -38.6253],
+  SOBRAL: [-3.6883, -40.3497],
+  ITAPIPOCA: [-3.4939, -39.5786],
+  MARANGUAPE: [-3.8908, -38.6869],
+  IGUATU: [-6.3592, -39.2961],
+  QUIXADA: [-4.9714, -39.0153],
+  MORADANOVA: [-5.1069, -38.3711],
+  MADALENA: [-4.9083, -39.5767],
+  ICAPUI: [-4.7128, -37.3558],
+  CANINDE: [-4.3589, -39.3122],
+  AQUIRAZ: [-3.9056, -38.3911],
+  CASCAVEL: [-4.1331, -38.2408],
+  RUSSAS: [-4.9403, -37.9753],
+  CRATEUS: [-5.1783, -40.6775],
+  TIANGUA: [-3.7322, -40.9928],
+  ARACATI: [-4.5619, -37.7694],
+  LIMOEIRODONORTE: [-5.1458, -38.0983],
+  BATURITE: [-4.3297, -38.8842],
+  TAUA: [-6.0028, -40.2936],
+  PACATUBA: [-3.9842, -38.6206],
+  CRATO: [-7.2344, -39.4128],
+  BARBALHA: [-7.3117, -39.3039],
+  CAMOCIM: [-2.9022, -40.8411],
+  ACARAU: [-2.8856, -40.1200],
+  TRAIRI: [-3.2778, -39.2689],
+  PARACURU: [-3.4103, -39.0306],
+  SAOGONCALODOAMARANTE: [-3.6069, -38.9686],
+  EUSEBIO: [-3.8903, -38.4503],
+  HORIZONTE: [-4.0983, -38.4947],
+  PACAJUS: [-4.1739, -38.4617],
+  BEBERIBE: [-4.1797, -38.1306],
+  ICO: [-6.4011, -38.8628],
+  VICOSADOCEARA: [-3.5658, -41.0925],
+  GRANJA: [-3.1203, -40.8258],
+  SANTAQUITERIA: [-4.3319, -40.1567],
+  SENADORPOMPEU: [-5.5878, -39.3725],
+  BOAVIAGEM: [-5.1278, -39.7317],
+  MOMBASSA: [-5.7447, -39.6264],
+  PEDRABRANCA: [-5.4542, -39.7172],
+  MASSAPE: [-3.5228, -40.3408],
+  IPU: [-4.3222, -40.7108],
+  VARZEAALEGRE: [-6.7872, -39.2953],
+  LAVRASDAMANGABEIRA: [-6.7531, -38.9658],
+  JAGUARIBE: [-5.8917, -38.6214],
+  GUARACIABANORTE: [-4.1678, -40.7489],
+  UBAJARA: [-3.8556, -40.9256],
+  ITAPAGE: [-3.6872, -39.5853],
+  PENTECOSTE: [-3.7928, -39.2708],
+  REDENCAO: [-4.2258, -38.7306],
+  ACARAPE: [-4.2222, -38.7058],
+  SAOBENEDITO: [-4.0483, -40.8647],
+  AMONTADA: [-3.3622, -39.8319],
+  ITAREMA: [-2.9214, -39.9167],
+  BELACRUZ: [-3.0522, -40.1667],
+  MARCO: [-3.1264, -40.1478],
+  MIRAIMA: [-3.5764, -39.9722],
+  URUBURETAMA: [-3.6231, -39.5083],
+  TURURU: [-3.5856, -39.4328],
+  UMIRIM: [-3.6789, -39.3511]
+};
+
 export function MapaCalorDistribuicao({
   uf = "CE",
   cargo = "Estadual",
@@ -80,22 +149,51 @@ export function MapaCalorDistribuicao({
 
   const activeUf = (uf || "CE").toUpperCase();
 
-  // Carrega malha GeoJSON oficial do IBGE para a UF da campanha
+  // Carrega malha GeoJSON oficial do IBGE e lista de nomes dos municípios da UF
   useEffect(() => {
     let ativa = true;
     setCarregando(true);
 
-    fetch(
-      `https://servicodados.ibge.gov.br/api/v3/malhas/estados/${activeUf}/municipios?formato=application/vnd.geo+json&qualidade=intermediaria`
-    )
-      .then((res) => (res.ok ? res.json() : Promise.reject(new Error("Falha ao carregar IBGE"))))
-      .then((geojson) => {
-        if (ativa) {
-          setFeatures(geojson.features || []);
+    const urlMalha = `https://servicodados.ibge.gov.br/api/v3/malhas/estados/${activeUf}?formato=application/vnd.geo+json&intrarregiao=municipio`;
+    const urlNomes = `https://servicodados.ibge.gov.br/api/v1/localidades/estados/${activeUf}/municipios`;
+
+    Promise.all([
+      fetch(urlMalha).then((r) => (r.ok ? r.json() : null)).catch(() => null),
+      fetch(urlNomes).then((r) => (r.ok ? r.json() : [])).catch(() => [])
+    ])
+      .then(([geojson, listaNomes]) => {
+        if (!ativa) return;
+
+        if (geojson && geojson.features && geojson.features.length > 0) {
+          // Mapeia os códigos do IBGE (codarea) para os nomes oficiais
+          const nomesPorCodigo = new Map<string, string>();
+          if (Array.isArray(listaNomes)) {
+            listaNomes.forEach((item: any) => {
+              if (item?.id && item?.nome) {
+                nomesPorCodigo.set(String(item.id), item.nome);
+              }
+            });
+          }
+
+          const featuresComNome = geojson.features.map((feat: GeoFeature) => {
+            const cod = String(feat.properties?.codarea || feat.properties?.id || "");
+            const nomeEncontrado = nomesPorCodigo.get(cod) || feat.properties?.nome || feat.properties?.NM_MUN || "Município";
+            return {
+              ...feat,
+              properties: {
+                ...feat.properties,
+                nome: nomeEncontrado
+              }
+            };
+          });
+
+          setFeatures(featuresComNome);
+        } else {
+          setFeatures([]);
         }
       })
       .catch((err) => {
-        console.warn("Erro ao carregar malha do IBGE:", err);
+        console.warn("Erro ao processar dados geográficos do IBGE:", err);
         if (ativa) setFeatures([]);
       })
       .finally(() => {
@@ -202,7 +300,7 @@ export function MapaCalorDistribuicao({
   const getHeatmapColor = (municipioNome: string) => {
     const info = dadosNormalizados.get(normalizar(municipioNome));
     const itens = info?.totalItens || 0;
-    if (itens <= 0) return "hsl(215 20% 92%)"; // Neutro sem entregas
+    if (itens <= 0) return "hsl(215 22% 93%)"; // Neutro elegante sem entregas
 
     const intensidade = Math.min(itens / maxItens, 1);
     
@@ -398,8 +496,8 @@ export function MapaCalorDistribuicao({
                       key={`${indice}-${pathIndice}`}
                       d={d}
                       fill={fill}
-                      stroke={isSelected ? "#0f172a" : isHovered ? "var(--primary)" : "rgba(15,23,42,0.2)"}
-                      strokeWidth={isSelected ? "2.2" : isHovered ? "1.6" : "0.5"}
+                      stroke={isSelected ? "#0f172a" : isHovered ? "var(--primary)" : "rgba(15,23,42,0.25)"}
+                      strokeWidth={isSelected ? "2.4" : isHovered ? "1.8" : "0.55"}
                       className="cursor-pointer transition-all duration-150 hover:brightness-90 active:scale-[0.99]"
                       onClick={() => setSelecionado(selecionado === municipio ? null : municipio)}
                       onMouseEnter={() => setHoveredMunicipio(municipio)}
