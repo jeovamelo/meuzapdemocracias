@@ -130,26 +130,26 @@ function Dashboard() {
     };
   }, [campaign?.id, campaign?.nomeUrna, campaign?.numero, campaign?.uf, campaign?.cargo]);
 
-  const ufCampanha = campaignHeader?.uf || campaign?.uf || db.config.uf || "CE";
+  const ufCampanha = campaignHeader?.uf || campaign?.uf || db?.config?.uf || "CE";
   const cargoCampanha = campaignHeader?.cargo || campaign?.cargo || "Estadual";
 
   // Filtro de saídas da campanha ativa
   const saidasCampanha = useMemo(() => {
-    return (db.saidas || []).filter(
+    return (db?.saidas || []).filter(
       (s) => !campaign?.id || !s.campaign_id || s.campaign_id === campaign.id
     );
-  }, [db.saidas, campaign?.id]);
+  }, [db?.saidas, campaign?.id]);
 
   // Agrupamento geográfico de saídas por município de destino
   const dadosDistribuicaoMunicipios = useMemo(() => {
     const res: Record<string, DadosMunicipioDistribuicao> = {};
 
     saidasCampanha.forEach((s) => {
-      const pessoa = (db.pessoas || []).find((p) => p.id === s.pessoa_id);
-      const comite = (db.comites || []).find((c) => c.id === s.comite_id);
+      const pessoa = (db?.pessoas || []).find((p) => p.id === s.pessoa_id);
+      const comite = (db?.comites || []).find((c) => c.id === s.comite_id);
       const cidade = (pessoa?.municipio || comite?.municipio || "Fortaleza").trim();
       const uf = pessoa?.uf || comite?.uf || ufCampanha;
-      const totalItens = (s.itens || []).reduce((acc, i) => acc + (Number(i.quantidade) || 0), 0);
+      const totalItens = (s.itens || []).reduce((acc, i) => acc + (Number(i?.quantidade) || 0), 0);
 
       if (!res[cidade]) {
         res[cidade] = {
@@ -169,17 +169,17 @@ function Dashboard() {
     });
 
     return res;
-  }, [saidasCampanha, db.pessoas, db.comites, ufCampanha]);
+  }, [saidasCampanha, db?.pessoas, db?.comites, ufCampanha]);
 
-  const comitesAtivos = db.comites.filter(
+  const comitesAtivos = (db?.comites || []).filter(
     (c) => c.ativo && (!campaign?.id || !c.campaign_id || c.campaign_id === campaign.id)
   ).length;
 
-  const apoiadores = db.pessoas.filter(
+  const apoiadores = (db?.pessoas || []).filter(
     (p) => !campaign?.id || !p.campaign_id || p.campaign_id === campaign.id
   ).length;
 
-  const materiaisCampanha = db.materiais.filter(
+  const materiaisCampanha = (db?.materiais || []).filter(
     (m) => !campaign?.id || !m.campaign_id || m.campaign_id === campaign.id
   );
 
@@ -187,7 +187,7 @@ function Dashboard() {
 
   const kitsHoje = saidasCampanha
     .filter((s) => isHoje(s.criado_em))
-    .reduce((acc, s) => acc + (s.kits || []).reduce((a, k) => a + k.quantidade, 0), 0);
+    .reduce((acc, s) => acc + (s.kits || []).reduce((a, k) => a + (Number(k?.quantidade) || 0), 0), 0);
 
   const dashboardTitle = campaignHeader
     ? [campaignHeader.nomeUrna, campaignHeader.numero, campaignHeader.uf]
@@ -332,13 +332,13 @@ function Dashboard() {
                   <Skeleton className="h-10 w-full" />
                   <Skeleton className="h-10 w-full" />
                 </div>
-              ) : db.historico_estoque.length === 0 ? (
+              ) : !db?.historico_estoque || db.historico_estoque.length === 0 ? (
                 <p className="py-6 text-xs text-muted-foreground text-center">
                   Nenhuma movimentação registrada ainda.
                 </p>
               ) : (
-                db.historico_estoque.slice(0, 4).map((m) => {
-                  const material = db.materiais.find((mat) => mat.id === m.material_id);
+                (db.historico_estoque || []).slice(0, 4).map((m) => {
+                  const material = (db.materiais || []).find((mat) => mat.id === m.material_id);
                   const Icon = material ? iconePorCategoria(material) : Package;
                   return (
                     <div

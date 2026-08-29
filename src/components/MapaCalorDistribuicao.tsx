@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState, useRef } from "react";
+import React, { useEffect, useMemo, useState, useRef, Component } from "react";
 import {
   MapPin,
   Package,
@@ -13,8 +13,6 @@ import {
   Sparkles,
   Info,
   CheckCircle2,
-  Layers,
-  Globe
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -27,7 +25,7 @@ import {
   CartesianGrid,
   Tooltip as RechartsTooltip,
   ResponsiveContainer,
-  Cell
+  Cell,
 } from "recharts";
 
 export interface DadosMunicipioDistribuicao {
@@ -39,9 +37,9 @@ export interface DadosMunicipioDistribuicao {
 }
 
 interface Props {
-  uf: string;
+  uf?: string;
   cargo?: string;
-  dados: Record<string, DadosMunicipioDistribuicao>;
+  dados?: Record<string, DadosMunicipioDistribuicao>;
   titulo?: string;
 }
 
@@ -67,77 +65,53 @@ const normalizar = (valor: string) =>
         .toLocaleUpperCase("pt-BR")
     : "";
 
-// Coordenadas aproximadas dos principais polos municipais (Ceará e outros) para posicionamento rápido
-const COORDENADAS_PREDEFINIDAS: Record<string, [number, number]> = {
-  FORTALEZA: [-3.7319, -38.5267],
-  CAUCAIA: [-3.7364, -38.6531],
-  JUAZEIRODONORTE: [-7.2132, -39.3153],
-  MARACANAU: [-3.8675, -38.6253],
-  SOBRAL: [-3.6883, -40.3497],
-  ITAPIPOCA: [-3.4939, -39.5786],
-  MARANGUAPE: [-3.8908, -38.6869],
-  IGUATU: [-6.3592, -39.2961],
-  QUIXADA: [-4.9714, -39.0153],
-  MORADANOVA: [-5.1069, -38.3711],
-  MADALENA: [-4.9083, -39.5767],
-  ICAPUI: [-4.7128, -37.3558],
-  CANINDE: [-4.3589, -39.3122],
-  AQUIRAZ: [-3.9056, -38.3911],
-  CASCAVEL: [-4.1331, -38.2408],
-  RUSSAS: [-4.9403, -37.9753],
-  CRATEUS: [-5.1783, -40.6775],
-  TIANGUA: [-3.7322, -40.9928],
-  ARACATI: [-4.5619, -37.7694],
-  LIMOEIRODONORTE: [-5.1458, -38.0983],
-  BATURITE: [-4.3297, -38.8842],
-  TAUA: [-6.0028, -40.2936],
-  PACATUBA: [-3.9842, -38.6206],
-  CRATO: [-7.2344, -39.4128],
-  BARBALHA: [-7.3117, -39.3039],
-  CAMOCIM: [-2.9022, -40.8411],
-  ACARAU: [-2.8856, -40.1200],
-  TRAIRI: [-3.2778, -39.2689],
-  PARACURU: [-3.4103, -39.0306],
-  SAOGONCALODOAMARANTE: [-3.6069, -38.9686],
-  EUSEBIO: [-3.8903, -38.4503],
-  HORIZONTE: [-4.0983, -38.4947],
-  PACAJUS: [-4.1739, -38.4617],
-  BEBERIBE: [-4.1797, -38.1306],
-  ICO: [-6.4011, -38.8628],
-  VICOSADOCEARA: [-3.5658, -41.0925],
-  GRANJA: [-3.1203, -40.8258],
-  SANTAQUITERIA: [-4.3319, -40.1567],
-  SENADORPOMPEU: [-5.5878, -39.3725],
-  BOAVIAGEM: [-5.1278, -39.7317],
-  MOMBASSA: [-5.7447, -39.6264],
-  PEDRABRANCA: [-5.4542, -39.7172],
-  MASSAPE: [-3.5228, -40.3408],
-  IPU: [-4.3222, -40.7108],
-  VARZEAALEGRE: [-6.7872, -39.2953],
-  LAVRASDAMANGABEIRA: [-6.7531, -38.9658],
-  JAGUARIBE: [-5.8917, -38.6214],
-  GUARACIABANORTE: [-4.1678, -40.7489],
-  UBAJARA: [-3.8556, -40.9256],
-  ITAPAGE: [-3.6872, -39.5853],
-  PENTECOSTE: [-3.7928, -39.2708],
-  REDENCAO: [-4.2258, -38.7306],
-  ACARAPE: [-4.2222, -38.7058],
-  SAOBENEDITO: [-4.0483, -40.8647],
-  AMONTADA: [-3.3622, -39.8319],
-  ITAREMA: [-2.9214, -39.9167],
-  BELACRUZ: [-3.0522, -40.1667],
-  MARCO: [-3.1264, -40.1478],
-  MIRAIMA: [-3.5764, -39.9722],
-  URUBURETAMA: [-3.6231, -39.5083],
-  TURURU: [-3.5856, -39.4328],
-  UMIRIM: [-3.6789, -39.3511]
-};
+// Error Boundary para proteger a renderização do mapa
+class MapaErrorBoundary extends Component<{ children: React.ReactNode }, { hasError: boolean }> {
+  constructor(props: { children: React.ReactNode }) {
+    super(props);
+    this.state = { hasError: false };
+  }
+
+  static getDerivedStateFromError() {
+    return { hasError: true };
+  }
+
+  componentDidCatch(error: any, errorInfo: any) {
+    console.error("Erro interno no componente de Mapa de Calor:", error, errorInfo);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="flex h-[320px] flex-col items-center justify-center p-6 text-center text-sm text-muted-foreground">
+          <Info className="size-8 text-muted-foreground/40 mb-2" />
+          <p className="font-bold text-foreground">Não foi possível carregar a visualização gráfica.</p>
+          <p className="text-xs mt-1">Os dados consolidados continuam disponíveis nos indicadores acima.</p>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
 
 export function MapaCalorDistribuicao({
   uf = "CE",
   cargo = "Estadual",
   dados = {},
-  titulo = "Distribuição Geográfica de Materiais"
+  titulo = "Distribuição Geográfica de Materiais",
+}: Props) {
+  return (
+    <MapaErrorBoundary>
+      <MapaCalorDistribuicaoInterno uf={uf} cargo={cargo} dados={dados} titulo={titulo} />
+    </MapaErrorBoundary>
+  );
+}
+
+function MapaCalorDistribuicaoInterno({
+  uf = "CE",
+  cargo = "Estadual",
+  dados = {},
+  titulo = "Distribuição Geográfica de Materiais",
 }: Props) {
   const [features, setFeatures] = useState<GeoFeature[]>([]);
   const [carregando, setCarregando] = useState(true);
@@ -159,12 +133,12 @@ export function MapaCalorDistribuicao({
 
     Promise.all([
       fetch(urlMalha).then((r) => (r.ok ? r.json() : null)).catch(() => null),
-      fetch(urlNomes).then((r) => (r.ok ? r.json() : [])).catch(() => [])
+      fetch(urlNomes).then((r) => (r.ok ? r.json() : [])).catch(() => []),
     ])
       .then(([geojson, listaNomes]) => {
         if (!ativa) return;
 
-        if (geojson && geojson.features && geojson.features.length > 0) {
+        if (geojson && geojson.features && Array.isArray(geojson.features) && geojson.features.length > 0) {
           // Mapeia os códigos do IBGE (codarea) para os nomes oficiais
           const nomesPorCodigo = new Map<string, string>();
           if (Array.isArray(listaNomes)) {
@@ -177,13 +151,14 @@ export function MapaCalorDistribuicao({
 
           const featuresComNome = geojson.features.map((feat: GeoFeature) => {
             const cod = String(feat.properties?.codarea || feat.properties?.id || "");
-            const nomeEncontrado = nomesPorCodigo.get(cod) || feat.properties?.nome || feat.properties?.NM_MUN || "Município";
+            const nomeEncontrado =
+              nomesPorCodigo.get(cod) || feat.properties?.nome || feat.properties?.NM_MUN || "Município";
             return {
               ...feat,
               properties: {
                 ...feat.properties,
-                nome: nomeEncontrado
-              }
+                nome: nomeEncontrado,
+              },
             };
           });
 
@@ -208,6 +183,7 @@ export function MapaCalorDistribuicao({
   // Indexa dados por nome normalizado
   const dadosNormalizados = useMemo(() => {
     const mapa = new Map<string, DadosMunicipioDistribuicao>();
+    if (!dados) return mapa;
     Object.entries(dados).forEach(([_, val]) => {
       if (val && val.municipio) {
         mapa.set(normalizar(val.municipio), val);
@@ -218,19 +194,20 @@ export function MapaCalorDistribuicao({
 
   // Estatísticas gerais
   const listaCidades = useMemo(() => {
-    return Object.values(dados).sort((a, b) => b.totalItens - a.totalItens);
+    if (!dados) return [];
+    return Object.values(dados).sort((a, b) => (b?.totalItens || 0) - (a?.totalItens || 0));
   }, [dados]);
 
   const maxItens = useMemo(() => {
-    return Math.max(1, ...listaCidades.map((c) => c.totalItens));
+    return Math.max(1, listaCidades.reduce((acc, c) => Math.max(acc, c?.totalItens || 0), 0));
   }, [listaCidades]);
 
   const totalGeralItens = useMemo(() => {
-    return listaCidades.reduce((acc, c) => acc + c.totalItens, 0);
+    return listaCidades.reduce((acc, c) => acc + (c?.totalItens || 0), 0);
   }, [listaCidades]);
 
   const totalMunicipiosAtendidos = useMemo(() => {
-    return listaCidades.filter((c) => c.totalItens > 0).length;
+    return listaCidades.filter((c) => (c?.totalItens || 0) > 0).length;
   }, [listaCidades]);
 
   const totalMunicipiosEstado = features.length || (activeUf === "CE" ? 184 : 100);
@@ -238,72 +215,107 @@ export function MapaCalorDistribuicao({
     ? ((totalMunicipiosAtendidos / totalMunicipiosEstado) * 100).toFixed(1)
     : "0.0";
 
-  // Projeção SVG dos polígonos dos municípios
-  const pontos = useMemo(() => {
-    return features.flatMap((feature) => {
-      const coordenadas = feature.geometry?.coordinates;
-      if (!coordenadas) return [];
-      return feature.geometry?.type === "Polygon"
-        ? (coordenadas.flat(2) as number[][])
-        : (coordenadas.flat(3) as number[][]);
+  // Cálculo seguro dos limites geográficos SEM spread de array gigante
+  const limites = useMemo(() => {
+    if (!features || features.length === 0) return null;
+    let minLon = Infinity;
+    let maxLon = -Infinity;
+    let minLat = Infinity;
+    let maxLat = -Infinity;
+
+    const processPoint = (pt: any) => {
+      if (Array.isArray(pt) && pt.length >= 2) {
+        const lon = Number(pt[0]);
+        const lat = Number(pt[1]);
+        if (Number.isFinite(lon) && Number.isFinite(lat)) {
+          if (lon < minLon) minLon = lon;
+          if (lon > maxLon) maxLon = lon;
+          if (lat < minLat) minLat = lat;
+          if (lat > maxLat) maxLat = lat;
+        }
+      }
+    };
+
+    const processRings = (rings: any) => {
+      if (!Array.isArray(rings)) return;
+      rings.forEach((ring: any) => {
+        if (!Array.isArray(ring)) return;
+        ring.forEach((pt: any) => processPoint(pt));
+      });
+    };
+
+    features.forEach((feature) => {
+      const geom = feature.geometry;
+      if (!geom || !geom.coordinates) return;
+      if (geom.type === "Polygon") {
+        processRings(geom.coordinates);
+      } else if (geom.type === "MultiPolygon") {
+        if (Array.isArray(geom.coordinates)) {
+          geom.coordinates.forEach((poly: any) => processRings(poly));
+        }
+      }
     });
+
+    if (!Number.isFinite(minLon) || !Number.isFinite(maxLon) || !Number.isFinite(minLat) || !Number.isFinite(maxLat)) {
+      return null;
+    }
+
+    return { minLon, maxLon, minLat, maxLat };
   }, [features]);
 
-  const limites = useMemo(() => {
-    if (!pontos.length) return null;
-    return {
-      minLon: Math.min(...pontos.map(([lon]) => lon)),
-      maxLon: Math.max(...pontos.map(([lon]) => lon)),
-      minLat: Math.min(...pontos.map(([, lat]) => lat)),
-      maxLat: Math.max(...pontos.map(([, lat]) => lat)),
-    };
-  }, [pontos]);
-
-  const paths = (feature: GeoFeature) => {
-    if (!limites || !feature.geometry?.coordinates) return [];
-    const poligonos =
-      feature.geometry.type === "Polygon"
-        ? [feature.geometry.coordinates]
-        : feature.geometry.type === "MultiPolygon"
-        ? feature.geometry.coordinates
+  const paths = (feature: GeoFeature): string[] => {
+    if (!limites || !feature?.geometry?.coordinates) return [];
+    const geom = feature.geometry;
+    const poligonos: number[][][][] =
+      geom.type === "Polygon"
+        ? [geom.coordinates as number[][][]]
+        : geom.type === "MultiPolygon"
+        ? (geom.coordinates as number[][][][])
         : [];
+
     const largura = 760;
     const altura = 480;
     const margem = 16;
-    const escala = Math.min(
-      (largura - margem * 2) / Math.max(limites.maxLon - limites.minLon, 0.001),
-      (altura - margem * 2) / Math.max(limites.maxLat - limites.minLat, 0.001)
-    );
-    const offsetX = (largura - (limites.maxLon - limites.minLon) * escala) / 2;
-    const offsetY = (altura - (limites.maxLat - limites.minLat) * escala) / 2;
+    const diffLon = Math.max(limites.maxLon - limites.minLon, 0.001);
+    const diffLat = Math.max(limites.maxLat - limites.minLat, 0.001);
+    const escala = Math.min((largura - margem * 2) / diffLon, (altura - margem * 2) / diffLat);
+    const offsetX = (largura - diffLon * escala) / 2;
+    const offsetY = (altura - diffLat * escala) / 2;
 
-    return poligonos.map((poligono: number[][][]) =>
-      poligono
-        .map(
-          (anel) =>
-            anel
-              .map(
-                ([lon, lat], indice) =>
-                  `${indice ? "L" : "M"}${(offsetX + (lon - limites.minLon) * escala).toFixed(2)} ${(
-                    altura -
-                    offsetY -
-                    (lat - limites.minLat) * escala
-                  ).toFixed(2)}`
-              )
-              .join(" ") + " Z"
-        )
-        .join(" ")
-    );
+    const pathStrings: string[] = [];
+
+    poligonos.forEach((poligono) => {
+      if (!Array.isArray(poligono)) return;
+      const partes: string[] = [];
+      poligono.forEach((anel) => {
+        if (!Array.isArray(anel) || anel.length === 0) return;
+        const segmento = anel
+          .map(([lon, lat], indice) => {
+            const x = (offsetX + (lon - limites.minLon) * escala).toFixed(2);
+            const y = (altura - offsetY - (lat - limites.minLat) * escala).toFixed(2);
+            return `${indice === 0 ? "M" : "L"}${x} ${y}`;
+          })
+          .join(" ");
+        if (segmento) {
+          partes.push(segmento + " Z");
+        }
+      });
+      if (partes.length > 0) {
+        pathStrings.push(partes.join(" "));
+      }
+    });
+
+    return pathStrings;
   };
 
   // Cor do mapa de calor proporcional à intensidade de despacho
   const getHeatmapColor = (municipioNome: string) => {
     const info = dadosNormalizados.get(normalizar(municipioNome));
     const itens = info?.totalItens || 0;
-    if (itens <= 0) return "hsl(215 22% 93%)"; // Neutro elegante sem entregas
+    if (itens <= 0) return "hsl(215 22% 93%)"; // Neutro sem entregas
 
     const intensidade = Math.min(itens / maxItens, 1);
-    
+
     // Gradiente: Amarelo-Alaranjado -> Laranja Democracias -> Vermelho Intenso
     if (intensidade < 0.25) {
       return `hsl(42, 95%, ${72 - intensidade * 20}%)`;
@@ -334,7 +346,10 @@ export function MapaCalorDistribuicao({
             <h2 className="text-base font-extrabold uppercase tracking-wide text-foreground">
               {titulo}
             </h2>
-            <Badge variant="outline" className="text-[10px] font-mono uppercase bg-primary/5 text-primary border-primary/20">
+            <Badge
+              variant="outline"
+              className="text-[10px] font-mono uppercase bg-primary/5 text-primary border-primary/20"
+            >
               Escopo {activeUf} • {cargo || "Estadual"}
             </Badge>
           </div>
@@ -392,7 +407,9 @@ export function MapaCalorDistribuicao({
           <p className="font-mono text-xl sm:text-2xl font-black text-primary">
             {totalMunicipiosAtendidos}
           </p>
-          <p className="text-[10px] text-muted-foreground font-medium">de {totalMunicipiosEstado} municípios ({percentualCobertura}%)</p>
+          <p className="text-[10px] text-muted-foreground font-medium">
+            de {totalMunicipiosEstado} municípios ({percentualCobertura}%)
+          </p>
         </div>
 
         <div className="rounded-2xl border border-border/80 bg-muted/20 p-3.5 space-y-1">
@@ -403,7 +420,12 @@ export function MapaCalorDistribuicao({
             {listaCidades[0]?.municipio || "Nenhuma"}
           </p>
           <p className="text-[10px] text-muted-foreground font-medium truncate">
-            {listaCidades[0] ? `${formatNumero(listaCidades[0].totalItens)} itens (${((listaCidades[0].totalItens / Math.max(1, totalGeralItens)) * 100).toFixed(0)}%)` : "Aguardando saídas"}
+            {listaCidades[0]
+              ? `${formatNumero(listaCidades[0].totalItens)} itens (${(
+                  (listaCidades[0].totalItens / Math.max(1, totalGeralItens)) *
+                  100
+                ).toFixed(0)}%)`
+              : "Aguardando saídas"}
           </p>
         </div>
 
@@ -412,7 +434,7 @@ export function MapaCalorDistribuicao({
             <Users className="size-3 text-orange-600" /> Remessas
           </span>
           <p className="font-mono text-xl sm:text-2xl font-black text-foreground">
-            {listaCidades.reduce((acc, c) => acc + c.totalPedidos, 0)}
+            {listaCidades.reduce((acc, c) => acc + (c?.totalPedidos || 0), 0)}
           </p>
           <p className="text-[10px] text-muted-foreground font-medium">pedidos entregues</p>
         </div>
@@ -470,7 +492,9 @@ export function MapaCalorDistribuicao({
             <div className="flex h-[360px] flex-col items-center justify-center p-6 text-center text-sm text-muted-foreground">
               <Info className="size-8 text-muted-foreground/40 mb-2" />
               <p className="font-bold text-foreground">Mapa do estado ({activeUf}) indisponível temporariamente.</p>
-              <p className="text-xs mt-1 max-w-sm">Você pode visualizar os dados consolidados na aba de Ranking ao lado.</p>
+              <p className="text-xs mt-1 max-w-sm">
+                Você pode visualizar os dados consolidados na aba de Ranking ao lado.
+              </p>
             </div>
           ) : (
             <div className="overflow-hidden flex items-center justify-center min-h-[360px]">
@@ -486,8 +510,10 @@ export function MapaCalorDistribuicao({
                   const municipio =
                     feature.properties?.nome || feature.properties?.NM_MUN || "Município";
                   const fill = getHeatmapColor(municipio);
-                  const isSelected = selecionado && normalizar(selecionado) === normalizar(municipio);
-                  const isHovered = hoveredMunicipio && normalizar(hoveredMunicipio) === normalizar(municipio);
+                  const isSelected =
+                    selecionado && normalizar(selecionado) === normalizar(municipio);
+                  const isHovered =
+                    hoveredMunicipio && normalizar(hoveredMunicipio) === normalizar(municipio);
                   const info = dadosNormalizados.get(normalizar(municipio));
                   const total = info?.totalItens || 0;
 
@@ -496,14 +522,18 @@ export function MapaCalorDistribuicao({
                       key={`${indice}-${pathIndice}`}
                       d={d}
                       fill={fill}
-                      stroke={isSelected ? "#0f172a" : isHovered ? "var(--primary)" : "rgba(15,23,42,0.25)"}
+                      stroke={
+                        isSelected ? "#0f172a" : isHovered ? "var(--primary)" : "rgba(15,23,42,0.25)"
+                      }
                       strokeWidth={isSelected ? "2.4" : isHovered ? "1.8" : "0.55"}
                       className="cursor-pointer transition-all duration-150 hover:brightness-90 active:scale-[0.99]"
                       onClick={() => setSelecionado(selecionado === municipio ? null : municipio)}
                       onMouseEnter={() => setHoveredMunicipio(municipio)}
                       onMouseLeave={() => setHoveredMunicipio(null)}
                     >
-                      <title>{`${municipio}: ${formatNumero(total)} itens despachados (${info?.totalPedidos || 0} pedidos)`}</title>
+                      <title>{`${municipio}: ${formatNumero(total)} itens despachados (${
+                        info?.totalPedidos || 0
+                      } pedidos)`}</title>
                     </path>
                   ));
                 })}
@@ -525,7 +555,7 @@ export function MapaCalorDistribuicao({
                   data={listaCidades.slice(0, 10).map((c) => ({
                     name: c.municipio,
                     total: c.totalItens,
-                    pedidos: c.totalPedidos
+                    pedidos: c.totalPedidos,
                   }))}
                   layout="vertical"
                   margin={{ top: 10, right: 30, left: 20, bottom: 5 }}
@@ -564,7 +594,13 @@ export function MapaCalorDistribuicao({
                     {listaCidades.slice(0, 10).map((_, index) => (
                       <Cell
                         key={`cell-${index}`}
-                        fill={index === 0 ? "var(--primary)" : index < 3 ? "hsl(24, 95%, 53%)" : "hsl(24, 80%, 65%)"}
+                        fill={
+                          index === 0
+                            ? "var(--primary)"
+                            : index < 3
+                            ? "hsl(24, 95%, 53%)"
+                            : "hsl(24, 80%, 65%)"
+                        }
                       />
                     ))}
                   </Bar>
@@ -605,7 +641,7 @@ export function MapaCalorDistribuicao({
                   {dadosSelecionado.totalPedidos}
                 </strong>{" "}
                 pedidos
-                {dadosSelecionado.destinatarios.length > 0 && (
+                {dadosSelecionado.destinatarios && dadosSelecionado.destinatarios.length > 0 && (
                   <span>
                     {" "}
                     • Responsáveis:{" "}

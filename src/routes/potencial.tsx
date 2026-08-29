@@ -42,15 +42,49 @@ function MapaDeCalor({ uf, metas }: { uf: string; metas: CidadeMeta[] }) {
 
   const metasPorMunicipio = useMemo(() => new Map(metas.map((meta) => [normalizar(meta.municipio), meta])), [metas]);
   const maximo = Math.max(0, ...metas.map((meta) => Math.max(meta.meta_campanha, meta.realidade_votos)));
-  const pontos = features.flatMap((feature) => {
-    const coordenadas = feature.geometry?.coordinates;
-    if (!coordenadas) return [];
-    return feature.geometry?.type === "Polygon" ? coordenadas.flat(2) : coordenadas.flat(3);
-  }) as number[][];
-  const limites = pontos.length ? {
-    minLon: Math.min(...pontos.map(([lon]) => lon)), maxLon: Math.max(...pontos.map(([lon]) => lon)),
-    minLat: Math.min(...pontos.map(([, lat]) => lat)), maxLat: Math.max(...pontos.map(([, lat]) => lat)),
-  } : null;
+  const limites = useMemo(() => {
+    if (!features || features.length === 0) return null;
+    let minLon = Infinity;
+    let maxLon = -Infinity;
+    let minLat = Infinity;
+    let maxLat = -Infinity;
+
+    const processPoint = (pt: any) => {
+      if (Array.isArray(pt) && pt.length >= 2) {
+        const lon = Number(pt[0]);
+        const lat = Number(pt[1]);
+        if (Number.isFinite(lon) && Number.isFinite(lat)) {
+          if (lon < minLon) minLon = lon;
+          if (lon > maxLon) maxLon = lon;
+          if (lat < minLat) minLat = lat;
+          if (lat > maxLat) maxLat = lat;
+        }
+      }
+    };
+
+    const processRings = (rings: any) => {
+      if (!Array.isArray(rings)) return;
+      rings.forEach((ring: any) => {
+        if (!Array.isArray(ring)) return;
+        ring.forEach((pt: any) => processPoint(pt));
+      });
+    };
+
+    features.forEach((feature) => {
+      const geom = feature.geometry;
+      if (!geom || !geom.coordinates) return;
+      if (geom.type === "Polygon") {
+        processRings(geom.coordinates);
+      } else if (geom.type === "MultiPolygon") {
+        if (Array.isArray(geom.coordinates)) {
+          geom.coordinates.forEach((poly: any) => processRings(poly));
+        }
+      }
+    });
+
+    if (!Number.isFinite(minLon) || !Number.isFinite(maxLon)) return null;
+    return { minLon, maxLon, minLat, maxLat };
+  }, [features]);
 
   const paths = (feature: GeoFeature) => {
     if (!limites || !feature.geometry?.coordinates) return [];
