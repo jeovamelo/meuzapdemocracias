@@ -560,11 +560,11 @@ function MapaCalorDistribuicaoInterno({
     return pathStrings;
   };
 
-  // Cálculo do centróide visual das cidades ativas
+  // Cálculo do centróide visual das cidades ativas com prevenção de sobreposição (Anti-Collision)
   const cidadesComEntregas = useMemo(() => {
     if (!limites || !features || features.length === 0) return [];
 
-    return features
+    const cidadesBrutas = features
       .map((feature) => {
         const nome = feature.properties?.nome || feature.properties?.NM_MUN || "Município";
         const info = dadosNormalizados.get(normalizar(nome));
@@ -618,6 +618,40 @@ function MapaCalorDistribuicaoInterno({
       })
       .filter((c): c is NonNullable<typeof c> => c !== null)
       .sort((a, b) => b.itens - a.itens);
+
+    // Ajuste inteligente de offsets para evitar sobreposição entre cidades vizinhas
+    const posicionadas: Array<(typeof cidadesBrutas)[0] & { offsetX: number; offsetY: number }> = [];
+
+    cidadesBrutas.forEach((cidade, i) => {
+      let offsetY = -13; // padrão: etiqueta acima do ponto
+      let offsetX = 0;
+
+      // Verifica proximidade com cidades de maior volume já posicionadas
+      for (let j = 0; j < posicionadas.length; j++) {
+        const anterior = posicionadas[j];
+        const dist = Math.hypot(cidade.cx - anterior.cx, cidade.cy - anterior.cy);
+
+        if (dist < 34) {
+          // Se estiver muito perto, alterna posição para baixo ou para o lado
+          if (cidade.cy >= anterior.cy) {
+            offsetY = +16; // posiciona abaixo do ponto
+          } else {
+            offsetY = -22; // posiciona mais acima
+          }
+          if (Math.abs(cidade.cx - anterior.cx) < 22) {
+            offsetX = cidade.cx >= anterior.cx ? +18 : -18;
+          }
+        }
+      }
+
+      posicionadas.push({
+        ...cidade,
+        offsetX,
+        offsetY,
+      });
+    });
+
+    return posicionadas;
   }, [features, dadosNormalizados, limites, escala, fatorLon, margem, viewHeight]);
 
   // Cor do mapa de calor proporcional à intensidade de despacho
@@ -955,15 +989,18 @@ function MapaCalorDistribuicaoInterno({
                     ));
                   })}
 
-                  {/* 2. RÓTULOS E PINS DAS CIDADES COM ENTREGAS */}
-                  {mostrarRotulos &&
-                    cidadesComEntregas.map((c, i) => {
+                  {/* 2. RÓTULOS E PINS DAS CIDADES COM ENTREGAS (COM ESCALONAMENTO ZOOM-RESPONSIVO) */}
+                  {mostrarRotulos && (() => {
+                    const labelScale = Math.max(0.38, Math.min(1.0, 1 / Math.pow(zoomLevel, 0.72)));
+
+                    return cidadesComEntregas.map((c, i) => {
                       const isSelected =
                         selecionado && normalizar(selecionado) === normalizar(c.nome);
                       const isHovered =
                         hoveredMunicipio && normalizar(hoveredMunicipio) === normalizar(c.nome);
                       const labelTexto = `${c.nome} • ${formatNumero(c.itens)}`;
-                      const labelWidth = Math.max(68, labelTexto.length * 6.2 + 14);
+                      const labelWidth = Math.max(62, labelTexto.length * 5.8 + 12);
+                      const hasOffset = c.offsetX !== 0 || c.offsetY > 0;
 
                       return (
                         <g
@@ -977,19 +1014,32 @@ function MapaCalorDistribuicaoInterno({
                           onMouseEnter={() => setHoveredMunicipio(c.nome)}
                           onMouseLeave={() => setHoveredMunicipio(null)}
                         >
+                          {/* Linha guia se a etiqueta estiver deslocada para evitar sobreposição */}
+                          {hasOffset && (
+                            <line
+                              x1={c.cx}
+                              y1={c.cy}
+                              x2={c.cx + c.offsetX * labelScale}
+                              y2={c.cy + (c.offsetY > 0 ? (c.offsetY - 6) * labelScale : (c.offsetY + 6) * labelScale)}
+                              stroke={isSelected ? "var(--primary)" : "rgba(15, 23, 42, 0.4)"}
+                              strokeWidth={0.8 * labelScale}
+                              strokeDasharray={`${2 * labelScale} ${1.5 * labelScale}`}
+                            />
+                          )}
+
                           {/* Ponto / Marcador de Entrega */}
                           <circle
                             cx={c.cx}
                             cy={c.cy}
-                            r={isSelected || isHovered ? 5.5 : 4}
+                            r={(isSelected || isHovered ? 5.2 : 3.8) * labelScale}
                             fill={isSelected ? "#0f172a" : "var(--primary)"}
                             stroke="#ffffff"
-                            strokeWidth="1.5"
+                            strokeWidth={1.5 * labelScale}
                             className="shadow-xs"
                           />
 
-                          {/* Pill / Etiqueta Flutuante de Texto */}
-                          <g transform={`translate(${c.cx}, ${c.cy - 12})`}>
+                          {/* Pill / Etiqueta Flutuante de Texto com Escala Proporcional ao Zoom */}
+                          <g transform={`translate(${c.cx + c.offsetX * labelScale}, ${c.cy + c.offsetY * labelScale}) scale(${labelScale})`}>
                             <rect
                               x={-labelWidth / 2}
                               y={-14}
@@ -1027,7 +1077,8 @@ function MapaCalorDistribuicaoInterno({
                           </g>
                         </g>
                       );
-                    })}
+                    });
+                  })()}
                 </svg>
               </div>
             </div>
