@@ -12,11 +12,13 @@ import {
   CheckCircle2,
   AlertCircle,
   Sparkles,
+  Loader2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { formatNumero } from "@/lib/db";
+import { supabase } from "@/integrations/supabase/client";
 import {
   MapaCalorDistribuicao,
   type DadosMunicipioDistribuicao,
@@ -36,7 +38,7 @@ export const Route = createFileRoute("/public/mapa")({
   component: PublicMapaCalor,
 });
 
-function decodePayload(encoded: string | undefined): {
+function decodeLegacyPayload(encoded: string | undefined): {
   uf: string;
   pin: string;
   titulo?: string;
@@ -59,29 +61,77 @@ function decodePayload(encoded: string | undefined): {
 function PublicMapaCalor() {
   const search = useSearch({ strict: false }) as {
     token?: string;
+    t?: string;
     p?: string;
   };
 
-  const payloadData = useMemo(() => {
-    return decodePayload(search.p);
+  const activeToken = search.token || search.t || "";
+  const [dadosNuvem, setDadosNuvem] = useState<any>(null);
+  const [buscandoToken, setBuscandoToken] = useState<boolean>(true);
+
+  // Tenta carregar do localStorage ou consultar na nuvem
+  useEffect(() => {
+    let ativa = true;
+
+    async function carregarToken() {
+      if (!activeToken) {
+        if (search.p) {
+          setBuscandoToken(false);
+        } else {
+          setBuscandoToken(false);
+        }
+        return;
+      }
+
+      // 1. Tenta recuperar do localStorage local
+      try {
+        const local = localStorage.getItem(`mapa_share_${activeToken}`);
+        if (local) {
+          const parsed = JSON.parse(local);
+          if (parsed && ativa) {
+            setDadosNuvem(parsed);
+            setBuscandoToken(false);
+            return;
+          }
+        }
+      } catch {}
+
+      // 2. Consulta no Supabase para acesso global entre dispositivos (mobile / WhatsApp)
+      try {
+        const { data, error } = await supabase
+          .from("solicitacoes")
+          .select("itens")
+          .eq("nome", `MAP_SHARE_${activeToken}`)
+          .maybeSingle();
+
+        if (data && data.itens && ativa) {
+          setDadosNuvem(data.itens);
+        }
+      } catch (err) {
+        console.warn("Erro ao buscar mapa compartilhado:", err);
+      } finally {
+        if (ativa) setBuscandoToken(false);
+      }
+    }
+
+    carregarToken();
+
+    return () => {
+      ativa = false;
+    };
+  }, [activeToken, search.p]);
+
+  const legacyPayload = useMemo(() => {
+    return decodeLegacyPayload(search.p);
   }, [search.p]);
+
+  const dadosEfetivos = dadosNuvem || legacyPayload;
 
   const [pinInput, setPinInput] = useState<string>("");
   const [autenticado, setAutenticado] = useState<boolean>(false);
   const [erroPin, setErroPin] = useState<string | null>(null);
 
-  // Se o token foi gerado e salvo no localStorage na mesma máquina
-  const tokenSalvo = useMemo(() => {
-    if (!search.token) return null;
-    try {
-      const raw = localStorage.getItem(`mapa_share_${search.token}`);
-      if (raw) return JSON.parse(raw);
-    } catch {}
-    return null;
-  }, [search.token]);
-
-  const dadosEfetivos = payloadData || tokenSalvo;
-  const pinCorreto = String(dadosEfetivos?.pin || "1234");
+  const pinCorreto = String(dadosEfetivos?.pin || "");
   const uf = dadosEfetivos?.uf || "CE";
   const titulo = dadosEfetivos?.titulo || `Distribuição Territorial de Materiais • ${uf}`;
   const dadosCidades = dadosEfetivos?.cidades || {};
@@ -96,24 +146,35 @@ function PublicMapaCalor() {
       return;
     }
 
-    if (limpo === pinCorreto || !dadosEfetivos?.pin) {
+    if (limpo === pinCorreto || !pinCorreto) {
       setAutenticado(true);
     } else {
       setErroPin("Senha incorreta. Verifique o código recebido.");
     }
   };
 
-  if (!dadosEfetivos && !search.p && !search.token) {
+  if (buscandoToken) {
+    return (
+      <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col items-center justify-center p-4">
+        <div className="flex flex-col items-center gap-3">
+          <Loader2 className="size-8 animate-spin text-orange-500" />
+          <p className="text-xs text-slate-400 font-medium">Carregando mapa protegido...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!dadosEfetivos) {
     return (
       <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col items-center justify-center p-4">
         <div className="max-w-md w-full rounded-3xl border border-slate-800 bg-slate-900/90 p-6 sm:p-8 text-center space-y-4 shadow-2xl backdrop-blur-md">
           <div className="flex size-14 items-center justify-center rounded-2xl bg-critical/10 text-critical mx-auto">
             <AlertCircle className="size-7" />
           </div>
-          <h1 className="text-xl font-extrabold text-white">Link de Mapa Inválido ou Expirado</h1>
+          <h1 className="text-xl font-extrabold text-white">Link de Mapa Não Encontrado</h1>
           <p className="text-xs text-slate-400">
-            O endereço do mapa compartilhado não contém os parâmetros de acesso necessários.
-            Solicite um novo link ao gestor responsável.
+            O token fornecido ({activeToken || "nenhum"}) não foi encontrado ou expirou.
+            Solicite um novo link ao gestor da campanha.
           </p>
         </div>
       </div>

@@ -30,6 +30,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { formatNumero } from "@/lib/db";
+import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import {
   Dialog,
@@ -323,9 +324,14 @@ function MapaCalorDistribuicaoInterno({
     setSelecionado(null);
   };
 
-  // Geração do Link Protegido com Token e Senha (Modo Anônimo)
+  // Geração do Link Protegido com Token Compacto (12 chars) e Senha (Modo Anônimo)
   const handleAbrirModalCompartilhar = () => {
-    const randomToken = Math.random().toString(36).substring(2, 10);
+    // Gera token alfanumérico compacto de 12 caracteres
+    const chars = "23456789abcdefghjkmnpqrstuvwxyz";
+    let randomToken = "";
+    for (let i = 0; i < 12; i++) {
+      randomToken += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
     const randomPin = String(Math.floor(1000 + Math.random() * 9000));
 
     setSharedToken(randomToken);
@@ -335,6 +341,7 @@ function MapaCalorDistribuicaoInterno({
 
     // Payload anônimo: dados consolidados estritamente sem nomes de candidatos, pessoas ou lideranças
     const payloadAnonimo = {
+      token: randomToken,
       uf: activeUf,
       pin: randomPin,
       titulo: `Distribuição Territorial de Materiais • ${activeUf}`,
@@ -349,39 +356,42 @@ function MapaCalorDistribuicaoInterno({
           },
         ])
       ),
+      criadoEm: new Date().toISOString(),
     };
 
-    // Salva no localStorage para redundância
+    // 1. Salva no localStorage local
     try {
       localStorage.setItem(`mapa_share_${randomToken}`, JSON.stringify(payloadAnonimo));
+    } catch {}
+
+    // 2. Persiste no Supabase para acesso global por qualquer dispositivo (celular / WhatsApp)
+    try {
+      supabase
+        .from("solicitacoes")
+        .insert([
+          {
+            nome: `MAP_SHARE_${randomToken}`,
+            itens: payloadAnonimo as any,
+            status: "entregue",
+            tipo_logistica: "retirada",
+          },
+        ])
+        .then(({ error }) => {
+          if (error) {
+            console.warn("Aviso ao persistir token compartilhado no Supabase:", error.message);
+          }
+        });
     } catch {}
 
     setModalShareAberto(true);
   };
 
-  // URL do Link Gerado
+  // URL Curta e Limpa do Link Gerado (máx ~45 caracteres no total)
   const sharedUrl = useMemo(() => {
     if (!sharedToken) return "";
     const origin = typeof window !== "undefined" ? window.location.origin : "https://democracias.org";
-    const payloadAnonimo = {
-      uf: activeUf,
-      pin: sharedPin,
-      titulo: `Distribuição Territorial de Materiais • ${activeUf}`,
-      cidades: Object.fromEntries(
-        Object.entries(dados || {}).map(([key, val]) => [
-          key,
-          {
-            municipio: val.municipio,
-            uf: val.uf,
-            totalItens: val.totalItens,
-            totalPedidos: val.totalPedidos,
-          },
-        ])
-      ),
-    };
-    const encoded = btoa(encodeURIComponent(JSON.stringify(payloadAnonimo)));
-    return `${origin}/public/mapa?token=${sharedToken}&p=${encoded}`;
-  }, [sharedToken, sharedPin, activeUf, dados]);
+    return `${origin}/public/mapa?token=${sharedToken}`;
+  }, [sharedToken]);
 
   const handleCopiarLink = () => {
     if (!sharedUrl) return;
