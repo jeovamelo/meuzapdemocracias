@@ -13,6 +13,10 @@ import {
   Sparkles,
   Info,
   CheckCircle2,
+  Maximize2,
+  Minimize2,
+  Move,
+  X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -119,7 +123,16 @@ function MapaCalorDistribuicaoInterno({
   const [hoveredMunicipio, setHoveredMunicipio] = useState<string | null>(null);
   const [modoVisualizacao, setModoVisualizacao] = useState<"mapa" | "grafico">("mapa");
   const [mostrarRotulos, setMostrarRotulos] = useState<boolean>(true);
-  const [zoomLevel, setZoomLevel] = useState(1);
+  const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
+
+  // Estados de Zoom e Pan Interativos Isolados
+  const [zoomLevel, setZoomLevel] = useState<number>(1);
+  const [panOffset, setPanOffset] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
+  const [isDragging, setIsDragging] = useState<boolean>(false);
+  const dragStartRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
+  const didDragRef = useRef<boolean>(false);
+  const touchDistanceRef = useRef<number | null>(null);
+  const containerRef = useRef<HTMLDivElement | null>(null);
   const svgRef = useRef<SVGSVGElement | null>(null);
 
   const activeUf = (uf || "CE").toUpperCase();
@@ -140,7 +153,6 @@ function MapaCalorDistribuicaoInterno({
         if (!ativa) return;
 
         if (geojson && geojson.features && Array.isArray(geojson.features) && geojson.features.length > 0) {
-          // Mapeia os códigos do IBGE (codarea) para os nomes oficiais
           const nomesPorCodigo = new Map<string, string>();
           if (Array.isArray(listaNomes)) {
             listaNomes.forEach((item: any) => {
@@ -180,6 +192,113 @@ function MapaCalorDistribuicaoInterno({
       ativa = false;
     };
   }, [activeUf]);
+
+  // Captura eventos de scroll (Wheel) para zoom isolado SEM rolar a página
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+
+    const handleWheel = (e: WheelEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+
+      const delta = -e.deltaY;
+      const factor = delta > 0 ? 1.15 : 0.85;
+
+      setZoomLevel((prev) => {
+        const next = Math.max(0.7, Math.min(5.0, prev * factor));
+        return Number(next.toFixed(2));
+      });
+    };
+
+    el.addEventListener("wheel", handleWheel, { passive: false });
+    return () => {
+      el.removeEventListener("wheel", handleWheel);
+    };
+  }, []);
+
+  // Fechamento de tela cheia via tecla Escape
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && isFullscreen) {
+        setIsFullscreen(false);
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [isFullscreen]);
+
+  // Manipuladores de Pan (arrasto com mouse/toque)
+  const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    // Apenas clique esquerdo ou toque
+    if (e.button !== 0 && e.pointerType === "mouse") return;
+    setIsDragging(true);
+    didDragRef.current = false;
+    dragStartRef.current = { x: e.clientX, y: e.clientY };
+    e.currentTarget.setPointerCapture(e.pointerId);
+  };
+
+  const handlePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (!isDragging) return;
+    const deltaX = e.clientX - dragStartRef.current.x;
+    const deltaY = e.clientY - dragStartRef.current.y;
+
+    if (Math.abs(deltaX) > 3 || Math.abs(deltaY) > 3) {
+      didDragRef.current = true;
+    }
+
+    setPanOffset((prev) => ({
+      x: prev.x + deltaX,
+      y: prev.y + deltaY,
+    }));
+
+    dragStartRef.current = { x: e.clientX, y: e.clientY };
+  };
+
+  const handlePointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (isDragging) {
+      setIsDragging(false);
+      try {
+        e.currentTarget.releasePointerCapture(e.pointerId);
+      } catch {}
+    }
+  };
+
+  // Suporte a Touch Pinch-to-Zoom em mobile
+  const handleTouchStart = (e: React.TouchEvent<HTMLDivElement>) => {
+    if (e.touches.length === 2) {
+      const dist = Math.hypot(
+        e.touches[0].clientX - e.touches[1].clientX,
+        e.touches[0].clientY - e.touches[1].clientY
+      );
+      touchDistanceRef.current = dist;
+    }
+  };
+
+  const handleTouchMove = (e: React.TouchEvent<HTMLDivElement>) => {
+    if (e.touches.length === 2 && touchDistanceRef.current !== null) {
+      e.preventDefault();
+      const dist = Math.hypot(
+        e.touches[0].clientX - e.touches[1].clientX,
+        e.touches[0].clientY - e.touches[1].clientY
+      );
+      const ratio = dist / touchDistanceRef.current;
+      setZoomLevel((prev) => Math.max(0.7, Math.min(5.0, prev * (ratio > 1 ? 1.05 : 0.95))));
+      touchDistanceRef.current = dist;
+    }
+  };
+
+  const handleTouchEnd = () => {
+    touchDistanceRef.current = null;
+  };
+
+  const resetView = () => {
+    setZoomLevel(1);
+    setPanOffset({ x: 0, y: 0 });
+    setSelecionado(null);
+  };
 
   // Indexa dados por nome normalizado
   const dadosNormalizados = useMemo(() => {
@@ -278,7 +397,6 @@ function MapaCalorDistribuicaoInterno({
       };
     }
 
-    // Projeção Mercator ajustada com fator de latitude do centro do estado
     const latMedia = (minLat + maxLat) / 2;
     const fLon = Math.cos((latMedia * Math.PI) / 180);
     const diffLonProjetada = (maxLon - minLon) * fLon;
@@ -336,7 +454,7 @@ function MapaCalorDistribuicaoInterno({
     return pathStrings;
   };
 
-  // Cálculo do centróide visual das cidades ativas para posicionar os rótulos de forma limpa
+  // Cálculo do centróide visual das cidades ativas
   const cidadesComEntregas = useMemo(() => {
     if (!limites || !features || features.length === 0) return [];
 
@@ -404,7 +522,6 @@ function MapaCalorDistribuicaoInterno({
 
     const intensidade = Math.min(itens / maxItens, 1);
 
-    // Gradiente: Amarelo-Alaranjado -> Laranja Democracias -> Vermelho Intenso
     if (intensidade < 0.25) {
       return `hsl(42, 95%, ${72 - intensidade * 20}%)`;
     } else if (intensidade < 0.65) {
@@ -423,9 +540,15 @@ function MapaCalorDistribuicaoInterno({
   const nomeExibicaoSelecionado = selecionado || hoveredMunicipio;
 
   return (
-    <section className="rounded-3xl border border-border bg-surface p-5 sm:p-6 shadow-sm space-y-5">
+    <section
+      className={`rounded-3xl border border-border bg-surface shadow-sm transition-all duration-200 ${
+        isFullscreen
+          ? "fixed inset-0 z-50 m-0 flex flex-col rounded-none p-4 sm:p-6 overflow-hidden bg-background"
+          : "p-5 sm:p-6 space-y-5"
+      }`}
+    >
       {/* CABEÇALHO DO MAPA COM CONTROLES */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border-b border-border/60 pb-4">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border-b border-border/60 pb-4 shrink-0">
         <div>
           <div className="flex items-center gap-2">
             <div className="flex size-7 items-center justify-center rounded-lg bg-primary/10 text-primary">
@@ -440,6 +563,11 @@ function MapaCalorDistribuicaoInterno({
             >
               Escopo {activeUf} • {cargo || "Estadual"}
             </Badge>
+            {isFullscreen && (
+              <Badge className="bg-primary text-primary-foreground text-[10px] uppercase font-bold">
+                Modo Tela Cheia
+              </Badge>
+            )}
           </div>
           <p className="text-xs text-muted-foreground mt-0.5">
             Concentração de materiais e itens de campanha despachados por município de destino.
@@ -489,112 +617,153 @@ function MapaCalorDistribuicaoInterno({
               <span>Ranking</span>
             </button>
           </div>
+
+          {/* BOTÃO DE EXPANDIR / FULLSCREEN */}
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => setIsFullscreen((prev) => !prev)}
+            className={`h-9 gap-1.5 rounded-xl border text-xs font-bold transition-colors cursor-pointer ${
+              isFullscreen
+                ? "bg-primary text-primary-foreground border-primary hover:bg-primary/90"
+                : "border-border/80 hover:bg-muted/50"
+            }`}
+            title={isFullscreen ? "Sair da Tela Cheia (Esc)" : "Expandir para Tela Cheia"}
+          >
+            {isFullscreen ? (
+              <>
+                <Minimize2 className="size-3.5" />
+                <span className="hidden sm:inline">Reduzir</span>
+              </>
+            ) : (
+              <>
+                <Maximize2 className="size-3.5" />
+                <span className="hidden sm:inline">Tela Cheia</span>
+              </>
+            )}
+          </Button>
         </div>
       </div>
 
-      {/* CARDS DE RESUMO LOGÍSTICO */}
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <div className="rounded-2xl border border-border/80 bg-muted/20 p-3.5 space-y-1">
-          <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1">
-            <Package className="size-3 text-primary" /> Total Despachado
-          </span>
-          <p className="font-mono text-xl sm:text-2xl font-black text-foreground">
-            {formatNumero(totalGeralItens)}
-          </p>
-          <p className="text-[10px] text-muted-foreground font-medium">unidades em campo</p>
-        </div>
+      {/* CARDS DE RESUMO LOGÍSTICO (OCULTOS OU COMPACTADOS NO FULLSCREEN) */}
+      {!isFullscreen && (
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 shrink-0">
+          <div className="rounded-2xl border border-border/80 bg-muted/20 p-3.5 space-y-1">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1">
+              <Package className="size-3 text-primary" /> Total Despachado
+            </span>
+            <p className="font-mono text-xl sm:text-2xl font-black text-foreground">
+              {formatNumero(totalGeralItens)}
+            </p>
+            <p className="text-[10px] text-muted-foreground font-medium">unidades em campo</p>
+          </div>
 
-        <div className="rounded-2xl border border-border/80 bg-muted/20 p-3.5 space-y-1">
-          <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1">
-            <MapPin className="size-3 text-primary" /> Cidades Atendidas
-          </span>
-          <p className="font-mono text-xl sm:text-2xl font-black text-primary">
-            {totalMunicipiosAtendidos}
-          </p>
-          <p className="text-[10px] text-muted-foreground font-medium">
-            de {totalMunicipiosEstado} municípios ({percentualCobertura}%)
-          </p>
-        </div>
+          <div className="rounded-2xl border border-border/80 bg-muted/20 p-3.5 space-y-1">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1">
+              <MapPin className="size-3 text-primary" /> Cidades Atendidas
+            </span>
+            <p className="font-mono text-xl sm:text-2xl font-black text-primary">
+              {totalMunicipiosAtendidos}
+            </p>
+            <p className="text-[10px] text-muted-foreground font-medium">
+              de {totalMunicipiosEstado} municípios ({percentualCobertura}%)
+            </p>
+          </div>
 
-        <div className="rounded-2xl border border-border/80 bg-muted/20 p-3.5 space-y-1">
-          <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1">
-            <TrendingUp className="size-3 text-emerald-600" /> Cidade Principal
-          </span>
-          <p className="font-mono text-base sm:text-lg font-black text-foreground truncate">
-            {listaCidades[0]?.municipio || "Nenhuma"}
-          </p>
-          <p className="text-[10px] text-muted-foreground font-medium truncate">
-            {listaCidades[0]
-              ? `${formatNumero(listaCidades[0].totalItens)} itens (${(
-                  (listaCidades[0].totalItens / Math.max(1, totalGeralItens)) *
-                  100
-                ).toFixed(0)}%)`
-              : "Aguardando saídas"}
-          </p>
-        </div>
+          <div className="rounded-2xl border border-border/80 bg-muted/20 p-3.5 space-y-1">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1">
+              <TrendingUp className="size-3 text-emerald-600" /> Cidade Principal
+            </span>
+            <p className="font-mono text-base sm:text-lg font-black text-foreground truncate">
+              {listaCidades[0]?.municipio || "Nenhuma"}
+            </p>
+            <p className="text-[10px] text-muted-foreground font-medium truncate">
+              {listaCidades[0]
+                ? `${formatNumero(listaCidades[0].totalItens)} itens (${(
+                    (listaCidades[0].totalItens / Math.max(1, totalGeralItens)) *
+                    100
+                  ).toFixed(0)}%)`
+                : "Aguardando saídas"}
+            </p>
+          </div>
 
-        <div className="rounded-2xl border border-border/80 bg-muted/20 p-3.5 space-y-1">
-          <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1">
-            <Users className="size-3 text-orange-600" /> Remessas
-          </span>
-          <p className="font-mono text-xl sm:text-2xl font-black text-foreground">
-            {listaCidades.reduce((acc, c) => acc + (c?.totalPedidos || 0), 0)}
-          </p>
-          <p className="text-[10px] text-muted-foreground font-medium">pedidos entregues</p>
+          <div className="rounded-2xl border border-border/80 bg-muted/20 p-3.5 space-y-1">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1">
+              <Users className="size-3 text-orange-600" /> Remessas
+            </span>
+            <p className="font-mono text-xl sm:text-2xl font-black text-foreground">
+              {listaCidades.reduce((acc, c) => acc + (c?.totalPedidos || 0), 0)}
+            </p>
+            <p className="text-[10px] text-muted-foreground font-medium">pedidos entregues</p>
+          </div>
         </div>
-      </div>
+      )}
 
       {/* ÁREA PRINCIPAL: MAPA OU RANKING */}
       {modoVisualizacao === "mapa" ? (
-        <div className="relative overflow-hidden rounded-2xl border border-border bg-slate-50/80 p-2 sm:p-4">
-          {/* LEGENDA TÉRMICA */}
-          <div className="absolute top-3 left-3 z-10 hidden sm:flex items-center gap-2 rounded-xl bg-background/90 px-3 py-1.5 shadow-sm border border-border/60 backdrop-blur-xs text-[11px] font-bold">
-            <span className="text-muted-foreground">0 itens</span>
-            <span className="h-2.5 w-24 rounded-full bg-gradient-to-r from-slate-200 via-amber-400 to-red-600" />
-            <span className="text-primary font-extrabold">{formatNumero(maxItens)} itens</span>
+        <div
+          ref={containerRef}
+          onPointerDown={handlePointerDown}
+          onPointerMove={handlePointerMove}
+          onPointerUp={handlePointerUp}
+          onPointerCancel={handlePointerUp}
+          onTouchStart={handleTouchStart}
+          onTouchMove={handleTouchMove}
+          onTouchEnd={handleTouchEnd}
+          className={`relative overflow-hidden rounded-2xl border border-border bg-slate-50/80 p-2 sm:p-4 select-none touch-none ${
+            isDragging ? "cursor-grabbing" : "cursor-grab"
+          } ${isFullscreen ? "flex-1 w-full min-h-0" : "min-h-[440px] sm:min-h-[520px]"}`}
+        >
+          {/* LEGENDA TÉRMICA & DICA DE PAN */}
+          <div className="absolute top-3 left-3 z-20 flex flex-col gap-1.5 pointer-events-none">
+            <div className="hidden sm:flex items-center gap-2 rounded-xl bg-background/90 px-3 py-1.5 shadow-sm border border-border/60 backdrop-blur-xs text-[11px] font-bold">
+              <span className="text-muted-foreground">0 itens</span>
+              <span className="h-2.5 w-24 rounded-full bg-gradient-to-r from-slate-200 via-amber-400 to-red-600" />
+              <span className="text-primary font-extrabold">{formatNumero(maxItens)} itens</span>
+            </div>
+            <div className="hidden md:flex items-center gap-1 text-[10px] text-muted-foreground/80 bg-background/70 px-2 py-0.5 rounded-md border border-border/40 w-fit">
+              <Move className="size-2.5" /> Arraste para mover • Scroll para zoom
+            </div>
           </div>
 
-          {/* CONTROLES DE ZOOM */}
-          <div className="absolute top-3 right-3 z-10 flex items-center gap-1">
+          {/* CONTROLES FLUTUANTES DE ZOOM & RESET */}
+          <div className="absolute top-3 right-3 z-20 flex items-center gap-1">
             <Button
               size="icon"
               variant="outline"
-              onClick={() => setZoomLevel((z) => Math.min(2.5, z + 0.25))}
-              className="size-8 rounded-lg bg-background/90 backdrop-blur-xs shadow-xs cursor-pointer"
-              title="Aumentar Zoom"
+              onClick={() => setZoomLevel((z) => Math.min(5.0, Number((z * 1.25).toFixed(2))))}
+              className="size-8 rounded-lg bg-background/95 backdrop-blur-xs shadow-xs cursor-pointer hover:bg-muted"
+              title="Aumentar Zoom (+)"
             >
               <ZoomIn className="size-3.5" />
             </Button>
             <Button
               size="icon"
               variant="outline"
-              onClick={() => setZoomLevel((z) => Math.max(0.75, z - 0.25))}
-              className="size-8 rounded-lg bg-background/90 backdrop-blur-xs shadow-xs cursor-pointer"
-              title="Diminuir Zoom"
+              onClick={() => setZoomLevel((z) => Math.max(0.7, Number((z * 0.8).toFixed(2))))}
+              className="size-8 rounded-lg bg-background/95 backdrop-blur-xs shadow-xs cursor-pointer hover:bg-muted"
+              title="Diminuir Zoom (-)"
             >
               <ZoomOut className="size-3.5" />
             </Button>
             <Button
               size="icon"
               variant="outline"
-              onClick={() => {
-                setZoomLevel(1);
-                setSelecionado(null);
-              }}
-              className="size-8 rounded-lg bg-background/90 backdrop-blur-xs shadow-xs cursor-pointer"
-              title="Resetar visualização"
+              onClick={resetView}
+              className="size-8 rounded-lg bg-background/95 backdrop-blur-xs shadow-xs cursor-pointer hover:bg-muted"
+              title="Centralizar e Resetar visualização"
             >
               <RotateCcw className="size-3.5" />
             </Button>
           </div>
 
           {carregando ? (
-            <div className="flex h-[420px] items-center justify-center gap-2 text-sm text-muted-foreground">
+            <div className="flex h-full min-h-[400px] items-center justify-center gap-2 text-sm text-muted-foreground">
               <Loader2 className="size-5 animate-spin text-primary" />
               <span>Carregando limites de {activeUf}...</span>
             </div>
           ) : !features.length ? (
-            <div className="flex h-[420px] flex-col items-center justify-center p-6 text-center text-sm text-muted-foreground">
+            <div className="flex h-full min-h-[400px] flex-col items-center justify-center p-6 text-center text-sm text-muted-foreground">
               <Info className="size-8 text-muted-foreground/40 mb-2" />
               <p className="font-bold text-foreground">Mapa do estado ({activeUf}) indisponível temporariamente.</p>
               <p className="text-xs mt-1 max-w-sm">
@@ -602,126 +771,142 @@ function MapaCalorDistribuicaoInterno({
               </p>
             </div>
           ) : (
-            <div className="overflow-hidden flex items-center justify-center min-h-[420px] sm:min-h-[500px]">
-              <svg
-                ref={svgRef}
-                viewBox={`0 0 ${viewWidth} ${viewHeight}`}
-                preserveAspectRatio="xMidYMid meet"
-                className="h-auto w-full max-h-[520px] transition-transform duration-200"
-                style={{ transform: `scale(${zoomLevel})` }}
-                role="img"
-                aria-label={`Mapa de calor de distribuição de materiais de ${activeUf}`}
+            <div className="h-full w-full flex items-center justify-center overflow-hidden">
+              <div
+                style={{
+                  transform: `translate(${panOffset.x}px, ${panOffset.y}px) scale(${zoomLevel})`,
+                  transformOrigin: "center center",
+                  transition: isDragging ? "none" : "transform 0.12s ease-out",
+                }}
+                className="w-full h-full flex items-center justify-center"
               >
-                {/* 1. POLÍGONOS DOS MUNICÍPIOS */}
-                {features.flatMap((feature, indice) => {
-                  const municipio =
-                    feature.properties?.nome || feature.properties?.NM_MUN || "Município";
-                  const fill = getHeatmapColor(municipio);
-                  const isSelected =
-                    selecionado && normalizar(selecionado) === normalizar(municipio);
-                  const isHovered =
-                    hoveredMunicipio && normalizar(hoveredMunicipio) === normalizar(municipio);
-                  const info = dadosNormalizados.get(normalizar(municipio));
-                  const total = info?.totalItens || 0;
-
-                  return paths(feature).map((d, pathIndice) => (
-                    <path
-                      key={`${indice}-${pathIndice}`}
-                      d={d}
-                      fill={fill}
-                      stroke={
-                        isSelected ? "#0f172a" : isHovered ? "var(--primary)" : "rgba(15,23,42,0.25)"
-                      }
-                      strokeWidth={isSelected ? "2.6" : isHovered ? "2.0" : "0.55"}
-                      className="cursor-pointer transition-all duration-150 hover:brightness-90 active:scale-[0.99]"
-                      onClick={() => setSelecionado(selecionado === municipio ? null : municipio)}
-                      onMouseEnter={() => setHoveredMunicipio(municipio)}
-                      onMouseLeave={() => setHoveredMunicipio(null)}
-                    >
-                      <title>{`${municipio}: ${formatNumero(total)} itens despachados (${
-                        info?.totalPedidos || 0
-                      } pedidos)`}</title>
-                    </path>
-                  ));
-                })}
-
-                {/* 2. RÓTULOS E PINS DAS CIDADES COM ENTREGAS */}
-                {mostrarRotulos &&
-                  cidadesComEntregas.map((c, i) => {
+                <svg
+                  ref={svgRef}
+                  viewBox={`0 0 ${viewWidth} ${viewHeight}`}
+                  preserveAspectRatio="xMidYMid meet"
+                  className="h-full w-full max-h-[85vh] drop-shadow-sm"
+                  role="img"
+                  aria-label={`Mapa de calor de distribuição de materiais de ${activeUf}`}
+                >
+                  {/* 1. POLÍGONOS DOS MUNICÍPIOS */}
+                  {features.flatMap((feature, indice) => {
+                    const municipio =
+                      feature.properties?.nome || feature.properties?.NM_MUN || "Município";
+                    const fill = getHeatmapColor(municipio);
                     const isSelected =
-                      selecionado && normalizar(selecionado) === normalizar(c.nome);
+                      selecionado && normalizar(selecionado) === normalizar(municipio);
                     const isHovered =
-                      hoveredMunicipio && normalizar(hoveredMunicipio) === normalizar(c.nome);
-                    const labelTexto = `${c.nome} • ${formatNumero(c.itens)}`;
-                    const labelWidth = Math.max(68, labelTexto.length * 6.2 + 14);
+                      hoveredMunicipio && normalizar(hoveredMunicipio) === normalizar(municipio);
+                    const info = dadosNormalizados.get(normalizar(municipio));
+                    const total = info?.totalItens || 0;
 
-                    return (
-                      <g
-                        key={`label-${c.nome}-${i}`}
-                        className="cursor-pointer select-none transition-all duration-150"
-                        onClick={() => setSelecionado(selecionado === c.nome ? null : c.nome)}
-                        onMouseEnter={() => setHoveredMunicipio(c.nome)}
+                    return paths(feature).map((d, pathIndice) => (
+                      <path
+                        key={`${indice}-${pathIndice}`}
+                        d={d}
+                        fill={fill}
+                        stroke={
+                          isSelected ? "#0f172a" : isHovered ? "var(--primary)" : "rgba(15,23,42,0.25)"
+                        }
+                        strokeWidth={isSelected ? "2.8" : isHovered ? "2.2" : "0.55"}
+                        className="cursor-pointer transition-all duration-150 hover:brightness-90 active:scale-[0.99]"
+                        onClick={(e) => {
+                          if (didDragRef.current) return;
+                          e.stopPropagation();
+                          setSelecionado(selecionado === municipio ? null : municipio);
+                        }}
+                        onMouseEnter={() => setHoveredMunicipio(municipio)}
                         onMouseLeave={() => setHoveredMunicipio(null)}
                       >
-                        {/* Ponto / Marcador de Entrega */}
-                        <circle
-                          cx={c.cx}
-                          cy={c.cy}
-                          r={isSelected || isHovered ? 5.5 : 4}
-                          fill={isSelected ? "#0f172a" : "var(--primary)"}
-                          stroke="#ffffff"
-                          strokeWidth="1.5"
-                          className="shadow-xs"
-                        />
-
-                        {/* Pill / Etiqueta Flutuante de Texto */}
-                        <g transform={`translate(${c.cx}, ${c.cy - 12})`}>
-                          <rect
-                            x={-labelWidth / 2}
-                            y={-14}
-                            width={labelWidth}
-                            height={17}
-                            rx={4.5}
-                            fill={
-                              isSelected
-                                ? "#0f172a"
-                                : isHovered
-                                ? "hsl(24, 95%, 45%)"
-                                : "rgba(15, 23, 42, 0.88)"
-                            }
-                            stroke={
-                              isSelected
-                                ? "var(--primary)"
-                                : isHovered
-                                ? "#ffffff"
-                                : "rgba(255, 255, 255, 0.25)"
-                            }
-                            strokeWidth={isSelected || isHovered ? 1.4 : 0.8}
-                            className="shadow-md"
-                          />
-                          <text
-                            x={0}
-                            y={-2}
-                            fill="#ffffff"
-                            fontSize="8.5"
-                            fontWeight="800"
-                            textAnchor="middle"
-                            letterSpacing="0.2px"
-                          >
-                            {labelTexto}
-                          </text>
-                        </g>
-                      </g>
-                    );
+                        <title>{`${municipio}: ${formatNumero(total)} itens despachados (${
+                          info?.totalPedidos || 0
+                        } pedidos)`}</title>
+                      </path>
+                    ));
                   })}
-              </svg>
+
+                  {/* 2. RÓTULOS E PINS DAS CIDADES COM ENTREGAS */}
+                  {mostrarRotulos &&
+                    cidadesComEntregas.map((c, i) => {
+                      const isSelected =
+                        selecionado && normalizar(selecionado) === normalizar(c.nome);
+                      const isHovered =
+                        hoveredMunicipio && normalizar(hoveredMunicipio) === normalizar(c.nome);
+                      const labelTexto = `${c.nome} • ${formatNumero(c.itens)}`;
+                      const labelWidth = Math.max(68, labelTexto.length * 6.2 + 14);
+
+                      return (
+                        <g
+                          key={`label-${c.nome}-${i}`}
+                          className="cursor-pointer select-none transition-all duration-150"
+                          onClick={(e) => {
+                            if (didDragRef.current) return;
+                            e.stopPropagation();
+                            setSelecionado(selecionado === c.nome ? null : c.nome);
+                          }}
+                          onMouseEnter={() => setHoveredMunicipio(c.nome)}
+                          onMouseLeave={() => setHoveredMunicipio(null)}
+                        >
+                          {/* Ponto / Marcador de Entrega */}
+                          <circle
+                            cx={c.cx}
+                            cy={c.cy}
+                            r={isSelected || isHovered ? 5.5 : 4}
+                            fill={isSelected ? "#0f172a" : "var(--primary)"}
+                            stroke="#ffffff"
+                            strokeWidth="1.5"
+                            className="shadow-xs"
+                          />
+
+                          {/* Pill / Etiqueta Flutuante de Texto */}
+                          <g transform={`translate(${c.cx}, ${c.cy - 12})`}>
+                            <rect
+                              x={-labelWidth / 2}
+                              y={-14}
+                              width={labelWidth}
+                              height={17}
+                              rx={4.5}
+                              fill={
+                                isSelected
+                                  ? "#0f172a"
+                                  : isHovered
+                                  ? "hsl(24, 95%, 45%)"
+                                  : "rgba(15, 23, 42, 0.88)"
+                              }
+                              stroke={
+                                isSelected
+                                  ? "var(--primary)"
+                                  : isHovered
+                                  ? "#ffffff"
+                                  : "rgba(255, 255, 255, 0.25)"
+                              }
+                              strokeWidth={isSelected || isHovered ? 1.4 : 0.8}
+                              className="shadow-md"
+                            />
+                            <text
+                              x={0}
+                              y={-2}
+                              fill="#ffffff"
+                              fontSize="8.5"
+                              fontWeight="800"
+                              textAnchor="middle"
+                              letterSpacing="0.2px"
+                            >
+                              {labelTexto}
+                            </text>
+                          </g>
+                        </g>
+                      );
+                    })}
+                </svg>
+              </div>
             </div>
           )}
         </div>
       ) : (
         /* MODO RANKING (GRÁFICO DE BARRAS + LISTAGEM) */
-        <div className="space-y-4">
-          <div className="h-[340px] w-full rounded-2xl border border-border bg-slate-50/50 p-4">
+        <div className={`space-y-4 ${isFullscreen ? "flex-1 overflow-y-auto" : ""}`}>
+          <div className="h-[340px] sm:h-[400px] w-full rounded-2xl border border-border bg-slate-50/50 p-4">
             {listaCidades.length === 0 ? (
               <div className="flex h-full items-center justify-center text-xs text-muted-foreground">
                 Nenhum município com saídas registradas até o momento.
@@ -729,7 +914,7 @@ function MapaCalorDistribuicaoInterno({
             ) : (
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart
-                  data={listaCidades.slice(0, 10).map((c) => ({
+                  data={listaCidades.slice(0, 15).map((c) => ({
                     name: c.municipio,
                     total: c.totalItens,
                     pedidos: c.totalPedidos,
@@ -742,7 +927,7 @@ function MapaCalorDistribuicaoInterno({
                   <YAxis
                     dataKey="name"
                     type="category"
-                    width={110}
+                    width={120}
                     tick={{ fontSize: 11, fontWeight: 700, fill: "var(--foreground)" }}
                     axisLine={false}
                     tickLine={false}
@@ -768,7 +953,7 @@ function MapaCalorDistribuicaoInterno({
                     }}
                   />
                   <Bar dataKey="total" radius={[0, 6, 6, 0]} barSize={20}>
-                    {listaCidades.slice(0, 10).map((_, index) => (
+                    {listaCidades.slice(0, 15).map((_, index) => (
                       <Cell
                         key={`cell-${index}`}
                         fill={
@@ -790,7 +975,7 @@ function MapaCalorDistribuicaoInterno({
 
       {/* DETALHES DO MUNICÍPIO SELECIONADO / EM FOCO */}
       {nomeExibicaoSelecionado && (
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 rounded-2xl border border-primary/30 bg-primary/5 p-4 animate-slide-up">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 rounded-2xl border border-primary/30 bg-primary/5 p-4 animate-slide-up shrink-0">
           <div className="space-y-1 min-w-0">
             <div className="flex items-center gap-2">
               <MapPin className="size-4 text-primary shrink-0" />
