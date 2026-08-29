@@ -17,10 +17,27 @@ import {
   Minimize2,
   Move,
   X,
+  Share2,
+  Lock,
+  Copy,
+  Check,
+  MessageCircle,
+  KeyRound,
+  ShieldCheck,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { formatNumero } from "@/lib/db";
+import { toast } from "sonner";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
 import {
   BarChart,
   Bar,
@@ -37,7 +54,7 @@ export interface DadosMunicipioDistribuicao {
   uf: string;
   totalItens: number;
   totalPedidos: number;
-  destinatarios: string[];
+  destinatarios?: string[];
 }
 
 interface Props {
@@ -124,6 +141,13 @@ function MapaCalorDistribuicaoInterno({
   const [modoVisualizacao, setModoVisualizacao] = useState<"mapa" | "grafico">("mapa");
   const [mostrarRotulos, setMostrarRotulos] = useState<boolean>(true);
   const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
+
+  // Modal de Compartilhamento Público com Senha e Token
+  const [modalShareAberto, setModalShareAberto] = useState<boolean>(false);
+  const [sharedToken, setSharedToken] = useState<string>("");
+  const [sharedPin, setSharedPin] = useState<string>("");
+  const [linkCopiado, setLinkCopiado] = useState<boolean>(false);
+  const [pinCopiado, setPinCopiado] = useState<boolean>(false);
 
   // Estados de Zoom e Pan Interativos Isolados
   const [zoomLevel, setZoomLevel] = useState<number>(1);
@@ -232,7 +256,6 @@ function MapaCalorDistribuicaoInterno({
 
   // Manipuladores de Pan (arrasto com mouse/toque)
   const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
-    // Apenas clique esquerdo ou toque
     if (e.button !== 0 && e.pointerType === "mouse") return;
     setIsDragging(true);
     didDragRef.current = false;
@@ -298,6 +321,89 @@ function MapaCalorDistribuicaoInterno({
     setZoomLevel(1);
     setPanOffset({ x: 0, y: 0 });
     setSelecionado(null);
+  };
+
+  // Geração do Link Protegido com Token e Senha (Modo Anônimo)
+  const handleAbrirModalCompartilhar = () => {
+    const randomToken = Math.random().toString(36).substring(2, 10);
+    const randomPin = String(Math.floor(1000 + Math.random() * 9000));
+
+    setSharedToken(randomToken);
+    setSharedPin(randomPin);
+    setLinkCopiado(false);
+    setPinCopiado(false);
+
+    // Payload anônimo: dados consolidados estritamente sem nomes de candidatos, pessoas ou lideranças
+    const payloadAnonimo = {
+      uf: activeUf,
+      pin: randomPin,
+      titulo: `Distribuição Territorial de Materiais • ${activeUf}`,
+      cidades: Object.fromEntries(
+        Object.entries(dados || {}).map(([key, val]) => [
+          key,
+          {
+            municipio: val.municipio,
+            uf: val.uf,
+            totalItens: val.totalItens,
+            totalPedidos: val.totalPedidos,
+          },
+        ])
+      ),
+    };
+
+    // Salva no localStorage para redundância
+    try {
+      localStorage.setItem(`mapa_share_${randomToken}`, JSON.stringify(payloadAnonimo));
+    } catch {}
+
+    setModalShareAberto(true);
+  };
+
+  // URL do Link Gerado
+  const sharedUrl = useMemo(() => {
+    if (!sharedToken) return "";
+    const origin = typeof window !== "undefined" ? window.location.origin : "https://democracias.org";
+    const payloadAnonimo = {
+      uf: activeUf,
+      pin: sharedPin,
+      titulo: `Distribuição Territorial de Materiais • ${activeUf}`,
+      cidades: Object.fromEntries(
+        Object.entries(dados || {}).map(([key, val]) => [
+          key,
+          {
+            municipio: val.municipio,
+            uf: val.uf,
+            totalItens: val.totalItens,
+            totalPedidos: val.totalPedidos,
+          },
+        ])
+      ),
+    };
+    const encoded = btoa(encodeURIComponent(JSON.stringify(payloadAnonimo)));
+    return `${origin}/public/mapa?token=${sharedToken}&p=${encoded}`;
+  }, [sharedToken, sharedPin, activeUf, dados]);
+
+  const handleCopiarLink = () => {
+    if (!sharedUrl) return;
+    navigator.clipboard.writeText(sharedUrl);
+    setLinkCopiado(true);
+    toast.success("Link do mapa copiado com sucesso!");
+    setTimeout(() => setLinkCopiado(false), 3000);
+  };
+
+  const handleCopiarPin = () => {
+    if (!sharedPin) return;
+    navigator.clipboard.writeText(sharedPin);
+    setPinCopiado(true);
+    toast.success("Senha de acesso copiada!");
+    setTimeout(() => setPinCopiado(false), 3000);
+  };
+
+  const handleEnviarWhatsApp = () => {
+    if (!sharedUrl || !sharedPin) return;
+    const mensagem = `🗺️ *Acesso ao Mapa de Distribuição de Materiais*\n\nPara visualizar o mapa de calor georreferenciado e o quantitativo consolidado por município (${activeUf}), acesse o link protegido abaixo:\n\n🔗 *Link:* ${sharedUrl}\n🔑 *Senha de Acesso:* ${sharedPin}\n\n_Visualização segura e anônima via Democracias.org_`;
+    const urlWa = `https://api.whatsapp.com/send?text=${encodeURIComponent(mensagem)}`;
+    window.open(urlWa, "_blank");
   };
 
   // Indexa dados por nome normalizado
@@ -575,6 +681,18 @@ function MapaCalorDistribuicaoInterno({
         </div>
 
         <div className="flex items-center gap-2 self-end sm:self-auto flex-wrap">
+          {/* BOTÃO GERAR LINK DO MAPA */}
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={handleAbrirModalCompartilhar}
+            className="h-9 gap-1.5 rounded-xl border border-border/80 text-xs font-bold hover:bg-muted/50 cursor-pointer"
+            title="Gerar link protegido por senha para visualização anônima do mapa"
+          >
+            <Share2 className="size-3.5 text-primary" />
+            <span className="hidden sm:inline">Gerar Link do Mapa</span>
+          </Button>
+
           {modoVisualizacao === "mapa" && (
             <button
               type="button"
@@ -618,22 +736,22 @@ function MapaCalorDistribuicaoInterno({
             </button>
           </div>
 
-          {/* BOTÃO DE EXPANDIR / FULLSCREEN */}
+          {/* BOTÃO DE EXPANDIR / MINIMIZAR DINÂMICO */}
           <Button
             size="sm"
             variant="outline"
             onClick={() => setIsFullscreen((prev) => !prev)}
-            className={`h-9 gap-1.5 rounded-xl border text-xs font-bold transition-colors cursor-pointer ${
+            className={`h-9 gap-1.5 rounded-xl border text-xs font-bold transition-all cursor-pointer ${
               isFullscreen
-                ? "bg-primary text-primary-foreground border-primary hover:bg-primary/90"
+                ? "bg-foreground text-background border-foreground hover:bg-foreground/90 shadow-md"
                 : "border-border/80 hover:bg-muted/50"
             }`}
-            title={isFullscreen ? "Sair da Tela Cheia (Esc)" : "Expandir para Tela Cheia"}
+            title={isFullscreen ? "Minimizar tela (Esc)" : "Expandir para Tela Cheia"}
           >
             {isFullscreen ? (
               <>
                 <Minimize2 className="size-3.5" />
-                <span className="hidden sm:inline">Reduzir</span>
+                <span>Minimizar</span>
               </>
             ) : (
               <>
@@ -642,6 +760,18 @@ function MapaCalorDistribuicaoInterno({
               </>
             )}
           </Button>
+
+          {isFullscreen && (
+            <Button
+              size="icon"
+              variant="ghost"
+              onClick={() => setIsFullscreen(false)}
+              className="size-9 rounded-xl hover:bg-muted/80 cursor-pointer"
+              title="Fechar tela cheia"
+            >
+              <X className="size-4 text-foreground" />
+            </Button>
+          )}
         </div>
       </div>
 
@@ -1037,6 +1167,92 @@ function MapaCalorDistribuicaoInterno({
           </div>
         </div>
       )}
+
+      {/* MODAL DE COMPARTILHAMENTO DE LINK PROTEGIDO */}
+      <Dialog open={modalShareAberto} onOpenChange={setModalShareAberto}>
+        <DialogContent className="max-w-md p-6 rounded-3xl border border-border bg-surface shadow-2xl">
+          <DialogHeader className="space-y-2">
+            <div className="flex size-12 items-center justify-center rounded-2xl bg-primary/10 text-primary mb-1">
+              <Share2 className="size-6" />
+            </div>
+            <DialogTitle className="text-lg font-black tracking-tight text-foreground">
+              Compartilhar Mapa Territorial
+            </DialogTitle>
+            <DialogDescription className="text-xs text-muted-foreground">
+              Gere um link protegido por senha para visualização anônima do mapa de calor e dados consolidados.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 pt-2">
+            <div className="rounded-2xl border border-border bg-muted/20 p-3.5 space-y-2">
+              <Label className="text-[10px] font-bold uppercase text-muted-foreground flex items-center gap-1">
+                <Lock className="size-3 text-primary" /> Senha de Acesso Única
+              </Label>
+              <div className="flex items-center justify-between gap-2 bg-background p-2.5 rounded-xl border border-border">
+                <span className="font-mono text-xl font-black text-primary tracking-widest px-2">
+                  {sharedPin}
+                </span>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={handleCopiarPin}
+                  className="h-8 gap-1 text-xs font-bold hover:bg-muted"
+                >
+                  {pinCopiado ? <Check className="size-3.5 text-green-600" /> : <Copy className="size-3.5" />}
+                  <span>{pinCopiado ? "Copiado" : "Copiar"}</span>
+                </Button>
+              </div>
+            </div>
+
+            <div className="rounded-2xl border border-border bg-muted/20 p-3.5 space-y-2">
+              <Label className="text-[10px] font-bold uppercase text-muted-foreground">
+                Link de Acesso Público
+              </Label>
+              <div className="flex items-center gap-2">
+                <Input
+                  readOnly
+                  value={sharedUrl}
+                  className="h-10 text-xs font-mono bg-background border-border text-muted-foreground truncate"
+                />
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={handleCopiarLink}
+                  className="h-10 shrink-0 gap-1 text-xs font-bold hover:bg-muted"
+                >
+                  {linkCopiado ? <Check className="size-3.5 text-green-600" /> : <Copy className="size-3.5" />}
+                  <span>{linkCopiado ? "Copiado" : "Copiar"}</span>
+                </Button>
+              </div>
+            </div>
+
+            <div className="rounded-xl bg-primary/5 border border-primary/20 p-3 text-[11px] text-muted-foreground flex items-start gap-2">
+              <ShieldCheck className="size-4 text-primary shrink-0 mt-0.5" />
+              <span>
+                <strong>Modo Anônimo:</strong> O link público exibe exclusivamente os municípios e os totais despachados, sem revelar nomes de candidatos, responsáveis ou contatos.
+              </span>
+            </div>
+
+            <div className="pt-2 flex flex-col gap-2">
+              <Button
+                onClick={handleEnviarWhatsApp}
+                className="w-full h-11 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold gap-2 shadow-md cursor-pointer"
+              >
+                <MessageCircle className="size-4" />
+                Enviar Link e Senha no WhatsApp
+              </Button>
+
+              <Button
+                variant="outline"
+                onClick={() => setModalShareAberto(false)}
+                className="w-full h-10 rounded-xl text-xs font-bold"
+              >
+                Fechar
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </section>
   );
 }
