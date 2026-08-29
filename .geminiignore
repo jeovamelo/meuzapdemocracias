@@ -1,0 +1,57 @@
+# ==============================================================================
+# .geminiignore — Otimização de Contexto e Economia de Tokens para Agentes
+# ==============================================================================
+
+# Dependências pesadas
+node_modules/
+whatsapp-service/node_modules/
+whatsapp-service/auth_info_baileys/
+
+# Diretórios de build, bundles e artefatos de compilação
+dist/
+dist-ssr/
+.output/
+.nitro/
+.wrangler/
+.tanstack/
+.vinxi/
+
+# Controle de versão e patches
+.git/
+.codex-patches/
+
+# Locks de dependências com milhares de linhas
+package-lock.json
+bun.lock
+
+# Logs e arquivos temporários de execução
+*.log
+logs/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Segredos, variáveis e chaves locais
+.env
+.env.*
+!.env.example
+.dev.vars
+
+# Arquivos de dados importados e fotos de candidatos pesadas
+importados/
+scratch/
+imagens/
+public/candidatos/
+chat/public/candidatos/
+*.sql
+*.dump
+*.tar.gz
+*.zip
+
+# Caches de IDEs e editores
+.vscode/*
+!.vscode/extensions.json
+.idea/
+.DS_Store
+*.swp

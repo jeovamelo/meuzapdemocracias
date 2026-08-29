@@ -26,6 +26,7 @@ import { Route as WhatsappRouteImport } from './routes/whatsapp'
 import { Route as WhatsappValidadoRouteImport } from './routes/whatsapp-validado'
 import { Route as BuIndexRouteImport } from './routes/bu/index'
 import { Route as PublicCadastroRouteImport } from './routes/public/cadastro'
+import { Route as PublicMapaRouteImport } from './routes/public/mapa'
 import { Route as PublicSolicitarRouteImport } from './routes/public/solicitar'
 import { Route as SaidasIndexRouteImport } from './routes/saidas.index'
 import { Route as SaidasNovaRouteImport } from './routes/saidas.nova'
@@ -115,6 +116,11 @@ const PublicCadastroRoute = PublicCadastroRouteImport.update({
   path: '/public/cadastro',
   getParentRoute: () => rootRouteImport,
 } as any)
+const PublicMapaRoute = PublicMapaRouteImport.update({
+  id: '/public/mapa',
+  path: '/public/mapa',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const PublicSolicitarRoute = PublicSolicitarRouteImport.update({
   id: '/public/solicitar',
   path: '/public/solicitar',
@@ -148,6 +154,7 @@ export interface FileRoutesByFullPath {
   '/whatsapp': typeof WhatsappRoute
   '/whatsapp-validado': typeof WhatsappValidadoRoute
   '/public/cadastro': typeof PublicCadastroRoute
+  '/public/mapa': typeof PublicMapaRoute
   '/public/solicitar': typeof PublicSolicitarRoute
   '/saidas/nova': typeof SaidasNovaRoute
   '/bu/': typeof BuIndexRoute
@@ -169,6 +176,7 @@ export interface FileRoutesByTo {
   '/whatsapp': typeof WhatsappRoute
   '/whatsapp-validado': typeof WhatsappValidadoRoute
   '/public/cadastro': typeof PublicCadastroRoute
+  '/public/mapa': typeof PublicMapaRoute
   '/public/solicitar': typeof PublicSolicitarRoute
   '/saidas/nova': typeof SaidasNovaRoute
   '/bu': typeof BuIndexRoute
@@ -192,6 +200,7 @@ export interface FileRoutesById {
   '/whatsapp': typeof WhatsappRoute
   '/whatsapp-validado': typeof WhatsappValidadoRoute
   '/public/cadastro': typeof PublicCadastroRoute
+  '/public/mapa': typeof PublicMapaRoute
   '/public/solicitar': typeof PublicSolicitarRoute
   '/saidas/nova': typeof SaidasNovaRoute
   '/bu/': typeof BuIndexRoute
@@ -216,6 +225,7 @@ export interface FileRouteTypes {
     | '/whatsapp'
     | '/whatsapp-validado'
     | '/public/cadastro'
+    | '/public/mapa'
     | '/public/solicitar'
     | '/saidas/nova'
     | '/bu/'
@@ -237,6 +247,7 @@ export interface FileRouteTypes {
     | '/whatsapp'
     | '/whatsapp-validado'
     | '/public/cadastro'
+    | '/public/mapa'
     | '/public/solicitar'
     | '/saidas/nova'
     | '/bu'
@@ -259,6 +270,7 @@ export interface FileRouteTypes {
     | '/whatsapp'
     | '/whatsapp-validado'
     | '/public/cadastro'
+    | '/public/mapa'
     | '/public/solicitar'
     | '/saidas/nova'
     | '/bu/'
@@ -282,6 +294,7 @@ export interface RootRouteChildren {
   WhatsappRoute: typeof WhatsappRoute
   WhatsappValidadoRoute: typeof WhatsappValidadoRoute
   PublicCadastroRoute: typeof PublicCadastroRoute
+  PublicMapaRoute: typeof PublicMapaRoute
   PublicSolicitarRoute: typeof PublicSolicitarRoute
   BuIndexRoute: typeof BuIndexRoute
 }
@@ -407,6 +420,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PublicCadastroRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/public/mapa': {
+      id: '/public/mapa'
+      path: '/public/mapa'
+      fullPath: '/public/mapa'
+      preLoaderRoute: typeof PublicMapaRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/public/solicitar': {
       id: '/public/solicitar'
       path: '/public/solicitar'
@@ -461,6 +481,7 @@ const rootRouteChildren: RootRouteChildren = {
   WhatsappRoute: WhatsappRoute,
   WhatsappValidadoRoute: WhatsappValidadoRoute,
   PublicCadastroRoute: PublicCadastroRoute,
+  PublicMapaRoute: PublicMapaRoute,
   PublicSolicitarRoute: PublicSolicitarRoute,
   BuIndexRoute: BuIndexRoute,
 }
