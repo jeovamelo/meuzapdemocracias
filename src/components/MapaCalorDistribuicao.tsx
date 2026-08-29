@@ -83,7 +83,7 @@ class MapaErrorBoundary extends Component<{ children: React.ReactNode }, { hasEr
   render() {
     if (this.state.hasError) {
       return (
-        <div className="flex h-[320px] flex-col items-center justify-center p-6 text-center text-sm text-muted-foreground">
+        <div className="flex h-[340px] flex-col items-center justify-center p-6 text-center text-sm text-muted-foreground">
           <Info className="size-8 text-muted-foreground/40 mb-2" />
           <p className="font-bold text-foreground">Não foi possível carregar a visualização gráfica.</p>
           <p className="text-xs mt-1">Os dados consolidados continuam disponíveis nos indicadores acima.</p>
@@ -118,6 +118,7 @@ function MapaCalorDistribuicaoInterno({
   const [selecionado, setSelecionado] = useState<string | null>(null);
   const [hoveredMunicipio, setHoveredMunicipio] = useState<string | null>(null);
   const [modoVisualizacao, setModoVisualizacao] = useState<"mapa" | "grafico">("mapa");
+  const [mostrarRotulos, setMostrarRotulos] = useState<boolean>(true);
   const [zoomLevel, setZoomLevel] = useState(1);
   const svgRef = useRef<SVGSVGElement | null>(null);
 
@@ -215,9 +216,19 @@ function MapaCalorDistribuicaoInterno({
     ? ((totalMunicipiosAtendidos / totalMunicipiosEstado) * 100).toFixed(1)
     : "0.0";
 
-  // Cálculo seguro dos limites geográficos SEM spread de array gigante
-  const limites = useMemo(() => {
-    if (!features || features.length === 0) return null;
+  // Cálculo seguro dos limites geográficos e proporção do estado
+  const { limites, viewWidth, viewHeight, escala, fatorLon, margem } = useMemo(() => {
+    if (!features || features.length === 0) {
+      return {
+        limites: null,
+        viewWidth: 600,
+        viewHeight: 560,
+        escala: 1,
+        fatorLon: 1,
+        margem: 12,
+      };
+    }
+
     let minLon = Infinity;
     let maxLon = -Infinity;
     let minLat = Infinity;
@@ -257,12 +268,38 @@ function MapaCalorDistribuicaoInterno({
     });
 
     if (!Number.isFinite(minLon) || !Number.isFinite(maxLon) || !Number.isFinite(minLat) || !Number.isFinite(maxLat)) {
-      return null;
+      return {
+        limites: null,
+        viewWidth: 600,
+        viewHeight: 560,
+        escala: 1,
+        fatorLon: 1,
+        margem: 12,
+      };
     }
 
-    return { minLon, maxLon, minLat, maxLat };
+    // Projeção Mercator ajustada com fator de latitude do centro do estado
+    const latMedia = (minLat + maxLat) / 2;
+    const fLon = Math.cos((latMedia * Math.PI) / 180);
+    const diffLonProjetada = (maxLon - minLon) * fLon;
+    const diffLat = maxLat - minLat;
+
+    const marg = 14;
+    const targetH = 560;
+    const esc = (targetH - marg * 2) / Math.max(diffLat, 0.001);
+    const targetW = Math.max(340, Math.round(diffLonProjetada * esc + marg * 2));
+
+    return {
+      limites: { minLon, maxLon, minLat, maxLat },
+      viewWidth: targetW,
+      viewHeight: targetH,
+      escala: esc,
+      fatorLon: fLon,
+      margem: marg,
+    };
   }, [features]);
 
+  // Projeção dos polígonos
   const paths = (feature: GeoFeature): string[] => {
     if (!limites || !feature?.geometry?.coordinates) return [];
     const geom = feature.geometry;
@@ -273,15 +310,6 @@ function MapaCalorDistribuicaoInterno({
         ? (geom.coordinates as number[][][][])
         : [];
 
-    const largura = 760;
-    const altura = 480;
-    const margem = 16;
-    const diffLon = Math.max(limites.maxLon - limites.minLon, 0.001);
-    const diffLat = Math.max(limites.maxLat - limites.minLat, 0.001);
-    const escala = Math.min((largura - margem * 2) / diffLon, (altura - margem * 2) / diffLat);
-    const offsetX = (largura - diffLon * escala) / 2;
-    const offsetY = (altura - diffLat * escala) / 2;
-
     const pathStrings: string[] = [];
 
     poligonos.forEach((poligono) => {
@@ -291,8 +319,8 @@ function MapaCalorDistribuicaoInterno({
         if (!Array.isArray(anel) || anel.length === 0) return;
         const segmento = anel
           .map(([lon, lat], indice) => {
-            const x = (offsetX + (lon - limites.minLon) * escala).toFixed(2);
-            const y = (altura - offsetY - (lat - limites.minLat) * escala).toFixed(2);
+            const x = (margem + (lon - limites.minLon) * fatorLon * escala).toFixed(2);
+            const y = (viewHeight - margem - (lat - limites.minLat) * escala).toFixed(2);
             return `${indice === 0 ? "M" : "L"}${x} ${y}`;
           })
           .join(" ");
@@ -307,6 +335,66 @@ function MapaCalorDistribuicaoInterno({
 
     return pathStrings;
   };
+
+  // Cálculo do centróide visual das cidades ativas para posicionar os rótulos de forma limpa
+  const cidadesComEntregas = useMemo(() => {
+    if (!limites || !features || features.length === 0) return [];
+
+    return features
+      .map((feature) => {
+        const nome = feature.properties?.nome || feature.properties?.NM_MUN || "Município";
+        const info = dadosNormalizados.get(normalizar(nome));
+        if (!info || info.totalItens <= 0) return null;
+
+        const geom = feature.geometry;
+        if (!geom || !geom.coordinates) return null;
+
+        let sumX = 0;
+        let sumY = 0;
+        let count = 0;
+
+        const addPoint = (lon: number, lat: number) => {
+          const px = margem + (lon - limites.minLon) * fatorLon * escala;
+          const py = viewHeight - margem - (lat - limites.minLat) * escala;
+          sumX += px;
+          sumY += py;
+          count++;
+        };
+
+        const processRings = (rings: any) => {
+          if (!Array.isArray(rings)) return;
+          rings.forEach((ring: any) => {
+            if (!Array.isArray(ring)) return;
+            ring.forEach((pt: any) => {
+              if (Array.isArray(pt) && pt.length >= 2) {
+                addPoint(Number(pt[0]), Number(pt[1]));
+              }
+            });
+          });
+        };
+
+        if (geom.type === "Polygon") {
+          processRings(geom.coordinates);
+        } else if (geom.type === "MultiPolygon") {
+          if (Array.isArray(geom.coordinates)) {
+            geom.coordinates.forEach((poly: any) => processRings(poly));
+          }
+        }
+
+        if (count === 0) return null;
+
+        return {
+          nome,
+          info,
+          itens: info.totalItens,
+          pedidos: info.totalPedidos,
+          cx: sumX / count,
+          cy: sumY / count,
+        };
+      })
+      .filter((c): c is NonNullable<typeof c> => c !== null)
+      .sort((a, b) => b.itens - a.itens);
+  }, [features, dadosNormalizados, limites, escala, fatorLon, margem, viewHeight]);
 
   // Cor do mapa de calor proporcional à intensidade de despacho
   const getHeatmapColor = (municipioNome: string) => {
@@ -358,7 +446,23 @@ function MapaCalorDistribuicaoInterno({
           </p>
         </div>
 
-        <div className="flex items-center gap-1.5 self-end sm:self-auto">
+        <div className="flex items-center gap-2 self-end sm:self-auto flex-wrap">
+          {modoVisualizacao === "mapa" && (
+            <button
+              type="button"
+              onClick={() => setMostrarRotulos((v) => !v)}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all border cursor-pointer ${
+                mostrarRotulos
+                  ? "bg-primary/10 text-primary border-primary/30"
+                  : "bg-surface text-muted-foreground border-border hover:text-foreground"
+              }`}
+              title="Alternar visibilidade dos rótulos de cidades com entregas"
+            >
+              <MapPin className="size-3.5" />
+              <span>{mostrarRotulos ? "Rótulos Ativos" : "Ocultar Rótulos"}</span>
+            </button>
+          )}
+
           <div className="flex rounded-xl bg-muted/40 p-1 border border-border/60">
             <button
               type="button"
@@ -442,15 +546,16 @@ function MapaCalorDistribuicaoInterno({
 
       {/* ÁREA PRINCIPAL: MAPA OU RANKING */}
       {modoVisualizacao === "mapa" ? (
-        <div className="relative overflow-hidden rounded-2xl border border-border bg-slate-50/80 p-3">
-          {/* LEGENDA TÉRMICA & ZOOM */}
-          <div className="absolute top-4 left-4 z-10 hidden sm:flex items-center gap-2 rounded-xl bg-background/90 px-3 py-1.5 shadow-sm border border-border/60 backdrop-blur-xs text-[11px] font-bold">
+        <div className="relative overflow-hidden rounded-2xl border border-border bg-slate-50/80 p-2 sm:p-4">
+          {/* LEGENDA TÉRMICA */}
+          <div className="absolute top-3 left-3 z-10 hidden sm:flex items-center gap-2 rounded-xl bg-background/90 px-3 py-1.5 shadow-sm border border-border/60 backdrop-blur-xs text-[11px] font-bold">
             <span className="text-muted-foreground">0 itens</span>
             <span className="h-2.5 w-24 rounded-full bg-gradient-to-r from-slate-200 via-amber-400 to-red-600" />
             <span className="text-primary font-extrabold">{formatNumero(maxItens)} itens</span>
           </div>
 
-          <div className="absolute top-4 right-4 z-10 flex items-center gap-1">
+          {/* CONTROLES DE ZOOM */}
+          <div className="absolute top-3 right-3 z-10 flex items-center gap-1">
             <Button
               size="icon"
               variant="outline"
@@ -484,12 +589,12 @@ function MapaCalorDistribuicaoInterno({
           </div>
 
           {carregando ? (
-            <div className="flex h-[360px] items-center justify-center gap-2 text-sm text-muted-foreground">
+            <div className="flex h-[420px] items-center justify-center gap-2 text-sm text-muted-foreground">
               <Loader2 className="size-5 animate-spin text-primary" />
-              <span>Carregando mapa georreferenciado de {activeUf}...</span>
+              <span>Carregando limites de {activeUf}...</span>
             </div>
           ) : !features.length ? (
-            <div className="flex h-[360px] flex-col items-center justify-center p-6 text-center text-sm text-muted-foreground">
+            <div className="flex h-[420px] flex-col items-center justify-center p-6 text-center text-sm text-muted-foreground">
               <Info className="size-8 text-muted-foreground/40 mb-2" />
               <p className="font-bold text-foreground">Mapa do estado ({activeUf}) indisponível temporariamente.</p>
               <p className="text-xs mt-1 max-w-sm">
@@ -497,15 +602,17 @@ function MapaCalorDistribuicaoInterno({
               </p>
             </div>
           ) : (
-            <div className="overflow-hidden flex items-center justify-center min-h-[360px]">
+            <div className="overflow-hidden flex items-center justify-center min-h-[420px] sm:min-h-[500px]">
               <svg
                 ref={svgRef}
-                viewBox="0 0 760 480"
-                className="h-auto w-full max-h-[440px] transition-transform duration-200"
+                viewBox={`0 0 ${viewWidth} ${viewHeight}`}
+                preserveAspectRatio="xMidYMid meet"
+                className="h-auto w-full max-h-[520px] transition-transform duration-200"
                 style={{ transform: `scale(${zoomLevel})` }}
                 role="img"
                 aria-label={`Mapa de calor de distribuição de materiais de ${activeUf}`}
               >
+                {/* 1. POLÍGONOS DOS MUNICÍPIOS */}
                 {features.flatMap((feature, indice) => {
                   const municipio =
                     feature.properties?.nome || feature.properties?.NM_MUN || "Município";
@@ -525,7 +632,7 @@ function MapaCalorDistribuicaoInterno({
                       stroke={
                         isSelected ? "#0f172a" : isHovered ? "var(--primary)" : "rgba(15,23,42,0.25)"
                       }
-                      strokeWidth={isSelected ? "2.4" : isHovered ? "1.8" : "0.55"}
+                      strokeWidth={isSelected ? "2.6" : isHovered ? "2.0" : "0.55"}
                       className="cursor-pointer transition-all duration-150 hover:brightness-90 active:scale-[0.99]"
                       onClick={() => setSelecionado(selecionado === municipio ? null : municipio)}
                       onMouseEnter={() => setHoveredMunicipio(municipio)}
@@ -537,6 +644,76 @@ function MapaCalorDistribuicaoInterno({
                     </path>
                   ));
                 })}
+
+                {/* 2. RÓTULOS E PINS DAS CIDADES COM ENTREGAS */}
+                {mostrarRotulos &&
+                  cidadesComEntregas.map((c, i) => {
+                    const isSelected =
+                      selecionado && normalizar(selecionado) === normalizar(c.nome);
+                    const isHovered =
+                      hoveredMunicipio && normalizar(hoveredMunicipio) === normalizar(c.nome);
+                    const labelTexto = `${c.nome} • ${formatNumero(c.itens)}`;
+                    const labelWidth = Math.max(68, labelTexto.length * 6.2 + 14);
+
+                    return (
+                      <g
+                        key={`label-${c.nome}-${i}`}
+                        className="cursor-pointer select-none transition-all duration-150"
+                        onClick={() => setSelecionado(selecionado === c.nome ? null : c.nome)}
+                        onMouseEnter={() => setHoveredMunicipio(c.nome)}
+                        onMouseLeave={() => setHoveredMunicipio(null)}
+                      >
+                        {/* Ponto / Marcador de Entrega */}
+                        <circle
+                          cx={c.cx}
+                          cy={c.cy}
+                          r={isSelected || isHovered ? 5.5 : 4}
+                          fill={isSelected ? "#0f172a" : "var(--primary)"}
+                          stroke="#ffffff"
+                          strokeWidth="1.5"
+                          className="shadow-xs"
+                        />
+
+                        {/* Pill / Etiqueta Flutuante de Texto */}
+                        <g transform={`translate(${c.cx}, ${c.cy - 12})`}>
+                          <rect
+                            x={-labelWidth / 2}
+                            y={-14}
+                            width={labelWidth}
+                            height={17}
+                            rx={4.5}
+                            fill={
+                              isSelected
+                                ? "#0f172a"
+                                : isHovered
+                                ? "hsl(24, 95%, 45%)"
+                                : "rgba(15, 23, 42, 0.88)"
+                            }
+                            stroke={
+                              isSelected
+                                ? "var(--primary)"
+                                : isHovered
+                                ? "#ffffff"
+                                : "rgba(255, 255, 255, 0.25)"
+                            }
+                            strokeWidth={isSelected || isHovered ? 1.4 : 0.8}
+                            className="shadow-md"
+                          />
+                          <text
+                            x={0}
+                            y={-2}
+                            fill="#ffffff"
+                            fontSize="8.5"
+                            fontWeight="800"
+                            textAnchor="middle"
+                            letterSpacing="0.2px"
+                          >
+                            {labelTexto}
+                          </text>
+                        </g>
+                      </g>
+                    );
+                  })}
               </svg>
             </div>
           )}
@@ -544,7 +721,7 @@ function MapaCalorDistribuicaoInterno({
       ) : (
         /* MODO RANKING (GRÁFICO DE BARRAS + LISTAGEM) */
         <div className="space-y-4">
-          <div className="h-[320px] w-full rounded-2xl border border-border bg-slate-50/50 p-4">
+          <div className="h-[340px] w-full rounded-2xl border border-border bg-slate-50/50 p-4">
             {listaCidades.length === 0 ? (
               <div className="flex h-full items-center justify-center text-xs text-muted-foreground">
                 Nenhum município com saídas registradas até o momento.
