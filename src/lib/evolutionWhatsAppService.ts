@@ -35,6 +35,7 @@ export function getHumanDelayMs(minSec = 8, maxSec = 15): number {
  * Serviço de Integração com a Evolution API / Evolution Go e Controle Anti-Bloqueio
  */
 export class EvolutionWhatsAppService {
+  private static internalApiUrl = '/api/evolution';
   private static defaultUrl = EVOLUTION_API_URL || 'https://evolution.democracias.org';
   private static defaultApiKey = EVOLUTION_GLOBAL_API_KEY;
   private static serviceGatewayUrl = 'https://api.democracias.org/whatsapp';
@@ -46,6 +47,7 @@ export class EvolutionWhatsAppService {
 
   private static getCandidateUrls(): string[] {
     const urls = [
+      this.internalApiUrl,
       this.defaultUrl,
       'https://evolution.democracias.org',
       'https://api.democracias.org/evolution',
@@ -113,16 +115,49 @@ export class EvolutionWhatsAppService {
     forceRecreate = false
   ): Promise<CampaignInstanceResult> {
     const controller = new AbortController();
-    const timeout = window.setTimeout(() => controller.abort(), 20000);
+    const timeout = window.setTimeout(() => controller.abort(), 25000);
     const token = this.instanceToken(instanceName);
-    const candidateUrls = this.getCandidateUrls();
 
     try {
       if (forceRecreate) {
         await this.deleteInstance(instanceName).catch(() => {});
       }
 
-      // Tentativa 1: Via Gateway seguro do Servidor (whatsapp-service na VPS)
+      // Tentativa 1: Endpoint Interno do Servidor (/api/evolution/instance/create)
+      try {
+        const internalRes = await fetch(`${this.internalApiUrl}/instance/create`, {
+          method: 'POST',
+          signal: controller.signal,
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ instanceName, token })
+        });
+        if (internalRes.ok) {
+          const internalData = await internalRes.json();
+          if (internalData.success) {
+            let qr = this.normalizeQrCode(internalData.qrCode);
+            if (!qr) {
+              qr = await this.getInstanceQr(instanceName, controller.signal);
+            }
+            await this.persistCampaignInstance(
+              campaignId,
+              instanceName,
+              token,
+              qr || null,
+              internalData.connected ? 'connected' : 'connecting'
+            );
+            return {
+              success: true,
+              instanceName,
+              qrCode: qr,
+              connected: !!internalData.connected
+            };
+          }
+        }
+      } catch (internalErr) {
+        console.warn('Fallback do endpoint interno:', internalErr);
+      }
+
+      // Tentativa 2: Via Gateway seguro do Servidor (whatsapp-service na VPS)
       try {
         const gwRes = await fetch(`${this.serviceGatewayUrl}/api/instance/create`, {
           method: 'POST',
@@ -154,9 +189,9 @@ export class EvolutionWhatsAppService {
         }
       } catch {}
 
-      // Tentativa 2: Endpoints Evolution diretos
+      // Tentativa 3: Endpoints Evolution diretos
       let lastError = '';
-      for (const baseUrl of candidateUrls) {
+      for (const baseUrl of this.getCandidateUrls()) {
         try {
           const response = await fetch(`${baseUrl}/instance/create`, {
             method: 'POST',
@@ -241,8 +276,10 @@ export class EvolutionWhatsAppService {
   static async deleteInstance(instanceName: string): Promise<boolean> {
     const token = this.instanceToken(instanceName);
     try {
+      fetch(`${this.internalApiUrl}/instance/${instanceName}`, { method: 'DELETE' }).catch(() => {});
       fetch(`${this.serviceGatewayUrl}/api/instance/${instanceName}`, { method: 'DELETE' }).catch(() => {});
       for (const baseUrl of this.getCandidateUrls()) {
+        if (baseUrl.startsWith('/api')) continue;
         await fetch(`${baseUrl}/instance/logout`, {
           method: 'POST',
           headers: { apikey: this.defaultApiKey || token }
@@ -287,7 +324,18 @@ export class EvolutionWhatsAppService {
   static async getInstanceQr(instanceName: string, signal?: AbortSignal): Promise<string | undefined> {
     const token = this.instanceToken(instanceName);
 
-    // Tentativa 1: Gateway do servidor
+    // Tentativa 1: Endpoint Interno do Servidor (/api/evolution/instance/qr/:instanceName)
+    try {
+      const internalRes = await fetch(`${this.internalApiUrl}/instance/qr/${instanceName}`, { signal });
+      if (internalRes.ok) {
+        const internalData = await internalRes.json().catch(() => ({}));
+        if (internalData?.qrcode) {
+          return this.normalizeQrCode(internalData.qrcode);
+        }
+      }
+    } catch {}
+
+    // Tentativa 2: Gateway do servidor
     try {
       const gwRes = await fetch(`${this.serviceGatewayUrl}/api/instance/qr/${instanceName}`, { signal });
       if (gwRes.ok) {
@@ -298,8 +346,9 @@ export class EvolutionWhatsAppService {
       }
     } catch {}
 
-    // Tentativa 2: Direct Evolution candidates
+    // Tentativa 3: Direct Evolution candidates
     for (const baseUrl of this.getCandidateUrls()) {
+      if (baseUrl.startsWith('/api')) continue;
       try {
         let response = await fetch(`${baseUrl}/instance/qr`, {
           signal,
@@ -326,7 +375,18 @@ export class EvolutionWhatsAppService {
    * 2. Obter Status e QR Code atual da instância
    */
   static async getInstanceStatus(instanceName: string) {
-    // Tentativa 1: Gateway do servidor
+    // Tentativa 1: Endpoint Interno do Servidor (/api/evolution/instance/status/:instanceName)
+    try {
+      const internalRes = await fetch(`${this.internalApiUrl}/instance/status/${instanceName}`);
+      if (internalRes.ok) {
+        const internalData = await internalRes.json().catch(() => ({}));
+        if (internalData?.instance) {
+          return internalData;
+        }
+      }
+    } catch {}
+
+    // Tentativa 2: Gateway do servidor
     try {
       const gwRes = await fetch(`${this.serviceGatewayUrl}/api/instance/status/${instanceName}`);
       if (gwRes.ok) {
@@ -337,9 +397,10 @@ export class EvolutionWhatsAppService {
       }
     } catch {}
 
-    // Tentativa 2: Direct Evolution candidates
+    // Tentativa 3: Direct Evolution candidates
     const token = this.instanceToken(instanceName);
     for (const baseUrl of this.getCandidateUrls()) {
+      if (baseUrl.startsWith('/api')) continue;
       try {
         const response = await fetch(`${baseUrl}/instance/status`, {
           headers: { apikey: this.defaultApiKey || token }
@@ -375,7 +436,19 @@ export class EvolutionWhatsAppService {
     const cleanPhone = recipientPhone.replace(/\D/g, '');
     const formattedPhone = cleanPhone.startsWith('55') ? cleanPhone : `55${cleanPhone}`;
 
-    // Tentativa 1: Gateway do servidor
+    // Tentativa 1: Endpoint Interno do Servidor (/api/evolution/send/text)
+    try {
+      const internalRes = await fetch(`${this.internalApiUrl}/send/text`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ instanceName, number: formattedPhone, text: messageText.trim() })
+      });
+      if (internalRes.ok) {
+        return await internalRes.json().catch(() => ({}));
+      }
+    } catch {}
+
+    // Tentativa 2: Gateway do servidor
     try {
       const gwRes = await fetch(`${this.serviceGatewayUrl}/api/send/text`, {
         method: 'POST',
@@ -387,9 +460,10 @@ export class EvolutionWhatsAppService {
       }
     } catch {}
 
-    // Tentativa 2: Direct Evolution candidates
+    // Tentativa 3: Direct Evolution candidates
     const token = this.instanceToken(instanceName);
     for (const baseUrl of this.getCandidateUrls()) {
+      if (baseUrl.startsWith('/api')) continue;
       try {
         const response = await fetch(`${baseUrl}/send/text`, {
           method: 'POST',
