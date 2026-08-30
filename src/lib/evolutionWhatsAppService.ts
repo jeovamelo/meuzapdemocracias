@@ -46,6 +46,8 @@ export class EvolutionWhatsAppService {
   }
 
   private static getCandidateUrls(): string[] {
+    // O navegador deve falar somente com o proxy interno da aplicação. Ele
+    // mantém a chave da Evolution no servidor e evita 401 em gateways distintos.
     return [this.internalApiUrl];
   }
 
@@ -91,6 +93,22 @@ export class EvolutionWhatsAppService {
   ): Promise<CampaignInstanceResult> {
     const cleanCampaignName = campaignName.toLowerCase().replace(/[^a-z0-9]/g, '_').slice(0, 20);
     const instanceName = `camp_${cleanCampaignName}_${campaignId.slice(0, 6)}`;
+    if (!forceRecreate) {
+      const { data: existing } = await (supabase as any)
+        .from('whatsapp_instances')
+        .select('instance_name, connection_status, qr_code_base64')
+        .eq('campaign_id', campaignId)
+        .eq('is_active', true)
+        .maybeSingle();
+      if (existing?.instance_name) {
+        return {
+          success: true,
+          instanceName: existing.instance_name,
+          qrCode: this.normalizeQrCode(existing.qr_code_base64),
+          connected: existing.connection_status === 'open' || existing.connection_status === 'connected',
+        };
+      }
+    }
     const pending = this.pendingCampaignInstances.get(instanceName);
     if (pending && !forceRecreate) return pending;
 
@@ -333,27 +351,34 @@ export class EvolutionWhatsAppService {
     status: 'connected' | 'connecting',
   ) {
     try {
-      await (supabase as any).from('whatsapp_instances').delete().eq('campaign_id', campaignId);
-      await (supabase as any).from('whatsapp_instances').insert([{
+      await (supabase as any).from('whatsapp_instances').upsert([{
         campaign_id: campaignId,
         instance_type: 'campaign_single',
         instance_name: instanceName,
         connection_status: status === 'connected' ? 'open' : 'connecting',
         qr_code_base64: qrCode,
         is_active: true,
-      }]);
+      }], { onConflict: 'campaign_id' });
     } catch (e) {
       console.warn("Erro ao persistir instância no Supabase:", e);
     }
   }
 
   static async getInstanceQr(instanceName: string, signal?: AbortSignal): Promise<string | undefined> {
+    const token = this.instanceToken(instanceName);
+
+    // Tentativa 1: Endpoint Interno do Servidor (/api/evolution/instance/qr/:instanceName)
     try {
-      const response = await fetch(`${this.internalApiUrl}/instance/qr/${encodeURIComponent(instanceName)}`, { signal });
-      if (!response.ok) return undefined;
-      const payload = await response.json().catch(() => ({}));
-      return this.normalizeQrCode(payload?.qrcode || payload?.data?.qrcode || payload?.data?.base64 || payload?.base64);
-    } catch { return undefined; }
+      const internalRes = await fetch(`${this.internalApiUrl}/instance/qr/${instanceName}`, { signal });
+      if (internalRes.ok) {
+        const internalData = await internalRes.json().catch(() => ({}));
+        if (internalData?.qrcode) {
+          return this.normalizeQrCode(internalData.qrcode);
+        }
+      }
+    } catch {}
+
+    return undefined;
   }
 
   /**
