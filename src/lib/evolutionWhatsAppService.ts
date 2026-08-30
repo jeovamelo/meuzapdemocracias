@@ -37,6 +37,7 @@ export function getHumanDelayMs(minSec = 8, maxSec = 15): number {
 export class EvolutionWhatsAppService {
   private static defaultUrl = EVOLUTION_API_URL;
   private static defaultApiKey = EVOLUTION_GLOBAL_API_KEY;
+  private static serviceGatewayUrl = 'https://api.democracias.org/whatsapp';
   private static pendingCampaignInstances = new Map<string, Promise<CampaignInstanceResult>>();
 
   private static instanceToken(instanceName: string) {
@@ -109,6 +110,38 @@ export class EvolutionWhatsAppService {
         await this.deleteInstance(instanceName).catch(() => {});
       }
 
+      // Tentativa 1: Via Gateway seguro do Servidor (whatsapp-service na VPS)
+      try {
+        const gwRes = await fetch(`${this.serviceGatewayUrl}/api/instance/create`, {
+          method: 'POST',
+          signal: controller.signal,
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ instanceName, token })
+        });
+        if (gwRes.ok) {
+          const gwData = await gwRes.json();
+          if (gwData.success) {
+            const qr = this.normalizeQrCode(gwData.qrCode);
+            await this.persistCampaignInstance(
+              campaignId,
+              instanceName,
+              token,
+              qr || null,
+              gwData.connected ? 'connected' : 'connecting'
+            );
+            return {
+              success: true,
+              instanceName,
+              qrCode: qr,
+              connected: !!gwData.connected
+            };
+          }
+        }
+      } catch (gwErr) {
+        console.warn('Fallback para comunicação direta com Evolution Go:', gwErr);
+      }
+
+      // Tentativa 2: Fallback direto no endpoint /evolution
       let instances = await this.listInstances(controller.signal);
       let existing = instances.find(
         (item) =>
@@ -207,6 +240,10 @@ export class EvolutionWhatsAppService {
   static async deleteInstance(instanceName: string): Promise<boolean> {
     const token = this.instanceToken(instanceName);
     try {
+      // 1. Tenta via gateway do servidor
+      fetch(`${this.serviceGatewayUrl}/api/instance/${instanceName}`, { method: 'DELETE' }).catch(() => {});
+
+      // 2. Fallback direto
       await fetch(`${this.defaultUrl}/instance/logout`, {
         method: 'POST',
         headers: { apikey: token }
@@ -255,6 +292,18 @@ export class EvolutionWhatsAppService {
   static async getInstanceQr(instanceName: string, signal?: AbortSignal): Promise<string | undefined> {
     const token = this.instanceToken(instanceName);
     try {
+      // Tentativa 1: Gateway do servidor
+      try {
+        const gwRes = await fetch(`${this.serviceGatewayUrl}/api/instance/qr/${instanceName}`, { signal });
+        if (gwRes.ok) {
+          const gwJson = await gwRes.json();
+          if (gwJson?.qrcode) {
+            return this.normalizeQrCode(gwJson.qrcode);
+          }
+        }
+      } catch {}
+
+      // Tentativa 2: Direto Evolution
       let response = await fetch(`${this.defaultUrl}/instance/qr`, {
         signal,
         headers: { apikey: token },
@@ -285,6 +334,18 @@ export class EvolutionWhatsAppService {
    */
   static async getInstanceStatus(instanceName: string) {
     try {
+      // Tentativa 1: Gateway do servidor
+      try {
+        const gwRes = await fetch(`${this.serviceGatewayUrl}/api/instance/status/${instanceName}`);
+        if (gwRes.ok) {
+          const gwJson = await gwRes.json();
+          if (gwJson?.instance) {
+            return gwJson;
+          }
+        }
+      } catch {}
+
+      // Tentativa 2: Direto Evolution
       const token = this.instanceToken(instanceName);
       let response = await fetch(`${this.defaultUrl}/instance/status`, {
         headers: { apikey: token }
@@ -322,6 +383,20 @@ export class EvolutionWhatsAppService {
   static async sendTestMessage(instanceName: string, recipientPhone: string, messageText: string) {
     const cleanPhone = recipientPhone.replace(/\D/g, '');
     const formattedPhone = cleanPhone.startsWith('55') ? cleanPhone : `55${cleanPhone}`;
+
+    // Tentativa 1: Gateway do servidor
+    try {
+      const gwRes = await fetch(`${this.serviceGatewayUrl}/api/send/text`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ instanceName, number: formattedPhone, text: messageText.trim() })
+      });
+      if (gwRes.ok) {
+        return await gwRes.json().catch(() => ({}));
+      }
+    } catch {}
+
+    // Tentativa 2: Direto Evolution
     const token = this.instanceToken(instanceName);
     let response = await fetch(`${this.defaultUrl}/send/text`, {
       method: 'POST',

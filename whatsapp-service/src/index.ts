@@ -260,7 +260,7 @@ app.get('/whatsapp', async (req, res) => {
 });
 
 // Endpoint de Status JSON simplificado
-app.get('/whatsapp/status', async (req, res) => {
+app.get(['/whatsapp/status', '/api/status'], async (req, res) => {
   try {
     const { data: inst } = await supabase
       .from('whatsapp_instances')
@@ -275,6 +275,205 @@ app.get('/whatsapp/status', async (req, res) => {
     });
   } catch {
     res.json({ online: false, message: 'Serviço em sincronização' });
+  }
+});
+
+/**
+ * Endpoints de Gerenciamento de Instâncias Evolution API (Proxy Seguro com Chave do Servidor)
+ */
+app.post(['/api/instance/create', '/whatsapp/api/instance/create'], async (req, res) => {
+  const { instanceName, token } = req.body;
+  if (!instanceName) return res.status(400).json({ success: false, error: 'instanceName é obrigatório' });
+  const instToken = token || `${instanceName}_token`;
+
+  try {
+    // 1. Criar instância se ainda não existir
+    const createRes = await fetch(`${EVOLUTION_API_URL}/instance/create`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', apikey: EVOLUTION_API_KEY },
+      body: JSON.stringify({ name: instanceName, token: instToken })
+    });
+    await createRes.json().catch(() => ({}));
+
+    // 2. Verificar se já está conectada
+    let statusJson: any = {};
+    const statusRes = await fetch(`${EVOLUTION_API_URL}/instance/status`, {
+      headers: { apikey: instToken }
+    }).catch(() => null);
+
+    if (statusRes && statusRes.ok) {
+      statusJson = await statusRes.json().catch(() => ({}));
+    } else {
+      const statusResAdmin = await fetch(`${EVOLUTION_API_URL}/instance/status`, {
+        headers: { apikey: EVOLUTION_API_KEY }
+      }).catch(() => null);
+      if (statusResAdmin && statusResAdmin.ok) statusJson = await statusResAdmin.json().catch(() => ({}));
+    }
+
+    const sData = statusJson?.data || statusJson;
+    if (sData?.Connected === true && sData?.LoggedIn === true) {
+      return res.json({ success: true, instanceName, connected: true });
+    }
+
+    // 3. Iniciar conexão e solicitar QR Code
+    let qr: string | undefined;
+    const connRes = await fetch(`${EVOLUTION_API_URL}/instance/connect`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', apikey: instToken },
+      body: JSON.stringify({ subscribe: ['MESSAGE', 'READ_RECEIPT', 'GROUP', 'CALL'] })
+    }).catch(() => null);
+
+    if (connRes && connRes.ok) {
+      const connJson = await connRes.json().catch(() => ({}));
+      qr = connJson?.data?.qrcode || connJson?.data?.base64 || connJson?.qrcode || connJson?.base64;
+    }
+
+    // Se não veio no connect, busca no /instance/qr
+    if (!qr) {
+      let qrRes = await fetch(`${EVOLUTION_API_URL}/instance/qr`, {
+        headers: { apikey: instToken }
+      }).catch(() => null);
+
+      if (!qrRes || !qrRes.ok) {
+        qrRes = await fetch(`${EVOLUTION_API_URL}/instance/qr`, {
+          headers: { apikey: EVOLUTION_API_KEY }
+        }).catch(() => null);
+      }
+
+      if (qrRes && qrRes.ok) {
+        const qrJson = await qrRes.json().catch(() => ({}));
+        qr = qrJson?.data?.qrcode || qrJson?.data?.base64 || qrJson?.qrcode || qrJson?.base64;
+      }
+    }
+
+    if (qr && !qr.startsWith('data:image') && !qr.startsWith('http')) {
+      qr = `data:image/png;base64,${qr}`;
+    }
+
+    return res.json({ success: true, instanceName, qrCode: qr || null, connected: false });
+  } catch (err: any) {
+    console.error("Erro ao criar/conectar instância Evolution:", err);
+    return res.status(500).json({ success: false, error: err?.message || 'Erro de comunicação interna com Evolution Go' });
+  }
+});
+
+app.get(['/api/instance/qr/:name', '/whatsapp/api/instance/qr/:name'], async (req, res) => {
+  const instanceName = req.params.name;
+  const instToken = `${instanceName}_token`;
+  try {
+    let qrRes = await fetch(`${EVOLUTION_API_URL}/instance/qr`, {
+      headers: { apikey: instToken }
+    }).catch(() => null);
+
+    if (!qrRes || !qrRes.ok) {
+      // Forçar connect antes se o QR não estiver pronto
+      await fetch(`${EVOLUTION_API_URL}/instance/connect`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', apikey: instToken },
+        body: JSON.stringify({ subscribe: ['MESSAGE', 'READ_RECEIPT', 'GROUP', 'CALL'] })
+      }).catch(() => {});
+
+      qrRes = await fetch(`${EVOLUTION_API_URL}/instance/qr`, {
+        headers: { apikey: instToken }
+      }).catch(() => null);
+    }
+
+    if (!qrRes || !qrRes.ok) {
+      qrRes = await fetch(`${EVOLUTION_API_URL}/instance/qr`, {
+        headers: { apikey: EVOLUTION_API_KEY }
+      }).catch(() => null);
+    }
+
+    if (qrRes && qrRes.ok) {
+      const qrJson = await qrRes.json().catch(() => ({}));
+      let qr = qrJson?.data?.qrcode || qrJson?.data?.base64 || qrJson?.qrcode || qrJson?.base64;
+      if (qr && !qr.startsWith('data:image') && !qr.startsWith('http')) {
+        qr = `data:image/png;base64,${qr}`;
+      }
+      return res.json({ qrcode: qr || null });
+    }
+    return res.json({ qrcode: null });
+  } catch (e: any) {
+    return res.status(500).json({ error: e.message });
+  }
+});
+
+app.get(['/api/instance/status/:name', '/whatsapp/api/instance/status/:name'], async (req, res) => {
+  const instanceName = req.params.name;
+  const instToken = `${instanceName}_token`;
+  try {
+    let sRes = await fetch(`${EVOLUTION_API_URL}/instance/status`, {
+      headers: { apikey: instToken }
+    }).catch(() => null);
+
+    if (!sRes || !sRes.ok) {
+      sRes = await fetch(`${EVOLUTION_API_URL}/instance/status`, {
+        headers: { apikey: EVOLUTION_API_KEY }
+      }).catch(() => null);
+    }
+
+    if (sRes && sRes.ok) {
+      const json = await sRes.json().catch(() => ({}));
+      const d = json?.data || json;
+      const connected = d?.Connected === true || d?.connected === true || d?.state === 'open';
+      const loggedIn = d?.LoggedIn === true || d?.loggedIn === true;
+      return res.json({
+        instance: {
+          state: (connected && loggedIn) || d?.state === 'open' ? 'open' : (connected ? 'connecting' : 'close'),
+          connected,
+          loggedIn,
+          number: d?.Name || d?.name || d?.ownerJid || null
+        }
+      });
+    }
+    return res.json({ instance: { state: 'close', connected: false, loggedIn: false } });
+  } catch (e: any) {
+    return res.status(500).json({ error: e.message });
+  }
+});
+
+app.delete(['/api/instance/:name', '/whatsapp/api/instance/:name'], async (req, res) => {
+  const instanceName = req.params.name;
+  const instToken = `${instanceName}_token`;
+  try {
+    await fetch(`${EVOLUTION_API_URL}/instance/logout`, {
+      method: 'POST',
+      headers: { apikey: instToken }
+    }).catch(() => {});
+    await fetch(`${EVOLUTION_API_URL}/instance/delete`, {
+      method: 'DELETE',
+      headers: { apikey: instToken }
+    }).catch(() => {});
+    await fetch(`${EVOLUTION_API_URL}/instance/delete/${instanceName}`, {
+      method: 'DELETE',
+      headers: { apikey: EVOLUTION_API_KEY }
+    }).catch(() => {});
+    return res.json({ success: true });
+  } catch (e: any) {
+    return res.status(500).json({ error: e.message });
+  }
+});
+
+app.post(['/api/send/text', '/whatsapp/api/send/text'], async (req, res) => {
+  const { instanceName, number, text } = req.body;
+  const instToken = `${instanceName}_token`;
+  try {
+    let resp = await fetch(`${EVOLUTION_API_URL}/send/text`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', apikey: instToken },
+      body: JSON.stringify({ number, text })
+    });
+    if (!resp.ok) {
+      resp = await fetch(`${EVOLUTION_API_URL}/send/text`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', apikey: EVOLUTION_API_KEY },
+        body: JSON.stringify({ number, text })
+      });
+    }
+    const data = await resp.json().catch(() => ({}));
+    return res.status(resp.status).json(data);
+  } catch (e: any) {
+    return res.status(500).json({ error: e.message });
   }
 });
 
