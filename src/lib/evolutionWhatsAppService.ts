@@ -276,13 +276,12 @@ export class EvolutionWhatsAppService {
     try {
       await (supabase as any).from('whatsapp_instances').delete().eq('campaign_id', campaignId);
       await (supabase as any).from('whatsapp_instances').insert([{
-        instance_name: instanceName,
         campaign_id: campaignId,
-        tipo: 'campaign',
-        status,
+        instance_type: 'campaign_single',
+        instance_name: instanceName,
+        connection_status: status === 'connected' ? 'open' : 'connecting',
         qr_code_base64: qrCode,
-        server_url: this.defaultUrl,
-        apikey: token,
+        is_active: true,
       }]);
     } catch (e) {
       console.warn("Erro ao persistir instância no Supabase:", e);

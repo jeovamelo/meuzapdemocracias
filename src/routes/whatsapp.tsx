@@ -14,14 +14,8 @@ export const Route = createFileRoute('/whatsapp')({ component: WhatsAppSetupPage
 function WhatsAppSetupPage() {
   const navigate = useNavigate();
   const { campaign } = useCampaignScope();
-  const [campaignName, setCampaignName] = useState(() => (
-    typeof window !== 'undefined'
-      ? localStorage.getItem('whatsapp_campaign_name') || campaign?.nomeUrna || ''
-      : campaign?.nomeUrna || ''
-  ));
-  const [whatsappNumber, setWhatsappNumber] = useState(() => (
-    typeof window !== 'undefined' ? localStorage.getItem('whatsapp_campaign_number') || '' : ''
-  ));
+  const [campaignName, setCampaignName] = useState(campaign?.nomeUrna || '');
+  const [whatsappNumber, setWhatsappNumber] = useState('');
   const [status, setStatus] = useState<{ online: boolean; message: string; qr?: string | null }>({ 
     online: false, 
     message: 'Gerando instância única para a campanha...',
@@ -33,6 +27,16 @@ function WhatsAppSetupPage() {
   const [testPhone, setTestPhone] = useState('');
   const [testMessage, setTestMessage] = useState('');
   const [sendingTest, setSendingTest] = useState(false);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const storedName = localStorage.getItem('whatsapp_campaign_name');
+      const storedNumber = localStorage.getItem('whatsapp_campaign_number');
+      if (storedName) setCampaignName(storedName);
+      else if (campaign?.nomeUrna) setCampaignName(campaign.nomeUrna);
+      if (storedNumber) setWhatsappNumber(storedNumber);
+    }
+  }, [campaign?.nomeUrna]);
 
   // 1. Inicializar ou conectar instância única para a campanha na Evolution API / Evolution Go
   const inicializarInstanciaCampanha = async (forceRecreate = false) => {
