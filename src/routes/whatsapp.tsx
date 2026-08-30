@@ -34,33 +34,50 @@ function WhatsAppSetupPage() {
   const [testMessage, setTestMessage] = useState('');
   const [sendingTest, setSendingTest] = useState(false);
 
-  // 1. Inicializar ou substituir instância única para a campanha na Evolution API
-  const inicializarInstanciaCampanha = async () => {
+  // 1. Inicializar ou conectar instância única para a campanha na Evolution API / Evolution Go
+  const inicializarInstanciaCampanha = async (forceRecreate = false) => {
     if (!campaign?.id) return;
     setLoadingInstance(true);
     setGenerationError('');
-    setStatus({ online: false, message: 'Gerando instância única para a campanha...', qr: null });
+    setStatus({ online: false, message: 'Conectando instância na Evolution Go...', qr: null });
     try {
       const res = await EvolutionWhatsAppService.createOrReplaceCampaignInstance(
         campaign.id,
-        campaignName || campaign.nomeUrna || 'Campanha'
+        campaignName || campaign.nomeUrna || 'Campanha',
+        forceRecreate
       );
+
+      if (res.instanceName) {
+        setActiveInstanceName(res.instanceName);
+      }
+
       if (!res.success) {
-        setGenerationError(res.error || 'Não foi possível criar a instância.');
+        setGenerationError(res.error || 'Não foi possível inicializar a instância.');
         return;
       }
-      if (res.success) {
-        setActiveInstanceName(res.instanceName);
-        if (res.connected) {
-          setStatus({ online: true, message: 'WhatsApp conectado com sucesso!', qr: null });
-        } else if (res.qrCode) {
+
+      if (res.connected) {
+        setStatus({ online: true, message: 'WhatsApp conectado com sucesso!', qr: null });
+      } else if (res.qrCode) {
+        setStatus({
+          online: false,
+          message: 'Aguardando leitura do QR Code',
+          qr: res.qrCode
+        });
+      } else {
+        // Tentar obter o QR code em seguida
+        setStatus({
+          online: false,
+          message: 'Instância ativa. Buscando QR Code...',
+          qr: null
+        });
+        const qr = await EvolutionWhatsAppService.getInstanceQr(res.instanceName);
+        if (qr) {
           setStatus({
             online: false,
             message: 'Aguardando leitura do QR Code',
-            qr: res.qrCode
+            qr
           });
-        } else {
-          setGenerationError('A instância foi criada, mas o QR Code ainda não ficou disponível. Tente atualizar.');
         }
       }
     } catch (e) {
@@ -75,7 +92,7 @@ function WhatsAppSetupPage() {
     inicializarInstanciaCampanha();
   }, [campaign?.id]);
 
-  // 2. Polling de status da conexão da instância
+  // 2. Polling inteligente de status e QR Code da instância
   useEffect(() => {
     if (!activeInstanceName) return;
     let active = true;
@@ -83,20 +100,29 @@ function WhatsAppSetupPage() {
     const checarStatus = async () => {
       try {
         const stateRes = await EvolutionWhatsAppService.getInstanceStatus(activeInstanceName);
-        if (active && stateRes?.instance?.state === 'open') {
+        if (!active) return;
+
+        if (stateRes?.instance?.state === 'open') {
           setStatus({ online: true, message: 'WhatsApp conectado com sucesso!', qr: null });
-        } else if (active && stateRes?.instance?.state === 'connecting' && !status.qr) {
+        } else {
+          // Se ainda não está conectado, buscar/atualizar QR code se não tiver ou para refresh
           const qr = await EvolutionWhatsAppService.getInstanceQr(activeInstanceName);
-          if (qr) setStatus({ online: false, message: 'Aguardando leitura do QR Code', qr });
+          if (active && qr) {
+            setStatus({
+              online: false,
+              message: 'Aguardando leitura do QR Code',
+              qr
+            });
+          }
         }
       } catch {
         // ignora erro transitório de polling
       }
     };
 
-    const timer = setInterval(checarStatus, 4000);
+    const timer = setInterval(checarStatus, 5000);
     return () => { active = false; clearInterval(timer); };
-  }, [activeInstanceName, status.qr]);
+  }, [activeInstanceName]);
 
   const handleSendTest = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -189,26 +215,39 @@ function WhatsAppSetupPage() {
           ) : status.qr ? (
             <div className="space-y-4">
               <h2 className="font-bold text-slate-800">Escaneie o QR Code</h2>
-              <img src={status.qr} alt="QR Code do WhatsApp" className="mx-auto h-64 w-64 rounded-xl border-2 border-primary shadow" />
+              <img src={status.qr} alt="QR Code do WhatsApp" className="mx-auto h-64 w-64 rounded-xl border-2 border-primary shadow bg-white p-2" />
               <p className="text-xs text-slate-500 max-w-xs mx-auto">
                 Abra o WhatsApp no celular do coordenador/candidato, vá em <strong>Aparelhos Conectados</strong> e aponte para a tela.
               </p>
-              <Button type="button" variant="outline" size="sm" onClick={inicializarInstanciaCampanha}>
-                <RefreshCw className="mr-1.5 h-3.5 w-3.5" /> Atualizar QR Code
-              </Button>
+              <div className="flex justify-center gap-2 pt-2">
+                <Button type="button" variant="outline" size="sm" onClick={() => inicializarInstanciaCampanha(false)} disabled={loadingInstance}>
+                  <RefreshCw className={`mr-1.5 h-3.5 w-3.5 ${loadingInstance ? 'animate-spin' : ''}`} /> Atualizar QR Code
+                </Button>
+                <Button type="button" variant="ghost" size="sm" onClick={() => inicializarInstanciaCampanha(true)} disabled={loadingInstance} className="text-xs text-slate-500 hover:text-rose-600">
+                  Reiniciar Sessão
+                </Button>
+              </div>
             </div>
           ) : generationError ? (
             <div className="py-8 bg-rose-50 rounded-xl border border-rose-200">
               <AlertCircle className="mx-auto h-10 w-10 text-rose-600" />
               <p className="mt-3 text-sm text-rose-800">{generationError}</p>
-              <Button type="button" variant="outline" className="mt-4" onClick={inicializarInstanciaCampanha}>
-                <RefreshCw className="mr-2 h-4 w-4" /> Tentar novamente
-              </Button>
+              <div className="flex justify-center gap-2 mt-4">
+                <Button type="button" variant="outline" onClick={() => inicializarInstanciaCampanha(false)} disabled={loadingInstance}>
+                  <RefreshCw className={`mr-2 h-4 w-4 ${loadingInstance ? 'animate-spin' : ''}`} /> Tentar novamente
+                </Button>
+                <Button type="button" variant="destructive" onClick={() => inicializarInstanciaCampanha(true)} disabled={loadingInstance}>
+                  Forçar Nova Instância
+                </Button>
+              </div>
             </div>
           ) : (
             <div className="py-12 bg-slate-50 rounded-xl border border-slate-200">
               <Loader2 className="mx-auto h-10 w-10 animate-spin text-primary" />
               <p className="mt-4 text-slate-600 text-sm">{status.message}</p>
+              <Button type="button" variant="ghost" size="sm" className="mt-3 text-xs text-slate-500" onClick={() => inicializarInstanciaCampanha(false)}>
+                <RefreshCw className="mr-1 h-3 w-3" /> Forçar busca de QR Code
+              </Button>
             </div>
           )}
 

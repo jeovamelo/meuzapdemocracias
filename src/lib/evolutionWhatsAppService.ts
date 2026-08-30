@@ -32,7 +32,7 @@ export function getHumanDelayMs(minSec = 8, maxSec = 15): number {
 }
 
 /**
- * Serviço de Integração com a Evolution API e Controle Anti-Bloqueio
+ * Serviço de Integração com a Evolution API / Evolution Go e Controle Anti-Bloqueio
  */
 export class EvolutionWhatsAppService {
   private static defaultUrl = EVOLUTION_API_URL;
@@ -45,37 +45,48 @@ export class EvolutionWhatsAppService {
 
   private static normalizeQrCode(qr: unknown): string | undefined {
     if (typeof qr !== 'string' || !qr.trim()) return undefined;
-    return qr.startsWith('data:image') ? qr : `data:image/png;base64,${qr}`;
+    if (qr.startsWith('data:image')) return qr;
+    if (qr.startsWith('http://') || qr.startsWith('https://')) return qr;
+    return `data:image/png;base64,${qr}`;
   }
 
   private static responseError(payload: any, fallback: string) {
     if (typeof payload?.message === 'string') return payload.message;
     if (typeof payload?.error === 'string') return payload.error;
+    if (typeof payload?.data?.message === 'string') return payload.data.message;
     return fallback;
   }
 
   private static async listInstances(signal?: AbortSignal): Promise<any[]> {
-    const response = await fetch(`${this.defaultUrl}/instance/all`, {
-      signal,
-      headers: { apikey: this.defaultApiKey },
-    });
-    if (!response.ok) return [];
-    const payload = await response.json().catch(() => ({}));
-    return Array.isArray(payload) ? payload : Array.isArray(payload?.data) ? payload.data : [];
+    try {
+      const response = await fetch(`${this.defaultUrl}/instance/all`, {
+        signal,
+        headers: { apikey: this.defaultApiKey },
+      });
+      if (!response.ok) return [];
+      const payload = await response.json().catch(() => ({}));
+      return Array.isArray(payload) ? payload : Array.isArray(payload?.data) ? payload.data : [];
+    } catch {
+      return [];
+    }
   }
 
   /**
    * 1. Regra de Instância Única por Campanha:
-   * Cria uma instância dedicada para a campanha na Evolution API.
-   * Se já existir uma instância anterior para esta campanha, ela é removida para evitar concorrência.
+   * Cria ou conecta uma instância dedicada para a campanha na Evolution API / Evolution Go.
+   * Se já existir, conecta nela e obtém o QR Code ou status de conexão.
    */
-  static async createOrReplaceCampaignInstance(campaignId: string, campaignName: string): Promise<CampaignInstanceResult> {
+  static async createOrReplaceCampaignInstance(
+    campaignId: string,
+    campaignName: string,
+    forceRecreate = false
+  ): Promise<CampaignInstanceResult> {
     const cleanCampaignName = campaignName.toLowerCase().replace(/[^a-z0-9]/g, '_').slice(0, 20);
     const instanceName = `camp_${cleanCampaignName}_${campaignId.slice(0, 6)}`;
     const pending = this.pendingCampaignInstances.get(instanceName);
-    if (pending) return pending;
+    if (pending && !forceRecreate) return pending;
 
-    const request = this.createCampaignInstance(campaignId, instanceName);
+    const request = this.createCampaignInstance(campaignId, instanceName, forceRecreate);
     this.pendingCampaignInstances.set(instanceName, request);
     try {
       return await request;
@@ -84,61 +95,137 @@ export class EvolutionWhatsAppService {
     }
   }
 
-  private static async createCampaignInstance(campaignId: string, instanceName: string): Promise<CampaignInstanceResult> {
+  private static async createCampaignInstance(
+    campaignId: string,
+    instanceName: string,
+    forceRecreate = false
+  ): Promise<CampaignInstanceResult> {
     const controller = new AbortController();
     const timeout = window.setTimeout(() => controller.abort(), 20000);
     const token = this.instanceToken(instanceName);
-    try {
-      let instances = await this.listInstances(controller.signal);
-      let existing = instances.find((item) => item?.name === instanceName);
 
-      if (!existing) {
+    try {
+      if (forceRecreate) {
+        await this.deleteInstance(instanceName).catch(() => {});
+      }
+
+      let instances = await this.listInstances(controller.signal);
+      let existing = instances.find(
+        (item) =>
+          (item?.name || item?.instanceName || item?.id || item?.instance?.name || item?.instance?.instanceName) === instanceName
+      );
+
+      if (!existing && !forceRecreate) {
         const response = await fetch(`${this.defaultUrl}/instance/create`, {
-          method: 'POST', signal: controller.signal,
+          method: 'POST',
+          signal: controller.signal,
           headers: { 'Content-Type': 'application/json', apikey: this.defaultApiKey },
           body: JSON.stringify({ name: instanceName, token })
         });
         const created = await response.json().catch(() => ({}));
 
         if (!response.ok) {
-          // Uma segunda montagem da tela pode disputar a mesma criação. Se a
-          // instância passou a existir, a operação é considerada idempotente.
-          instances = await this.listInstances(controller.signal);
-          existing = instances.find((item) => item?.name === instanceName);
-          if (!existing) {
-            throw new Error(this.responseError(created, `Evolution Go HTTP ${response.status}`));
+          const isAlreadyExists =
+            created?.message?.toLowerCase?.()?.includes('already exists') ||
+            created?.error?.toLowerCase?.()?.includes('already exists') ||
+            created?.message?.toLowerCase?.()?.includes('já existe') ||
+            response.status === 400 ||
+            response.status === 409;
+
+          if (!isAlreadyExists) {
+            instances = await this.listInstances(controller.signal);
+            existing = instances.find(
+              (item) =>
+                (item?.name || item?.instanceName || item?.id || item?.instance?.name || item?.instance?.instanceName) === instanceName
+            );
+            if (!existing) {
+              throw new Error(this.responseError(created, `Evolution Go HTTP ${response.status}`));
+            }
           }
         }
       }
 
+      // Verificar status atual da conexão
       const currentStatus = await this.getInstanceStatus(instanceName);
       if (currentStatus.instance.state === 'open') {
         await this.persistCampaignInstance(campaignId, instanceName, token, null, 'connected');
         return { success: true, instanceName, connected: true };
       }
 
-      const connectResponse = await fetch(`${this.defaultUrl}/instance/connect`, {
-        method: 'POST', signal: controller.signal,
-        headers: { 'Content-Type': 'application/json', apikey: token },
-        body: JSON.stringify({ subscribe: ['MESSAGE', 'READ_RECEIPT', 'GROUP', 'CALL'] })
-      });
-      const connectPayload = await connectResponse.json().catch(() => ({}));
-      if (!connectResponse.ok) {
-        throw new Error(this.responseError(connectPayload, `Evolution Go connect HTTP ${connectResponse.status}`));
+      // Iniciar conexão e solicitar QR Code
+      let qr: string | undefined;
+      try {
+        let connectResponse = await fetch(`${this.defaultUrl}/instance/connect`, {
+          method: 'POST',
+          signal: controller.signal,
+          headers: { 'Content-Type': 'application/json', apikey: token },
+          body: JSON.stringify({ subscribe: ['MESSAGE', 'READ_RECEIPT', 'GROUP', 'CALL'] })
+        });
+
+        if (!connectResponse.ok && this.defaultApiKey) {
+          connectResponse = await fetch(`${this.defaultUrl}/instance/connect`, {
+            method: 'POST',
+            signal: controller.signal,
+            headers: { 'Content-Type': 'application/json', apikey: this.defaultApiKey },
+            body: JSON.stringify({ name: instanceName, subscribe: ['MESSAGE', 'READ_RECEIPT', 'GROUP', 'CALL'] })
+          });
+        }
+
+        if (connectResponse.ok) {
+          const connectPayload = await connectResponse.json().catch(() => ({}));
+          qr = this.normalizeQrCode(
+            connectPayload?.data?.qrcode ||
+            connectPayload?.data?.base64 ||
+            connectPayload?.qrcode ||
+            connectPayload?.base64 ||
+            connectPayload?.data?.qr ||
+            connectPayload?.data?.code
+          );
+        }
+      } catch (connErr) {
+        console.warn('Tentativa de conexão da instância:', connErr);
       }
 
-      let qr = this.normalizeQrCode(
-        connectPayload?.data?.qrcode || connectPayload?.qrcode || connectPayload?.base64
-      );
-      if (!qr) qr = await this.getInstanceQr(instanceName, controller.signal);
+      // Se o connect não retornou o QR imediatamente, busca via /instance/qr
+      if (!qr) {
+        qr = await this.getInstanceQr(instanceName, controller.signal);
+      }
 
       await this.persistCampaignInstance(campaignId, instanceName, token, qr || null, 'connecting');
       return { success: true, instanceName, qrCode: qr, connected: false };
     } catch (err: any) {
-      const error = err?.name === 'AbortError' ? 'A Evolution Go demorou mais de 20 segundos para responder.' : (err?.message || 'Falha ao criar a instância.');
+      const error =
+        err?.name === 'AbortError'
+          ? 'A Evolution Go demorou mais de 20 segundos para responder.'
+          : (err?.message || 'Falha ao comunicar com a Evolution Go.');
       return { success: false, instanceName, error };
     } finally {
       window.clearTimeout(timeout);
+    }
+  }
+
+  static async deleteInstance(instanceName: string): Promise<boolean> {
+    const token = this.instanceToken(instanceName);
+    try {
+      await fetch(`${this.defaultUrl}/instance/logout`, {
+        method: 'POST',
+        headers: { apikey: token }
+      }).catch(() => {});
+
+      let response = await fetch(`${this.defaultUrl}/instance/delete`, {
+        method: 'DELETE',
+        headers: { apikey: token }
+      });
+
+      if (!response.ok && this.defaultApiKey) {
+        response = await fetch(`${this.defaultUrl}/instance/delete/${instanceName}`, {
+          method: 'DELETE',
+          headers: { apikey: this.defaultApiKey }
+        });
+      }
+      return response.ok;
+    } catch {
+      return false;
     }
   }
 
@@ -149,28 +236,48 @@ export class EvolutionWhatsAppService {
     qrCode: string | null,
     status: 'connected' | 'connecting',
   ) {
-    await (supabase as any).from('whatsapp_instances').delete().eq('campaign_id', campaignId);
-    await (supabase as any).from('whatsapp_instances').insert([{
-      instance_name: instanceName,
-      campaign_id: campaignId,
-      tipo: 'campaign',
-      status,
-      qr_code_base64: qrCode,
-      server_url: this.defaultUrl,
-      apikey: token,
-    }]);
+    try {
+      await (supabase as any).from('whatsapp_instances').delete().eq('campaign_id', campaignId);
+      await (supabase as any).from('whatsapp_instances').insert([{
+        instance_name: instanceName,
+        campaign_id: campaignId,
+        tipo: 'campaign',
+        status,
+        qr_code_base64: qrCode,
+        server_url: this.defaultUrl,
+        apikey: token,
+      }]);
+    } catch (e) {
+      console.warn("Erro ao persistir instância no Supabase:", e);
+    }
   }
 
   static async getInstanceQr(instanceName: string, signal?: AbortSignal): Promise<string | undefined> {
-    const response = await fetch(`${this.defaultUrl}/instance/qr`, {
-      signal,
-      headers: { apikey: this.instanceToken(instanceName) },
-    });
-    if (!response.ok) return undefined;
-    const payload = await response.json().catch(() => ({}));
-    return this.normalizeQrCode(
-      payload?.data?.qrcode || payload?.qrcode || payload?.base64
-    );
+    const token = this.instanceToken(instanceName);
+    try {
+      let response = await fetch(`${this.defaultUrl}/instance/qr`, {
+        signal,
+        headers: { apikey: token },
+      });
+      if (!response.ok && this.defaultApiKey) {
+        response = await fetch(`${this.defaultUrl}/instance/qr`, {
+          signal,
+          headers: { apikey: this.defaultApiKey },
+        });
+      }
+      if (!response.ok) return undefined;
+      const payload = await response.json().catch(() => ({}));
+      return this.normalizeQrCode(
+        payload?.data?.qrcode ||
+        payload?.data?.base64 ||
+        payload?.data?.qr ||
+        payload?.qrcode ||
+        payload?.base64 ||
+        payload?.data?.code
+      );
+    } catch {
+      return undefined;
+    }
   }
 
   /**
@@ -178,38 +285,64 @@ export class EvolutionWhatsAppService {
    */
   static async getInstanceStatus(instanceName: string) {
     try {
-      const response = await fetch(`${this.defaultUrl}/instance/status`, {
-        headers: { apikey: this.instanceToken(instanceName) }
+      const token = this.instanceToken(instanceName);
+      let response = await fetch(`${this.defaultUrl}/instance/status`, {
+        headers: { apikey: token }
       });
-      if (!response.ok) return { instance: { state: 'close' } };
+      if (!response.ok && this.defaultApiKey) {
+        response = await fetch(`${this.defaultUrl}/instance/status`, {
+          headers: { apikey: this.defaultApiKey }
+        });
+      }
+      if (!response.ok) return { instance: { state: 'close' as const, connected: false, loggedIn: false, number: null } };
       const payload = await response.json().catch(() => ({}));
       const data = payload?.data || payload;
-      const connected = data?.Connected === true || data?.connected === true;
+      const connected = data?.Connected === true || data?.connected === true || data?.state === 'open';
       const loggedIn = data?.LoggedIn === true || data?.loggedIn === true;
+      const isConnecting = !loggedIn && (data?.state === 'connecting' || data?.status === 'connecting' || !!data?.qrcode);
+      const state: 'open' | 'connecting' | 'close' = (connected && loggedIn) || data?.state === 'open'
+        ? 'open'
+        : isConnecting
+        ? 'connecting'
+        : 'close';
+
       return {
         instance: {
-          state: connected && loggedIn ? 'open' : connected ? 'connecting' : 'close',
+          state,
           connected,
           loggedIn,
-          number: data?.Name || data?.name || null,
+          number: data?.Name || data?.name || data?.ownerJid || data?.jid || null,
         }
       };
     } catch {
-      return { instance: { state: 'close' } };
+      return { instance: { state: 'close' as const, connected: false, loggedIn: false, number: null } };
     }
   }
 
   static async sendTestMessage(instanceName: string, recipientPhone: string, messageText: string) {
     const cleanPhone = recipientPhone.replace(/\D/g, '');
     const formattedPhone = cleanPhone.startsWith('55') ? cleanPhone : `55${cleanPhone}`;
-    const response = await fetch(`${this.defaultUrl}/send/text`, {
+    const token = this.instanceToken(instanceName);
+    let response = await fetch(`${this.defaultUrl}/send/text`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        apikey: this.instanceToken(instanceName),
+        apikey: token,
       },
       body: JSON.stringify({ number: formattedPhone, text: messageText.trim() }),
     });
+
+    if (!response.ok && this.defaultApiKey) {
+      response = await fetch(`${this.defaultUrl}/send/text`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          apikey: this.defaultApiKey,
+        },
+        body: JSON.stringify({ number: formattedPhone, text: messageText.trim() }),
+      });
+    }
+
     const payload = await response.json().catch(() => ({}));
     if (!response.ok) {
       throw new Error(this.responseError(payload, `Evolution Go HTTP ${response.status}`));
@@ -326,3 +459,4 @@ export class EvolutionWhatsAppService {
     }
   }
 }
+
