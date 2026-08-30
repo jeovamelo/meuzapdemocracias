@@ -35,13 +35,22 @@ export function getHumanDelayMs(minSec = 8, maxSec = 15): number {
  * Serviço de Integração com a Evolution API / Evolution Go e Controle Anti-Bloqueio
  */
 export class EvolutionWhatsAppService {
-  private static defaultUrl = EVOLUTION_API_URL;
+  private static defaultUrl = EVOLUTION_API_URL || 'https://evolution.democracias.org';
   private static defaultApiKey = EVOLUTION_GLOBAL_API_KEY;
   private static serviceGatewayUrl = 'https://api.democracias.org/whatsapp';
   private static pendingCampaignInstances = new Map<string, Promise<CampaignInstanceResult>>();
 
   private static instanceToken(instanceName: string) {
     return `${instanceName}_token`;
+  }
+
+  private static getCandidateUrls(): string[] {
+    const urls = [
+      this.defaultUrl,
+      'https://evolution.democracias.org',
+      'https://api.democracias.org/evolution',
+    ].filter(Boolean);
+    return Array.from(new Set(urls));
   }
 
   private static normalizeQrCode(qr: unknown): string | undefined {
@@ -59,23 +68,25 @@ export class EvolutionWhatsAppService {
   }
 
   private static async listInstances(signal?: AbortSignal): Promise<any[]> {
-    try {
-      const response = await fetch(`${this.defaultUrl}/instance/all`, {
-        signal,
-        headers: { apikey: this.defaultApiKey },
-      });
-      if (!response.ok) return [];
-      const payload = await response.json().catch(() => ({}));
-      return Array.isArray(payload) ? payload : Array.isArray(payload?.data) ? payload.data : [];
-    } catch {
-      return [];
+    for (const url of this.getCandidateUrls()) {
+      try {
+        const response = await fetch(`${url}/instance/all`, {
+          signal,
+          headers: { apikey: this.defaultApiKey || 'democracias' },
+        });
+        if (response.ok) {
+          const payload = await response.json().catch(() => ({}));
+          const list = Array.isArray(payload) ? payload : (Array.isArray(payload?.data) ? payload.data : []);
+          if (list.length > 0 || response.ok) return list;
+        }
+      } catch {}
     }
+    return [];
   }
 
   /**
    * 1. Regra de Instância Única por Campanha:
    * Cria ou conecta uma instância dedicada para a campanha na Evolution API / Evolution Go.
-   * Se já existir, conecta nela e obtém o QR Code ou status de conexão.
    */
   static async createOrReplaceCampaignInstance(
     campaignId: string,
@@ -104,6 +115,7 @@ export class EvolutionWhatsAppService {
     const controller = new AbortController();
     const timeout = window.setTimeout(() => controller.abort(), 20000);
     const token = this.instanceToken(instanceName);
+    const candidateUrls = this.getCandidateUrls();
 
     try {
       if (forceRecreate) {
@@ -121,7 +133,10 @@ export class EvolutionWhatsAppService {
         if (gwRes.ok) {
           const gwData = await gwRes.json();
           if (gwData.success) {
-            const qr = this.normalizeQrCode(gwData.qrCode);
+            let qr = this.normalizeQrCode(gwData.qrCode);
+            if (!qr) {
+              qr = await this.getInstanceQr(instanceName, controller.signal);
+            }
             await this.persistCampaignInstance(
               campaignId,
               instanceName,
@@ -137,27 +152,23 @@ export class EvolutionWhatsAppService {
             };
           }
         }
-      } catch (gwErr) {
-        console.warn('Fallback para comunicação direta com Evolution Go:', gwErr);
-      }
+      } catch {}
 
-      // Tentativa 2: Fallback direto no endpoint /evolution
-      let instances = await this.listInstances(controller.signal);
-      let existing = instances.find(
-        (item) =>
-          (item?.name || item?.instanceName || item?.id || item?.instance?.name || item?.instance?.instanceName) === instanceName
-      );
+      // Tentativa 2: Endpoints Evolution diretos
+      let lastError = '';
+      for (const baseUrl of candidateUrls) {
+        try {
+          const response = await fetch(`${baseUrl}/instance/create`, {
+            method: 'POST',
+            signal: controller.signal,
+            headers: {
+              'Content-Type': 'application/json',
+              apikey: this.defaultApiKey || token
+            },
+            body: JSON.stringify({ name: instanceName, token })
+          });
+          const created = await response.json().catch(() => ({}));
 
-      if (!existing && !forceRecreate) {
-        const response = await fetch(`${this.defaultUrl}/instance/create`, {
-          method: 'POST',
-          signal: controller.signal,
-          headers: { 'Content-Type': 'application/json', apikey: this.defaultApiKey },
-          body: JSON.stringify({ name: instanceName, token })
-        });
-        const created = await response.json().catch(() => ({}));
-
-        if (!response.ok) {
           const isAlreadyExists =
             created?.message?.toLowerCase?.()?.includes('already exists') ||
             created?.error?.toLowerCase?.()?.includes('already exists') ||
@@ -165,67 +176,57 @@ export class EvolutionWhatsAppService {
             response.status === 400 ||
             response.status === 409;
 
-          if (!isAlreadyExists) {
-            instances = await this.listInstances(controller.signal);
-            existing = instances.find(
-              (item) =>
-                (item?.name || item?.instanceName || item?.id || item?.instance?.name || item?.instance?.instanceName) === instanceName
-            );
-            if (!existing) {
-              throw new Error(this.responseError(created, `Evolution Go HTTP ${response.status}`));
+          if (response.ok || isAlreadyExists) {
+            this.defaultUrl = baseUrl;
+
+            // Iniciar conexão e solicitar QR Code
+            let qr: string | undefined;
+            const connectResponse = await fetch(`${baseUrl}/instance/connect`, {
+              method: 'POST',
+              signal: controller.signal,
+              headers: {
+                'Content-Type': 'application/json',
+                apikey: this.defaultApiKey || token
+              },
+              body: JSON.stringify({ subscribe: ['MESSAGE', 'READ_RECEIPT', 'GROUP', 'CALL'] })
+            });
+
+            if (connectResponse.ok) {
+              const connectPayload = await connectResponse.json().catch(() => ({}));
+              qr = this.normalizeQrCode(
+                connectPayload?.data?.qrcode ||
+                connectPayload?.data?.base64 ||
+                connectPayload?.qrcode ||
+                connectPayload?.base64 ||
+                connectPayload?.data?.qr
+              );
             }
+
+            if (!qr) {
+              qr = await this.getInstanceQr(instanceName, controller.signal);
+            }
+
+            const currentStatus = await this.getInstanceStatus(instanceName);
+            const connected = currentStatus.instance.state === 'open';
+
+            await this.persistCampaignInstance(
+              campaignId,
+              instanceName,
+              token,
+              qr || null,
+              connected ? 'connected' : 'connecting'
+            );
+
+            return { success: true, instanceName, qrCode: qr, connected };
+          } else {
+            lastError = this.responseError(created, `HTTP ${response.status}`);
           }
+        } catch (e: any) {
+          lastError = e?.message || 'Falha de conexão';
         }
       }
 
-      // Verificar status atual da conexão
-      const currentStatus = await this.getInstanceStatus(instanceName);
-      if (currentStatus.instance.state === 'open') {
-        await this.persistCampaignInstance(campaignId, instanceName, token, null, 'connected');
-        return { success: true, instanceName, connected: true };
-      }
-
-      // Iniciar conexão e solicitar QR Code
-      let qr: string | undefined;
-      try {
-        let connectResponse = await fetch(`${this.defaultUrl}/instance/connect`, {
-          method: 'POST',
-          signal: controller.signal,
-          headers: { 'Content-Type': 'application/json', apikey: token },
-          body: JSON.stringify({ subscribe: ['MESSAGE', 'READ_RECEIPT', 'GROUP', 'CALL'] })
-        });
-
-        if (!connectResponse.ok && this.defaultApiKey) {
-          connectResponse = await fetch(`${this.defaultUrl}/instance/connect`, {
-            method: 'POST',
-            signal: controller.signal,
-            headers: { 'Content-Type': 'application/json', apikey: this.defaultApiKey },
-            body: JSON.stringify({ name: instanceName, subscribe: ['MESSAGE', 'READ_RECEIPT', 'GROUP', 'CALL'] })
-          });
-        }
-
-        if (connectResponse.ok) {
-          const connectPayload = await connectResponse.json().catch(() => ({}));
-          qr = this.normalizeQrCode(
-            connectPayload?.data?.qrcode ||
-            connectPayload?.data?.base64 ||
-            connectPayload?.qrcode ||
-            connectPayload?.base64 ||
-            connectPayload?.data?.qr ||
-            connectPayload?.data?.code
-          );
-        }
-      } catch (connErr) {
-        console.warn('Tentativa de conexão da instância:', connErr);
-      }
-
-      // Se o connect não retornou o QR imediatamente, busca via /instance/qr
-      if (!qr) {
-        qr = await this.getInstanceQr(instanceName, controller.signal);
-      }
-
-      await this.persistCampaignInstance(campaignId, instanceName, token, qr || null, 'connecting');
-      return { success: true, instanceName, qrCode: qr, connected: false };
+      return { success: false, instanceName, error: lastError || 'Não foi possível comunicar com a Evolution Go.' };
     } catch (err: any) {
       const error =
         err?.name === 'AbortError'
@@ -240,27 +241,22 @@ export class EvolutionWhatsAppService {
   static async deleteInstance(instanceName: string): Promise<boolean> {
     const token = this.instanceToken(instanceName);
     try {
-      // 1. Tenta via gateway do servidor
       fetch(`${this.serviceGatewayUrl}/api/instance/${instanceName}`, { method: 'DELETE' }).catch(() => {});
-
-      // 2. Fallback direto
-      await fetch(`${this.defaultUrl}/instance/logout`, {
-        method: 'POST',
-        headers: { apikey: token }
-      }).catch(() => {});
-
-      let response = await fetch(`${this.defaultUrl}/instance/delete`, {
-        method: 'DELETE',
-        headers: { apikey: token }
-      });
-
-      if (!response.ok && this.defaultApiKey) {
-        response = await fetch(`${this.defaultUrl}/instance/delete/${instanceName}`, {
+      for (const baseUrl of this.getCandidateUrls()) {
+        await fetch(`${baseUrl}/instance/logout`, {
+          method: 'POST',
+          headers: { apikey: this.defaultApiKey || token }
+        }).catch(() => {});
+        await fetch(`${baseUrl}/instance/delete`, {
           method: 'DELETE',
-          headers: { apikey: this.defaultApiKey }
-        });
+          headers: { apikey: this.defaultApiKey || token }
+        }).catch(() => {});
+        await fetch(`${baseUrl}/instance/delete/${instanceName}`, {
+          method: 'DELETE',
+          headers: { apikey: this.defaultApiKey || token }
+        }).catch(() => {});
       }
-      return response.ok;
+      return true;
     } catch {
       return false;
     }
@@ -290,93 +286,89 @@ export class EvolutionWhatsAppService {
 
   static async getInstanceQr(instanceName: string, signal?: AbortSignal): Promise<string | undefined> {
     const token = this.instanceToken(instanceName);
+
+    // Tentativa 1: Gateway do servidor
     try {
-      // Tentativa 1: Gateway do servidor
+      const gwRes = await fetch(`${this.serviceGatewayUrl}/api/instance/qr/${instanceName}`, { signal });
+      if (gwRes.ok) {
+        const gwJson = await gwRes.json();
+        if (gwJson?.qrcode) {
+          return this.normalizeQrCode(gwJson.qrcode);
+        }
+      }
+    } catch {}
+
+    // Tentativa 2: Direct Evolution candidates
+    for (const baseUrl of this.getCandidateUrls()) {
       try {
-        const gwRes = await fetch(`${this.serviceGatewayUrl}/api/instance/qr/${instanceName}`, { signal });
-        if (gwRes.ok) {
-          const gwJson = await gwRes.json();
-          if (gwJson?.qrcode) {
-            return this.normalizeQrCode(gwJson.qrcode);
-          }
+        let response = await fetch(`${baseUrl}/instance/qr`, {
+          signal,
+          headers: { apikey: this.defaultApiKey || token },
+        });
+        if (response.ok) {
+          const payload = await response.json().catch(() => ({}));
+          const qr = this.normalizeQrCode(
+            payload?.data?.qrcode ||
+            payload?.data?.base64 ||
+            payload?.data?.qr ||
+            payload?.qrcode ||
+            payload?.base64 ||
+            payload?.data?.code
+          );
+          if (qr) return qr;
         }
       } catch {}
-
-      // Tentativa 2: Direto Evolution
-      let response = await fetch(`${this.defaultUrl}/instance/qr`, {
-        signal,
-        headers: { apikey: token },
-      });
-      if (!response.ok && this.defaultApiKey) {
-        response = await fetch(`${this.defaultUrl}/instance/qr`, {
-          signal,
-          headers: { apikey: this.defaultApiKey },
-        });
-      }
-      if (!response.ok) return undefined;
-      const payload = await response.json().catch(() => ({}));
-      return this.normalizeQrCode(
-        payload?.data?.qrcode ||
-        payload?.data?.base64 ||
-        payload?.data?.qr ||
-        payload?.qrcode ||
-        payload?.base64 ||
-        payload?.data?.code
-      );
-    } catch {
-      return undefined;
     }
+    return undefined;
   }
 
   /**
    * 2. Obter Status e QR Code atual da instância
    */
   static async getInstanceStatus(instanceName: string) {
+    // Tentativa 1: Gateway do servidor
     try {
-      // Tentativa 1: Gateway do servidor
+      const gwRes = await fetch(`${this.serviceGatewayUrl}/api/instance/status/${instanceName}`);
+      if (gwRes.ok) {
+        const gwJson = await gwRes.json();
+        if (gwJson?.instance) {
+          return gwJson;
+        }
+      }
+    } catch {}
+
+    // Tentativa 2: Direct Evolution candidates
+    const token = this.instanceToken(instanceName);
+    for (const baseUrl of this.getCandidateUrls()) {
       try {
-        const gwRes = await fetch(`${this.serviceGatewayUrl}/api/instance/status/${instanceName}`);
-        if (gwRes.ok) {
-          const gwJson = await gwRes.json();
-          if (gwJson?.instance) {
-            return gwJson;
-          }
+        const response = await fetch(`${baseUrl}/instance/status`, {
+          headers: { apikey: this.defaultApiKey || token }
+        });
+        if (response.ok) {
+          const payload = await response.json().catch(() => ({}));
+          const data = payload?.data || payload;
+          const connected = data?.Connected === true || data?.connected === true || data?.state === 'open';
+          const loggedIn = data?.LoggedIn === true || data?.loggedIn === true;
+          const isConnecting = !loggedIn && (data?.state === 'connecting' || data?.status === 'connecting' || !!data?.qrcode);
+          const state: 'open' | 'connecting' | 'close' = (connected && loggedIn) || data?.state === 'open'
+            ? 'open'
+            : isConnecting
+            ? 'connecting'
+            : 'close';
+
+          return {
+            instance: {
+              state,
+              connected,
+              loggedIn,
+              number: data?.Name || data?.name || data?.ownerJid || data?.jid || null,
+            }
+          };
         }
       } catch {}
-
-      // Tentativa 2: Direto Evolution
-      const token = this.instanceToken(instanceName);
-      let response = await fetch(`${this.defaultUrl}/instance/status`, {
-        headers: { apikey: token }
-      });
-      if (!response.ok && this.defaultApiKey) {
-        response = await fetch(`${this.defaultUrl}/instance/status`, {
-          headers: { apikey: this.defaultApiKey }
-        });
-      }
-      if (!response.ok) return { instance: { state: 'close' as const, connected: false, loggedIn: false, number: null } };
-      const payload = await response.json().catch(() => ({}));
-      const data = payload?.data || payload;
-      const connected = data?.Connected === true || data?.connected === true || data?.state === 'open';
-      const loggedIn = data?.LoggedIn === true || data?.loggedIn === true;
-      const isConnecting = !loggedIn && (data?.state === 'connecting' || data?.status === 'connecting' || !!data?.qrcode);
-      const state: 'open' | 'connecting' | 'close' = (connected && loggedIn) || data?.state === 'open'
-        ? 'open'
-        : isConnecting
-        ? 'connecting'
-        : 'close';
-
-      return {
-        instance: {
-          state,
-          connected,
-          loggedIn,
-          number: data?.Name || data?.name || data?.ownerJid || data?.jid || null,
-        }
-      };
-    } catch {
-      return { instance: { state: 'close' as const, connected: false, loggedIn: false, number: null } };
     }
+
+    return { instance: { state: 'close' as const, connected: false, loggedIn: false, number: null } };
   }
 
   static async sendTestMessage(instanceName: string, recipientPhone: string, messageText: string) {
@@ -395,33 +387,25 @@ export class EvolutionWhatsAppService {
       }
     } catch {}
 
-    // Tentativa 2: Direto Evolution
+    // Tentativa 2: Direct Evolution candidates
     const token = this.instanceToken(instanceName);
-    let response = await fetch(`${this.defaultUrl}/send/text`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        apikey: token,
-      },
-      body: JSON.stringify({ number: formattedPhone, text: messageText.trim() }),
-    });
-
-    if (!response.ok && this.defaultApiKey) {
-      response = await fetch(`${this.defaultUrl}/send/text`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          apikey: this.defaultApiKey,
-        },
-        body: JSON.stringify({ number: formattedPhone, text: messageText.trim() }),
-      });
+    for (const baseUrl of this.getCandidateUrls()) {
+      try {
+        const response = await fetch(`${baseUrl}/send/text`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            apikey: this.defaultApiKey || token,
+          },
+          body: JSON.stringify({ number: formattedPhone, text: messageText.trim() }),
+        });
+        if (response.ok) {
+          return await response.json().catch(() => ({}));
+        }
+      } catch {}
     }
 
-    const payload = await response.json().catch(() => ({}));
-    if (!response.ok) {
-      throw new Error(this.responseError(payload, `Evolution Go HTTP ${response.status}`));
-    }
-    return payload;
+    throw new Error('Não foi possível enviar a mensagem de teste.');
   }
 
   /**

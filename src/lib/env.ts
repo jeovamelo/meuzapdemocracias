@@ -37,7 +37,7 @@ function requireVar(name: string): string {
 
 /** URL base da Evolution API. Não é segredo — pode ter fallback público. */
 export const EVOLUTION_API_URL =
-  readVar("EVOLUTION_API_URL") || "https://api.democracias.org/evolution";
+  readVar("EVOLUTION_API_URL") || "https://evolution.democracias.org";
 
 /** Chave global da Evolution API (administração de instâncias). */
 export const EVOLUTION_GLOBAL_API_KEY = requireVar("EVOLUTION_GLOBAL_API_KEY");
