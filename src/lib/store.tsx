@@ -141,11 +141,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         supabase.from("saidas").select("*").order("criado_em", { ascending: false }),
         supabase.from("solicitacoes").select("*").order("criado_em", { ascending: false }),
         supabase.from("cidade_metas").select("*").order("criado_em", { ascending: false }),
-        supabase.from("config_campanha").select("*").single(),
+        supabase.from("config_campanha").select("*").maybeSingle(),
         supabase.from("boletins_urna").select("*").order("data_leitura", { ascending: false }),
         supabase.from("historico_estoque").select("*").order("criado_em", { ascending: false }),
         supabase.from("campaigns").select("*").order("created_at", { ascending: false }),
-        (supabase as any).from("solicitacoes_adesao").select("*").order("criado_em", { ascending: false }),
+        Promise.resolve({ data: [], error: null }),
       ]);
 
       const mappedCampanhas: CampanhaRegistro[] = (campanhasDb || []).map((c: any) => ({

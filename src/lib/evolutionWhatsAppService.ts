@@ -46,13 +46,7 @@ export class EvolutionWhatsAppService {
   }
 
   private static getCandidateUrls(): string[] {
-    const urls = [
-      this.internalApiUrl,
-      this.defaultUrl,
-      'https://evolution.democracias.org',
-      'https://api.democracias.org/evolution',
-    ].filter(Boolean);
-    return Array.from(new Set(urls));
+    return [this.internalApiUrl];
   }
 
   private static normalizeQrCode(qr: unknown): string | undefined {
@@ -354,53 +348,12 @@ export class EvolutionWhatsAppService {
   }
 
   static async getInstanceQr(instanceName: string, signal?: AbortSignal): Promise<string | undefined> {
-    const token = this.instanceToken(instanceName);
-
-    // Tentativa 1: Endpoint Interno do Servidor (/api/evolution/instance/qr/:instanceName)
     try {
-      const internalRes = await fetch(`${this.internalApiUrl}/instance/qr/${instanceName}`, { signal });
-      if (internalRes.ok) {
-        const internalData = await internalRes.json().catch(() => ({}));
-        if (internalData?.qrcode) {
-          return this.normalizeQrCode(internalData.qrcode);
-        }
-      }
-    } catch {}
-
-    // Tentativa 2: Gateway do servidor
-    try {
-      const gwRes = await fetch(`${this.serviceGatewayUrl}/api/instance/qr/${instanceName}`, { signal });
-      if (gwRes.ok) {
-        const gwJson = await gwRes.json();
-        if (gwJson?.qrcode) {
-          return this.normalizeQrCode(gwJson.qrcode);
-        }
-      }
-    } catch {}
-
-    // Tentativa 3: Direct Evolution candidates
-    for (const baseUrl of this.getCandidateUrls()) {
-      if (baseUrl.startsWith('/api')) continue;
-      try {
-        let response = await fetch(`${baseUrl}/instance/qr`, {
-          signal,
-          headers: { apikey: this.defaultApiKey || token },
-        });
-        if (response.ok) {
-          const payload = await response.json().catch(() => ({}));
-          const qr = this.normalizeQrCode(
-            payload?.data?.qrcode ||
-            payload?.data?.base64 ||
-            payload?.data?.qr ||
-            payload?.qrcode ||
-            payload?.base64 ||
-            payload?.data?.code
-          );
-          if (qr) return qr;
-        }
-      } catch {}
-    }
-    return undefined;
+      const response = await fetch(`${this.internalApiUrl}/instance/qr/${encodeURIComponent(instanceName)}`, { signal });
+      if (!response.ok) return undefined;
+      const payload = await response.json().catch(() => ({}));
+      return this.normalizeQrCode(payload?.qrcode || payload?.data?.qrcode || payload?.data?.base64 || payload?.base64);
+    } catch { return undefined; }
   }
 
   /**
