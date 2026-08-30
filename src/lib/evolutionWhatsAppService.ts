@@ -273,6 +273,38 @@ export class EvolutionWhatsAppService {
     }
   }
 
+  static async createCustomInstance(
+    campaignId: string,
+    customInstanceName: string,
+    forceRecreate = false
+  ): Promise<CampaignInstanceResult> {
+    const cleanInstanceName = customInstanceName.toLowerCase().replace(/[^a-z0-9_]/g, '_').slice(0, 30);
+    return await this.createCampaignInstance(campaignId, cleanInstanceName, forceRecreate);
+  }
+
+  static async deleteAndUnlinkInstance(campaignId: string, instanceName: string): Promise<boolean> {
+    const ok = await this.deleteInstance(instanceName);
+    try {
+      await (supabase as any).from('whatsapp_instances').delete().eq('campaign_id', campaignId);
+    } catch (e) {
+      console.warn('Erro ao desvincular instancia no Supabase:', e);
+    }
+    return ok;
+  }
+
+  static async fetchCampaignInstance(campaignId: string): Promise<any | null> {
+    try {
+      const { data } = await (supabase as any)
+        .from('whatsapp_instances')
+        .select('*')
+        .eq('campaign_id', campaignId)
+        .maybeSingle();
+      return data;
+    } catch {
+      return null;
+    }
+  }
+
   static async deleteInstance(instanceName: string): Promise<boolean> {
     const token = this.instanceToken(instanceName);
     try {
