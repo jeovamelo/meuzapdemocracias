@@ -3,6 +3,7 @@ import { EVOLUTION_API_URL, EVOLUTION_GLOBAL_API_KEY } from '@/lib/env';
 
 export interface DispatchMessageJob {
   campaignId?: string;
+  carreataId?: string;
   instanceName?: string;
   recipientPhone: string;
   recipientName?: string;
@@ -148,22 +149,7 @@ export class WhatsAppDispatcherService {
   // 4. Enfileirar mensagem no Dispatcher Anti-Ban
   static async enqueueMessage(job: DispatchMessageJob): Promise<{ success: boolean; queueId?: string; error?: string }> {
     try {
-      let targetInstanceName = job.instanceName;
-
-      // Se não passou o instanceName, busca a instância ativa da campanha ou a geral do sistema
-      if (!targetInstanceName) {
-        if (job.campaignId) {
-          const { data: inst } = await (supabase as any)
-            .from('whatsapp_instances')
-            .select('id, instance_name')
-            .eq('campaign_id', job.campaignId)
-            .eq('is_active', true)
-            .maybeSingle();
-          targetInstanceName = inst?.instance_name;
-        } else {
-          targetInstanceName = 'system-general-pc';
-        }
-      }
+      const targetInstanceName = job.instanceName || await this.resolveInstanceName(job);
 
       if (!targetInstanceName) {
         throw new Error('Nenhuma instância ativa configurada para o envio.');
@@ -193,6 +179,32 @@ export class WhatsAppDispatcherService {
     } catch (e: any) {
       return { success: false, error: e?.message || 'Falha ao enfileirar mensagem' };
     }
+  }
+
+  /** Resolve sempre na ordem: carreata ativa, campanha ativa e geral da plataforma. */
+  private static async resolveInstanceName(job: DispatchMessageJob): Promise<string | undefined> {
+    if (job.carreataId) {
+      const { data } = await (supabase as any)
+        .from('carreatas')
+        .select('whatsapp_instance_name, whatsapp_instance_id')
+        .eq('id', job.carreataId)
+        .maybeSingle();
+      if (data?.whatsapp_instance_name) return data.whatsapp_instance_name;
+      if (data?.whatsapp_instance_id) {
+        const { data: instance } = await (supabase as any).from('whatsapp_instances')
+          .select('instance_name').eq('id', data.whatsapp_instance_id).eq('is_active', true).maybeSingle();
+        if (instance?.instance_name) return instance.instance_name;
+      }
+    }
+    if (job.campaignId) {
+      const { data } = await (supabase as any).from('whatsapp_instances')
+        .select('instance_name').eq('campaign_id', job.campaignId).eq('is_active', true).maybeSingle();
+      if (data?.instance_name) return data.instance_name;
+    }
+    const { data } = await (supabase as any).from('whatsapp_instances')
+      .select('instance_name').is('campaign_id', null).eq('instance_type', 'system_general')
+      .eq('is_active', true).maybeSingle();
+    return data?.instance_name;
   }
 
   // 5. Worker de Processamento da Fila com Anti-Ban e Delay Humano

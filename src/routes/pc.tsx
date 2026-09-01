@@ -768,7 +768,7 @@ function PcPage() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {/* DESTAQUE OBRIGATÓRIO: SUPABASE STUDIO */}
                 <a 
-                  href="https://api.democracias.org" 
+                  href="https://api.democracias.org/project/default" 
                   target="_blank" 
                   rel="noreferrer" 
                   className="p-5 rounded-xl border-2 border-emerald-300 bg-emerald-50/40 hover:bg-emerald-50 transition-all flex items-center justify-between group"

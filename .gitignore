@@ -40,3 +40,5 @@ importados/
 scratch/
 chat/public/candidatos/
 public/candidatos/
+*.tar.gz
+.codex-patches/

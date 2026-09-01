@@ -201,7 +201,7 @@ export const PaginaResultadosPublicos: React.FC = () => {
     };
 
     const processarCargo = (
-      votosBrutos: { numero?: any; nome?: any }[],
+      votosBrutos: { numero?: any; nome?: any; foto?: any; partido?: any }[],
       cargoKey: 'presidente' | 'governador' | 'senador' | 'dep_federal' | 'dep_estadual',
       cargoLabel: string,
       ufAlvo: string
@@ -213,7 +213,8 @@ export const PaginaResultadosPublicos: React.FC = () => {
 
       votosBrutos.forEach((v) => {
         const num = String(v.numero || '').trim();
-        const nomeStr = String(v.nome || '').toLowerCase();
+        const rawNome = String(v.nome || '').trim();
+        const nomeStr = rawNome.toLowerCase();
 
         if (!num || num === 'NULO' || nomeStr.includes('voto nulo') || nomeStr.includes('não registrado')) {
           totalNulos += 1;
@@ -225,17 +226,27 @@ export const PaginaResultadosPublicos: React.FC = () => {
           return;
         }
 
-        // Validação estrita contra a base oficial do cargo
+        // 1. Tentar validação estrita contra a base oficial do cargo (TSE / Campanhas)
         const matchOficial = encontrarCandidatoOficial(num, cargoKey, ufAlvo);
 
-        if (matchOficial) {
+        // 2. Se não encontrou no TSE/Campanhas mas temos o nome salvo no voto registrado, usar como fallback
+        const infoCandidato = matchOficial || (rawNome ? {
+          numero: num,
+          nomeUrna: rawNome,
+          partido: v.partido || '',
+          cargo: cargoLabel,
+          uf: ufAlvo,
+          fotoUrl: v.foto || '',
+        } : null);
+
+        if (infoCandidato) {
           if (!countCands[num]) {
-            countCands[num] = { count: 0, info: matchOficial };
+            countCands[num] = { count: 0, info: infoCandidato };
           }
           countCands[num].count += 1;
           totalValidos += 1;
         } else {
-          // Voto com número inexistente, cruzado ou legenda não cadastrada é REDIRECIONADO PARA NULO
+          // Voto com número inexistente sem identificação é computado como Nulo
           totalNulos += 1;
         }
       });
@@ -282,7 +293,7 @@ export const PaginaResultadosPublicos: React.FC = () => {
 
     // 1. PRESIDENTE
     const dadosPres = processarCargo(
-      basePesquisas.map((p) => ({ numero: p.presidente_numero, nome: p.presidente_nome })),
+      basePesquisas.map((p) => ({ numero: p.presidente_numero, nome: p.presidente_nome, foto: p.presidente_foto, partido: p.presidente_partido })),
       'presidente',
       'Presidente',
       'BR'
@@ -290,15 +301,15 @@ export const PaginaResultadosPublicos: React.FC = () => {
 
     // 2. GOVERNADOR
     const dadosGov = processarCargo(
-      pesquisasUf.map((p) => ({ numero: p.governador_numero, nome: p.governador_nome })),
+      pesquisasUf.map((p) => ({ numero: p.governador_numero, nome: p.governador_nome, foto: p.governador_foto, partido: p.governador_partido })),
       'governador',
       'Governador',
       ufSelecionada.toUpperCase()
     );
 
     // 3. SENADOR
-    const votosSen1 = pesquisasUf.map((p) => ({ numero: p.senador1_numero, nome: p.senador1_nome }));
-    const votosSen2 = pesquisasUf.map((p) => ({ numero: p.senador2_numero, nome: p.senador2_nome }));
+    const votosSen1 = pesquisasUf.map((p) => ({ numero: p.senador1_numero, nome: p.senador1_nome, foto: p.senador1_foto, partido: p.senador1_partido }));
+    const votosSen2 = pesquisasUf.map((p) => ({ numero: p.senador2_numero, nome: p.senador2_nome, foto: p.senador2_foto, partido: p.senador2_partido }));
     const dadosSen = processarCargo(
       [...votosSen1, ...votosSen2],
       'senador',
@@ -308,7 +319,7 @@ export const PaginaResultadosPublicos: React.FC = () => {
 
     // 4. DEP. FEDERAL
     const dadosFed = processarCargo(
-      pesquisasUf.map((p) => ({ numero: p.dep_federal_numero, nome: p.dep_federal_nome })),
+      pesquisasUf.map((p) => ({ numero: p.dep_federal_numero, nome: p.dep_federal_nome, foto: p.dep_federal_foto, partido: p.dep_federal_partido })),
       'dep_federal',
       'Dep. Federal',
       ufSelecionada.toUpperCase()
@@ -316,7 +327,7 @@ export const PaginaResultadosPublicos: React.FC = () => {
 
     // 5. DEPUTADO ESTADUAL
     const dadosEst = processarCargo(
-      pesquisasUf.map((p) => ({ numero: p.dep_estadual_numero, nome: p.dep_estadual_nome })),
+      pesquisasUf.map((p) => ({ numero: p.dep_estadual_numero, nome: p.dep_estadual_nome, foto: p.dep_estadual_foto, partido: p.dep_estadual_partido })),
       'dep_estadual',
       'Dep. Estadual',
       ufSelecionada.toUpperCase()

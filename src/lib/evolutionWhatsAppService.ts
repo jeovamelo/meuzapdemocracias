@@ -46,13 +46,9 @@ export class EvolutionWhatsAppService {
   }
 
   private static getCandidateUrls(): string[] {
-    const urls = [
-      this.internalApiUrl,
-      this.defaultUrl,
-      'https://evolution.democracias.org',
-      'https://api.democracias.org/evolution',
-    ].filter(Boolean);
-    return Array.from(new Set(urls));
+    // O navegador deve falar somente com o proxy interno da aplicação. Ele
+    // mantém a chave da Evolution no servidor e evita 401 em gateways distintos.
+    return [this.internalApiUrl];
   }
 
   private static normalizeQrCode(qr: unknown): string | undefined {
@@ -97,6 +93,22 @@ export class EvolutionWhatsAppService {
   ): Promise<CampaignInstanceResult> {
     const cleanCampaignName = campaignName.toLowerCase().replace(/[^a-z0-9]/g, '_').slice(0, 20);
     const instanceName = `camp_${cleanCampaignName}_${campaignId.slice(0, 6)}`;
+    if (!forceRecreate) {
+      const { data: existing } = await (supabase as any)
+        .from('whatsapp_instances')
+        .select('instance_name, connection_status, qr_code_base64')
+        .eq('campaign_id', campaignId)
+        .eq('is_active', true)
+        .maybeSingle();
+      if (existing?.instance_name) {
+        return {
+          success: true,
+          instanceName: existing.instance_name,
+          qrCode: this.normalizeQrCode(existing.qr_code_base64),
+          connected: existing.connection_status === 'open' || existing.connection_status === 'connected',
+        };
+      }
+    }
     const pending = this.pendingCampaignInstances.get(instanceName);
     if (pending && !forceRecreate) return pending;
 
@@ -339,15 +351,14 @@ export class EvolutionWhatsAppService {
     status: 'connected' | 'connecting',
   ) {
     try {
-      await (supabase as any).from('whatsapp_instances').delete().eq('campaign_id', campaignId);
-      await (supabase as any).from('whatsapp_instances').insert([{
+      await (supabase as any).from('whatsapp_instances').upsert([{
         campaign_id: campaignId,
         instance_type: 'campaign_single',
         instance_name: instanceName,
         connection_status: status === 'connected' ? 'open' : 'connecting',
         qr_code_base64: qrCode,
         is_active: true,
-      }]);
+      }], { onConflict: 'campaign_id' });
     } catch (e) {
       console.warn("Erro ao persistir instância no Supabase:", e);
     }
@@ -367,39 +378,6 @@ export class EvolutionWhatsAppService {
       }
     } catch {}
 
-    // Tentativa 2: Gateway do servidor
-    try {
-      const gwRes = await fetch(`${this.serviceGatewayUrl}/api/instance/qr/${instanceName}`, { signal });
-      if (gwRes.ok) {
-        const gwJson = await gwRes.json();
-        if (gwJson?.qrcode) {
-          return this.normalizeQrCode(gwJson.qrcode);
-        }
-      }
-    } catch {}
-
-    // Tentativa 3: Direct Evolution candidates
-    for (const baseUrl of this.getCandidateUrls()) {
-      if (baseUrl.startsWith('/api')) continue;
-      try {
-        let response = await fetch(`${baseUrl}/instance/qr`, {
-          signal,
-          headers: { apikey: this.defaultApiKey || token },
-        });
-        if (response.ok) {
-          const payload = await response.json().catch(() => ({}));
-          const qr = this.normalizeQrCode(
-            payload?.data?.qrcode ||
-            payload?.data?.base64 ||
-            payload?.data?.qr ||
-            payload?.qrcode ||
-            payload?.base64 ||
-            payload?.data?.code
-          );
-          if (qr) return qr;
-        }
-      } catch {}
-    }
     return undefined;
   }
 

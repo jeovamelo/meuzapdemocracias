@@ -217,7 +217,7 @@ function WhatsAppSetupPage() {
         chosenInstanceName = `camp_${slug}_${campaign?.id ? campaign.id.slice(0, 6) : 'inst'}`;
       }
 
-      await inicializarInstanciaCampanha(true, chosenInstanceName);
+      await inicializarInstanciaCampanha(false, chosenInstanceName);
       setIsNewInstanceModalOpen(false);
       toast.success('Nova instância criada com sucesso! Escaneie o QR Code.');
     } catch (err: any) {
@@ -357,7 +357,7 @@ function WhatsAppSetupPage() {
 
             {/* BOTÕES DE GESTÃO DE INSTÂNCIA */}
             <div className="flex flex-wrap items-center gap-1.5 pt-2 sm:pt-0">
-              <Button
+              {false && <Button
                 type="button"
                 variant="outline"
                 size="sm"
@@ -371,7 +371,7 @@ function WhatsAppSetupPage() {
               >
                 <Edit3 className="w-3.5 h-3.5 text-blue-600" />
                 <span>Editar</span>
-              </Button>
+              </Button>}
 
               <Button
                 type="button"
