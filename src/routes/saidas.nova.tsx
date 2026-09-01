@@ -92,7 +92,7 @@ function NovaSaida() {
   // Responsável unificado (opcional)
   const [nomeResponsavel, setNomeResponsavel] = useState("");
   const [telefoneResponsavel, setTelefoneResponsavel] = useState("");
-  const [observacaoEntrega, setObservacaoEntrega] = useState("");
+  const [votosEsperados, setVotosEsperados] = useState<number | string>("");
 
   const [salvando, setSalvando] = useState(false);
 
@@ -202,6 +202,7 @@ function NovaSaida() {
     setSalvando(true);
     try {
       let finalPessoaId = "";
+      const qtdVotos = Number(votosEsperados) > 0 ? Number(votosEsperados) : 0;
 
       // Se o usuário informou o nome do responsável, cadastra/vincula no banco
       if (nomeResponsavel.trim()) {
@@ -217,7 +218,7 @@ function NovaSaida() {
             cpf: "",
             tipo: "apoiador",
             funcao: "Responsável por Retirada / Transporte",
-            meta_votos: 1,
+            meta_votos: qtdVotos > 0 ? qtdVotos : 1,
             uf: ufDestino,
             municipio: cidadeDestino,
             status: "ativo",
@@ -233,6 +234,7 @@ function NovaSaida() {
         numero_pedido: numeroPedidoGerado,
         comite_id: db.comites[0]?.id || "",
         pessoa_id: finalPessoaId || null,
+        votos_esperados: qtdVotos,
         kits: Object.entries(kits)
           .filter(([, q]) => q > 0)
           .map(([kit_id, quantidade]) => ({ kit_id, quantidade })),
@@ -524,11 +526,13 @@ function NovaSaida() {
                 </div>
 
                 <div className="space-y-1">
-                  <Label className="text-xs font-bold text-slate-700">Ponto de Entrega / Observações</Label>
+                  <Label className="text-xs font-bold text-slate-700">Votos Esperados</Label>
                   <Input
-                    value={observacaoEntrega}
-                    onChange={(e) => setObservacaoEntrega(e.target.value)}
-                    placeholder="Ex: Entregar no comitê central, comício da praça..."
+                    type="number"
+                    min="0"
+                    value={votosEsperados}
+                    onChange={(e) => setVotosEsperados(e.target.value === "" ? "" : Math.max(0, parseInt(e.target.value, 10) || 0))}
+                    placeholder="Ex: 150 votos esperados"
                     className="bg-background text-sm h-11"
                   />
                 </div>
@@ -573,10 +577,10 @@ function NovaSaida() {
                     {nomeResponsavel.trim() ? `${nomeResponsavel} ${telefoneResponsavel ? `(${telefoneResponsavel})` : ''}` : "Não informado (Saída Geral)"}
                   </span>
                 </div>
-                {observacaoEntrega.trim() && (
+                {Number(votosEsperados) > 0 && (
                   <div className="flex justify-between border-b border-border/50 pb-2">
-                    <span className="text-muted-foreground">Observação:</span>
-                    <span className="font-medium text-slate-800">{observacaoEntrega}</span>
+                    <span className="text-muted-foreground">Votos Esperados:</span>
+                    <span className="font-bold text-emerald-600 font-mono">+{formatNumero(Number(votosEsperados))} votos</span>
                   </div>
                 )}
                 <div className="flex justify-between pt-1">

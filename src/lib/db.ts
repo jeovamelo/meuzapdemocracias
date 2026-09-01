@@ -160,6 +160,7 @@ export type Saida = {
   comite_id: string;
   pessoa_id?: string | null;
   entregador_id?: string;
+  votos_esperados?: number;
   kits: { kit_id: string; quantidade: number }[];
   itens: SaidaItem[];
   criado_em: string;
