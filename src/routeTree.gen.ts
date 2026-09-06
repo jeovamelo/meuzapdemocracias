@@ -19,6 +19,7 @@ import { Route as PcRouteImport } from './routes/pc'
 import { Route as PesquisaRouteImport } from './routes/pesquisa'
 import { Route as PessoasRouteImport } from './routes/pessoas'
 import { Route as PotencialRouteImport } from './routes/potencial'
+import { Route as RedesocialRouteImport } from './routes/redesocial'
 import { Route as ResultadoRouteImport } from './routes/resultado'
 import { Route as SaidasRouteImport } from './routes/saidas'
 import { Route as SelecionarCampanhaRouteImport } from './routes/selecionar-campanha'
@@ -79,6 +80,11 @@ const PessoasRoute = PessoasRouteImport.update({
 const PotencialRoute = PotencialRouteImport.update({
   id: '/potencial',
   path: '/potencial',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const RedesocialRoute = RedesocialRouteImport.update({
+  id: '/redesocial',
+  path: '/redesocial',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ResultadoRoute = ResultadoRouteImport.update({
@@ -148,6 +154,7 @@ export interface FileRoutesByFullPath {
   '/pesquisa': typeof PesquisaRoute
   '/pessoas': typeof PessoasRoute
   '/potencial': typeof PotencialRoute
+  '/redesocial': typeof RedesocialRoute
   '/resultado': typeof ResultadoRoute
   '/saidas': typeof SaidasRouteWithChildren
   '/selecionar-campanha': typeof SelecionarCampanhaRoute
@@ -171,6 +178,7 @@ export interface FileRoutesByTo {
   '/pesquisa': typeof PesquisaRoute
   '/pessoas': typeof PessoasRoute
   '/potencial': typeof PotencialRoute
+  '/redesocial': typeof RedesocialRoute
   '/resultado': typeof ResultadoRoute
   '/selecionar-campanha': typeof SelecionarCampanhaRoute
   '/whatsapp': typeof WhatsappRoute
@@ -194,6 +202,7 @@ export interface FileRoutesById {
   '/pesquisa': typeof PesquisaRoute
   '/pessoas': typeof PessoasRoute
   '/potencial': typeof PotencialRoute
+  '/redesocial': typeof RedesocialRoute
   '/resultado': typeof ResultadoRoute
   '/saidas': typeof SaidasRouteWithChildren
   '/selecionar-campanha': typeof SelecionarCampanhaRoute
@@ -219,6 +228,7 @@ export interface FileRouteTypes {
     | '/pesquisa'
     | '/pessoas'
     | '/potencial'
+    | '/redesocial'
     | '/resultado'
     | '/saidas'
     | '/selecionar-campanha'
@@ -242,6 +252,7 @@ export interface FileRouteTypes {
     | '/pesquisa'
     | '/pessoas'
     | '/potencial'
+    | '/redesocial'
     | '/resultado'
     | '/selecionar-campanha'
     | '/whatsapp'
@@ -264,6 +275,7 @@ export interface FileRouteTypes {
     | '/pesquisa'
     | '/pessoas'
     | '/potencial'
+    | '/redesocial'
     | '/resultado'
     | '/saidas'
     | '/selecionar-campanha'
@@ -288,6 +300,7 @@ export interface RootRouteChildren {
   PesquisaRoute: typeof PesquisaRoute
   PessoasRoute: typeof PessoasRoute
   PotencialRoute: typeof PotencialRoute
+  RedesocialRoute: typeof RedesocialRoute
   ResultadoRoute: typeof ResultadoRoute
   SaidasRoute: typeof SaidasRouteWithChildren
   SelecionarCampanhaRoute: typeof SelecionarCampanhaRoute
@@ -369,6 +382,13 @@ declare module '@tanstack/react-router' {
       path: '/potencial'
       fullPath: '/potencial'
       preLoaderRoute: typeof PotencialRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/redesocial': {
+      id: '/redesocial'
+      path: '/redesocial'
+      fullPath: '/redesocial'
+      preLoaderRoute: typeof RedesocialRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/resultado': {
@@ -475,6 +495,7 @@ const rootRouteChildren: RootRouteChildren = {
   PesquisaRoute: PesquisaRoute,
   PessoasRoute: PessoasRoute,
   PotencialRoute: PotencialRoute,
+  RedesocialRoute: RedesocialRoute,
   ResultadoRoute: ResultadoRoute,
   SaidasRoute: SaidasRouteWithChildren,
   SelecionarCampanhaRoute: SelecionarCampanhaRoute,
