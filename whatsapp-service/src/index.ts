@@ -477,6 +477,341 @@ app.post(['/api/send/text', '/whatsapp/api/send/text'], async (req, res) => {
   }
 });
 
+// Envio de Mídia (Colinha JPG em Alta Definição) com legenda
+app.post(['/api/send/media', '/whatsapp/api/send/media'], async (req, res) => {
+  const { instanceName, number, media, caption, mediatype = 'image', fileName = 'colinha.jpg' } = req.body;
+  const instToken = String(instanceName) + '_token';
+  try {
+    let resp = await fetch(EVOLUTION_API_URL + '/send/media', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', apikey: instToken },
+      body: JSON.stringify({ number, media, caption, mediatype, fileName })
+    });
+    if (!resp.ok) {
+      resp = await fetch(EVOLUTION_API_URL + '/send/media', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', apikey: EVOLUTION_API_KEY },
+        body: JSON.stringify({ number, media, caption, mediatype, fileName })
+      });
+    }
+    const data = await resp.json().catch(() => ({}));
+    return res.status(resp.status).json(data);
+  } catch (e: any) {
+    return res.status(500).json({ error: e.message });
+  }
+});
+
+/**
+ * Endpoints do Módulo meuzap.democracias.org
+ */
+
+// 1. Criar sessão temporária exclusiva para o eleitor
+app.post(['/api/meuzap/session/create', '/whatsapp/api/meuzap/session/create'], async (req, res) => {
+  const { voterName } = req.body;
+  if (!voterName || !voterName.trim()) {
+    return res.status(400).json({ success: false, error: 'Nome do eleitor é obrigatório.' });
+  }
+
+  const hash = Math.random().toString(36).substring(2, 8);
+  const sessionId = 'meuzap_' + Date.now() + '_' + hash;
+  const instToken = sessionId + '_token';
+
+  try {
+    // A. Registrar sessão inicial no Supabase
+    await supabase.from('meuzap_sessions').insert({
+      session_id: sessionId,
+      voter_name: voterName.trim(),
+      status: 'created'
+    });
+
+    // B. Criar instância na Evolution API
+    await fetch(EVOLUTION_API_URL + '/instance/create', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', apikey: EVOLUTION_API_KEY },
+      body: JSON.stringify({ name: sessionId, token: instToken })
+    }).catch(() => {});
+
+    // C. Conectar e buscar QR Code
+    let qr;
+    const connRes = await fetch(EVOLUTION_API_URL + '/instance/connect', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', apikey: instToken },
+      body: JSON.stringify({ subscribe: ['MESSAGE', 'READ_RECEIPT'] })
+    }).catch(() => null);
+
+    if (connRes && connRes.ok) {
+      const cJson = await connRes.json().catch(() => ({}));
+      qr = cJson?.data?.qrcode || cJson?.data?.base64 || cJson?.qrcode || cJson?.base64;
+    }
+
+    if (!qr) {
+      const qrRes = await fetch(EVOLUTION_API_URL + '/instance/qr', {
+        headers: { apikey: instToken }
+      }).catch(() => null);
+      if (qrRes && qrRes.ok) {
+        const qrJson = await qrRes.json().catch(() => ({}));
+        qr = qrJson?.data?.qrcode || qrJson?.data?.base64 || qrJson?.qrcode || qrJson?.base64;
+      }
+    }
+
+    if (qr && !qr.startsWith('data:image') && !qr.startsWith('http')) {
+      qr = 'data:image/png;base64,' + qr;
+    }
+
+    return res.json({
+      success: true,
+      sessionId,
+      qrCode: qr || null,
+      connected: false
+    });
+  } catch (err: any) {
+    console.error('Erro ao criar sessão meuzap:', err);
+    return res.status(500).json({ success: false, error: err?.message || 'Falha ao iniciar sessão no WhatsApp.' });
+  }
+});
+
+// 2. Consultar status da conexão do eleitor
+app.get(['/api/meuzap/session/:sessionId/status', '/whatsapp/api/meuzap/session/:sessionId/status'], async (req, res) => {
+  const { sessionId } = req.params;
+  const instToken = sessionId + '_token';
+
+  try {
+    let sRes = await fetch(EVOLUTION_API_URL + '/instance/status', {
+      headers: { apikey: instToken }
+    }).catch(() => null);
+
+    if (!sRes || !sRes.ok) {
+      sRes = await fetch(EVOLUTION_API_URL + '/instance/status', {
+        headers: { apikey: EVOLUTION_API_KEY }
+      }).catch(() => null);
+    }
+
+    if (sRes && sRes.ok) {
+      const json = await sRes.json().catch(() => ({}));
+      const d = json?.data || json;
+      const connected = d?.Connected === true || d?.connected === true || d?.state === 'open';
+      const loggedIn = d?.LoggedIn === true || d?.loggedIn === true;
+      const rawNumber = d?.Name || d?.name || d?.ownerJid || null;
+      const voterPhone = rawNumber ? String(rawNumber).replace(/\D/g, '') : null;
+
+      if (connected && voterPhone) {
+        await supabase
+          .from('meuzap_sessions')
+          .update({ status: 'connected', voter_phone: voterPhone, updated_at: new Date().toISOString() })
+          .eq('session_id', sessionId);
+      }
+
+      return res.json({
+        sessionId,
+        connected: Boolean(connected),
+        loggedIn: Boolean(loggedIn),
+        state: (connected && loggedIn) || d?.state === 'open' ? 'open' : (connected ? 'connecting' : 'close'),
+        phone: voterPhone
+      });
+    }
+
+    return res.json({ sessionId, connected: false, loggedIn: false, state: 'close', phone: null });
+  } catch (err: any) {
+    return res.status(500).json({ error: err?.message });
+  }
+});
+
+// 3. Buscar contatos com histórico de interação nos últimos 12 meses (máximo 100 contatos relevantes)
+app.get(['/api/meuzap/session/:sessionId/contacts', '/whatsapp/api/meuzap/session/:sessionId/contacts'], async (req, res) => {
+  const { sessionId } = req.params;
+  const instToken = sessionId + '_token';
+
+  try {
+    let chats = [];
+    let resp = await fetch(EVOLUTION_API_URL + '/chat/findChats', {
+      headers: { apikey: instToken }
+    }).catch(() => null);
+
+    if (!resp || !resp.ok) {
+      resp = await fetch(EVOLUTION_API_URL + '/chat/all', {
+        headers: { apikey: instToken }
+      }).catch(() => null);
+    }
+
+    if (resp && resp.ok) {
+      const cJson = await resp.json().catch(() => ([]));
+      chats = Array.isArray(cJson) ? cJson : (Array.isArray(cJson?.data) ? cJson.data : []);
+    }
+
+    if (chats.length === 0) {
+      const contResp = await fetch(EVOLUTION_API_URL + '/contact/find', {
+        headers: { apikey: instToken }
+      }).catch(() => null);
+      if (contResp && contResp.ok) {
+        const contJson = await contResp.json().catch(() => ([]));
+        chats = Array.isArray(contJson) ? contJson : (Array.isArray(contJson?.data) ? contJson.data : []);
+      }
+    }
+
+    const oneYearAgoMs = Date.now() - (365 * 24 * 60 * 60 * 1000);
+    const validContactsMap = new Map();
+
+    for (const item of chats) {
+      const jid = item.id || item.jid || item.remoteJid || '';
+      if (!jid || jid.includes('@g.us') || jid.includes('@broadcast') || jid.includes('@newsletter')) {
+        continue;
+      }
+
+      const phone = jid.split('@')[0].replace(/\D/g, '');
+      if (!phone || phone.length < 10 || phone.length > 15) continue;
+
+      let rawTimestamp = item.conversationTimestamp || item.messageTimestamp || item.updatedAt || item.timestamp || 0;
+      if (typeof rawTimestamp === 'string') {
+        const parsed = Date.parse(rawTimestamp);
+        rawTimestamp = !isNaN(parsed) ? parsed : Number(rawTimestamp);
+      }
+      if (rawTimestamp > 0 && rawTimestamp < 10000000000) {
+        rawTimestamp = rawTimestamp * 1000;
+      }
+
+      const hasRecentInteraction = rawTimestamp === 0 || rawTimestamp >= oneYearAgoMs;
+      if (!hasRecentInteraction) continue;
+
+      const name = item.name || item.pushName || item.verifiedName || item.notify || phone;
+
+      if (!validContactsMap.has(phone)) {
+        validContactsMap.set(phone, {
+          id: phone,
+          phone,
+          name,
+          timestamp: rawTimestamp || Date.now(),
+          isRecent: rawTimestamp >= oneYearAgoMs
+        });
+      }
+    }
+
+    const sorted = Array.from(validContactsMap.values())
+      .sort((a, b) => b.timestamp - a.timestamp)
+      .slice(0, 100);
+
+    return res.json({
+      success: true,
+      total: sorted.length,
+      contacts: sorted
+    });
+  } catch (err: any) {
+    console.error('Erro ao buscar contatos meuzap:', err);
+    return res.status(500).json({ success: false, error: err?.message || 'Falha ao sincronizar agenda.' });
+  }
+});
+
+// 4. Envio de Mensagem Individual com Verificação Anti-Spam e Auditoria
+app.post(['/api/meuzap/session/:sessionId/send', '/whatsapp/api/meuzap/session/:sessionId/send'], async (req, res) => {
+  const { sessionId } = req.params;
+  const { contactPhone, contactName, messageText, mediaBase64, voterPhone } = req.body;
+  const instToken = sessionId + '_token';
+
+  if (!contactPhone || !messageText) {
+    return res.status(400).json({ success: false, error: 'Telefone e mensagem são obrigatórios.' });
+  }
+
+  try {
+    // Validação de Trava Anti-Spam via função do Supabase
+    if (voterPhone) {
+      const { data: limitCheck, error: errLimit } = await supabase.rpc('meuzap_check_rate_limit', {
+        p_voter_phone: String(voterPhone).replace(/\D/g, '')
+      });
+
+      if (!errLimit && limitCheck && limitCheck.allowed === false) {
+        return res.status(429).json({
+          success: false,
+          error: limitCheck.reason || 'Limite de disparos atingido.',
+          limitReached: true,
+          details: limitCheck
+        });
+      }
+    }
+
+    let sendOk = false;
+    let errorDetail = '';
+
+    if (mediaBase64) {
+      const mediaResp = await fetch(EVOLUTION_API_URL + '/send/media', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', apikey: instToken },
+        body: JSON.stringify({
+          number: contactPhone,
+          media: mediaBase64,
+          caption: messageText,
+          mediatype: 'image',
+          fileName: 'colinha_2026.jpg'
+        })
+      }).catch((e) => { errorDetail = e.message; return null; });
+
+      sendOk = mediaResp ? mediaResp.ok : false;
+    } else {
+      const textResp = await fetch(EVOLUTION_API_URL + '/send/text', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', apikey: instToken },
+        body: JSON.stringify({ number: contactPhone, text: messageText })
+      }).catch((e) => { errorDetail = e.message; return null; });
+
+      sendOk = textResp ? textResp.ok : false;
+    }
+
+    // Registrar no Log de Auditoria do Supabase
+    await supabase.from('meuzap_dispatch_logs').insert({
+      session_id: sessionId,
+      voter_phone: voterPhone ? String(voterPhone).replace(/\D/g, '') : 'nao_identificado',
+      contact_phone: String(contactPhone).replace(/\D/g, ''),
+      contact_name: contactName || null,
+      message_text: messageText,
+      media_sent: Boolean(mediaBase64),
+      status: sendOk ? 'sent' : 'failed',
+      error_message: sendOk ? null : errorDetail
+    });
+
+    if (sendOk) {
+      await supabase
+        .from('meuzap_sessions')
+        .update({ updated_at: new Date().toISOString() })
+        .eq('session_id', sessionId);
+    }
+
+    return res.json({ success: sendOk, error: sendOk ? null : (errorDetail || 'Falha no envio') });
+  } catch (err: any) {
+    console.error('Erro no envio meuzap:', err);
+    return res.status(500).json({ success: false, error: err?.message || 'Erro interno de disparo.' });
+  }
+});
+
+// 5. Destruição Imediata da Instância (Ciclo de Vida Efêmero / Autodestruição)
+app.delete(['/api/meuzap/session/:sessionId/cleanup', '/whatsapp/api/meuzap/session/:sessionId/cleanup'], async (req, res) => {
+  const { sessionId } = req.params;
+  const instToken = sessionId + '_token';
+
+  try {
+    await fetch(EVOLUTION_API_URL + '/instance/logout', {
+      method: 'POST',
+      headers: { apikey: instToken }
+    }).catch(() => {});
+
+    await fetch(EVOLUTION_API_URL + '/instance/delete', {
+      method: 'DELETE',
+      headers: { apikey: instToken }
+    }).catch(() => {});
+
+    await fetch(EVOLUTION_API_URL + '/instance/delete/' + sessionId, {
+      method: 'DELETE',
+      headers: { apikey: EVOLUTION_API_KEY }
+    }).catch(() => {});
+
+    await supabase
+      .from('meuzap_sessions')
+      .update({ status: 'completed', updated_at: new Date().toISOString() })
+      .eq('session_id', sessionId);
+
+    return res.json({ success: true, message: 'Instância temporária encerrada e dados privados removidos.' });
+  } catch (err: any) {
+    return res.status(500).json({ success: false, error: err?.message });
+  }
+});
+
 // Fotos oficiais do TSE
 app.get('/foto/:ano/:uf/:id', (req, res) => {
   const file = path.join('/opt/democracias/importados/fotos2026', `F${String(req.params.uf).toUpperCase()}${String(req.params.id).replace(/^\D+/, '')}_div.jpg`);

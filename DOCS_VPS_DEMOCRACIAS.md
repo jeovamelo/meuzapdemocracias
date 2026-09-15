@@ -124,6 +124,7 @@ npm run build && \
 cd .. && \
 pm2 restart all && \
 docker restart democracias-chat || true
+cd meuzap && npm install && npm run build && cd .. && bash run_meuzap.sh || true
 ```
 
 ### 5.2. Ver Status dos Serviços

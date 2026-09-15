@@ -2,7 +2,7 @@ import "./lib/error-capture";
 
 import { consumeLastCapturedError } from "./lib/error-capture";
 import { renderErrorPage } from "./lib/error-page";
-import { handleEvolutionApiRequest } from "./lib/evolutionApiServer";
+import { handleEvolutionApiRequest } from "./lib/evolutionApiServer";\nimport { handleMeuzapApiRequest } from "./lib/meuzapApiServer";
 
 type ServerEntry = {
   fetch: (request: Request, env: unknown, ctx: unknown) => Promise<Response> | Response;
