@@ -1,8 +1,9 @@
-import "./lib/error-capture";
+﻿import "./lib/error-capture";
 
 import { consumeLastCapturedError } from "./lib/error-capture";
 import { renderErrorPage } from "./lib/error-page";
-import { handleEvolutionApiRequest } from "./lib/evolutionApiServer";\nimport { handleMeuzapApiRequest } from "./lib/meuzapApiServer";
+import { handleEvolutionApiRequest } from "./lib/evolutionApiServer";
+import { handleMeuzapApiRequest } from "./lib/meuzapApiServer";
 
 type ServerEntry = {
   fetch: (request: Request, env: unknown, ctx: unknown) => Promise<Response> | Response;
@@ -19,8 +20,6 @@ async function getServerEntry(): Promise<ServerEntry> {
   return serverEntryPromise;
 }
 
-// h3 swallows in-handler throws into a normal 500 Response with body
-// {"unhandled":true,"message":"HTTPError"} — try/catch alone never fires for those.
 async function normalizeCatastrophicSsrResponse(response: Response): Promise<Response> {
   if (response.status < 500) return response;
   const contentType = response.headers.get("content-type") ?? "";
@@ -48,13 +47,12 @@ function isH3SwallowedErrorBody(body: string): boolean {
 export default {
   async fetch(request: Request, env: unknown, ctx: unknown) {
     try {
-      // 1. Interceptar requisições da Evolution API no backend SSR
-      const apiResponse = await handleEvolutionApiRequest(request);
-      if (apiResponse) {
-        return apiResponse;
-      }
+      const evoResponse = await handleEvolutionApiRequest(request);
+      if (evoResponse) return evoResponse;
 
-      // 2. Processar rota normal de SSR / TanStack Router
+      const meuzapResponse = await handleMeuzapApiRequest(request);
+      if (meuzapResponse) return meuzapResponse;
+
       const handler = await getServerEntry();
       const response = await handler.fetch(request, env, ctx);
       return await normalizeCatastrophicSsrResponse(response);
@@ -67,4 +65,3 @@ export default {
     }
   },
 };
-
